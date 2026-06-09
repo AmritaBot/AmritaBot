@@ -48,9 +48,9 @@ async def config_editor(request: Request):
             break
 
     return TemplatesManager().TemplateResponse(
+        request,
         "config.html",
         {
-            "request": request,
             "sidebar_items": side_bar,
             "env_content": env_content,
             "env_files": env_files,

@@ -42,10 +42,8 @@ async def sitemap_xml():
 @app.get("/password-help", response_class=HTMLResponse)
 async def _(request: Request):
     return TemplatesManager().TemplateResponse(
+        request,
         "password-help.html",
-        context={
-            "request": request,
-        },
     )
 
 
@@ -60,7 +58,9 @@ async def index(request: Request):
     except HTTPException:
         # 如果没有有效令牌，显示登录页面
         return TemplatesManager().TemplateResponse(
-            "index.html", {"request": request, "logo_url": "/static/images/Amrita.png"}
+            request,
+            "index.html",
+            {"logo_url": "/static/images/Amrita.png"},
         )
 
 
@@ -122,9 +122,9 @@ async def dashboard(request: Request):
     events = (await LoggingData.get()).data[-200:]
     events.reverse()
     return TemplatesManager().TemplateResponse(
+        request,
         "dashboard.html",
         {
-            "request": request,
             "sidebar_items": side_bar,
             "loaded_plugins": len(nonebot.get_loaded_plugins()),
             "recent_activity": [

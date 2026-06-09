@@ -4,7 +4,7 @@ from typing import Any
 
 import aiofiles
 from amrita_core import ModelPreset
-from amrita_core.types import ModelConfig
+from amrita_core.types import ModelConfig, ThinkingConfig
 from fastapi import Query
 from nonebot import logger
 
@@ -42,10 +42,12 @@ async def create_model(request: Request):
         api_key = data.get("api_key", "")
         protocol = data.get("protocol", "__main__")
         config_data = data.get("config", {})
+        thinking_data = data.get("thinking_config")
         if not name:
             return JSONResponse(
                 {"success": False, "message": "缺少模型预设名称"}, status_code=400
             )
+        thinking_cfg = ThinkingConfig(**thinking_data) if thinking_data else None
         preset = ModelPreset(
             name=name,
             model=model,
@@ -53,6 +55,7 @@ async def create_model(request: Request):
             api_key=api_key,
             protocol=protocol,
             config=ModelConfig(**config_data),
+            thinking_config=thinking_cfg,
         )
 
         # 保存模型预设到文件
@@ -94,6 +97,15 @@ async def update_model(request: Request, name: str):
                 for config_key, config_value in value.items():
                     if hasattr(preset.config, config_key):
                         setattr(preset.config, config_key, config_value)
+            elif key == "thinking_config":
+                if value is None:
+                    preset.thinking_config = None
+                elif isinstance(value, dict):
+                    if preset.thinking_config is None:
+                        preset.thinking_config = ThinkingConfig()
+                    for tc_key, tc_value in value.items():
+                        if hasattr(preset.thinking_config, tc_key):
+                            setattr(preset.thinking_config, tc_key, tc_value)
             elif key == "api_key":
                 if value != KEY_PLACEHOLDER:
                     setattr(preset, key, value)
@@ -394,7 +406,9 @@ async def get_mcp_servers():
             servers.append(server_info)
 
         # 获取配置中所有已定义的服务器脚本
-        config_scripts = config_manager.config.llm.tools.agent_mcp_server_scripts
+        config_scripts = (
+            config_manager.config.core.function_config.agent_mcp_server_scripts
+        )
         for script in config_scripts:
             if script not in [s["server_script"] for s in servers]:
                 servers.append(
@@ -430,7 +444,7 @@ async def add_mcp_server(request: Request):
             )
 
         config = config_manager.ins_config
-        if server_script in config.llm.tools.agent_mcp_server_scripts:
+        if server_script in config.core.function_config.agent_mcp_server_scripts:
             return JSONResponse(
                 {"success": False, "message": "MCP服务器已存在"}, status_code=400
             )
@@ -440,7 +454,7 @@ async def add_mcp_server(request: Request):
         await client_manager.initialize_this(server_script, True)
 
         # 保存到配置
-        config.llm.tools.agent_mcp_server_scripts.append(server_script)
+        config.core.function_config.agent_mcp_server_scripts.append(server_script)
         await config_manager.save_config()
 
         return JSONResponse(
@@ -477,14 +491,16 @@ async def update_mcp_server(request: Request, server_script: str | None = None):
             )
 
         config = config_manager.ins_config
-        if old_server_script not in config.llm.tools.agent_mcp_server_scripts:
+        if (
+            old_server_script
+            not in config.core.function_config.agent_mcp_server_scripts
+        ):
             return JSONResponse(
                 {"success": False, "message": "MCP服务器不存在"}, status_code=404
             )
 
         # 从配置中移除旧服务器
-        config.llm.tools.agent_mcp_server_scripts.remove(old_server_script)
-
+        config.core.function_config.agent_mcp_server_scripts.remove(old_server_script)
         # 注销旧客户端
         client_manager = ClientManager()
         await client_manager.unregister_client(old_server_script)
@@ -493,7 +509,7 @@ async def update_mcp_server(request: Request, server_script: str | None = None):
         await client_manager.initialize_this(new_server_script, True)
 
         # 添加新服务器到配置
-        config.llm.tools.agent_mcp_server_scripts.append(new_server_script)
+        config.core.function_config.agent_mcp_server_scripts.append(new_server_script)
         await config_manager.save_config()
 
         return JSONResponse(
@@ -521,13 +537,13 @@ async def delete_mcp_server(
     """删除MCP服务器"""
     try:
         config = config_manager.ins_config
-        if server_script not in config.llm.tools.agent_mcp_server_scripts:
+        if server_script not in config.core.function_config.agent_mcp_server_scripts:
             return JSONResponse(
                 {"success": False, "message": "MCP服务器不存在"}, status_code=404
             )
 
         # 从配置中移除
-        config.llm.tools.agent_mcp_server_scripts.remove(server_script)
+        config.core.function_config.agent_mcp_server_scripts.remove(server_script)
 
         # 注销客户端
         client_manager = ClientManager()

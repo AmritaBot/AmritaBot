@@ -5,6 +5,7 @@ warnings.warn(
     DeprecationWarning,
     stacklevel=2,
 )
-from amrita_core.tokenizer import Tokenizer, hybrid_token_count
+from amrita_core.base.tokenizer import TokenizerManager as Tokenizer
+from amrita_core.tokenizer import hybrid_token_count
 
 __all__ = ["Tokenizer", "hybrid_token_count"]

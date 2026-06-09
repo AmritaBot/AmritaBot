@@ -5,11 +5,18 @@ warnings.warn(
     DeprecationWarning,
     stacklevel=2,
 )
-from amrita_core.hook.matcher import (
-    ChatException,
-    FunctionData,
+from amrita_sense.hook.exception import MatcherException as ChatException
+from amrita_sense.hook.fun_typing import FunctionData
+from amrita_sense.hook.matcher import (
+    EventRegistry,
     Matcher,
-    MatcherManager,
+    MatcherFactory,
 )
 
-__all__ = ["ChatException", "FunctionData", "Matcher", "MatcherManager"]
+__all__ = [
+    "ChatException",
+    "EventRegistry",
+    "FunctionData",
+    "Matcher",
+    "MatcherFactory",
+]

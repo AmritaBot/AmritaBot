@@ -95,9 +95,9 @@ async def handle_http_exc(request: Request, exc: HTTPException):
             status_code=exc.status_code,
         )
     return TemplatesManager().TemplateResponse(
+        request,
         "error.html",
         {
-            "request": request,
             "error_code": exc.status_code,
             "debug": app.debug,
             "error_details": str(exc) if app.debug else None,

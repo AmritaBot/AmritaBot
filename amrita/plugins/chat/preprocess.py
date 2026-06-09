@@ -14,7 +14,7 @@ async def onEnable():
 
     await run_hooks()
     logger.debug("正在加载AmritaCore...")
-    core_config = config.to_core_config()
+    core_config = config.core
     init()
     set_config(core_config)
     await load_amrita()

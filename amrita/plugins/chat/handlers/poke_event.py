@@ -154,7 +154,7 @@ async def process_poke_event(
     response: UniResponse | None = None
     async for response_item in call_completion(
         messages=send_messages,
-        config=config_manager.config.to_core_config(),
+        config=config_manager.config.core,
         preset=None,
     ):
         if isinstance(response_item, UniResponse):

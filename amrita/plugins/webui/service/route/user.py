@@ -25,9 +25,9 @@ async def _(request: Request):
             break
     data = await BL_Manager.get_full_blacklist()
     response = TemplatesManager().TemplateResponse(
+        request,
         "blacklist.html",
         {
-            "request": request,
             "sidebar_items": side_bar,
             "group_blacklist": [
                 {
@@ -76,9 +76,9 @@ async def permissions_page(request: Request):
         )
 
     return TemplatesManager().TemplateResponse(
+        request,
         "permissions.html",
         {
-            "request": request,
             "sidebar_items": side_bar,
             "permission_groups": permission_groups,
         },
@@ -114,9 +114,9 @@ async def create_perm_group_page(request: Request):
             break
 
     return TemplatesManager().TemplateResponse(
+        request,
         "create_perm_group.html",
         {
-            "request": request,
             "sidebar_items": side_bar,
         },
     )
@@ -143,9 +143,9 @@ async def user_permissions_page(request: Request, user_id: str):
     permissions_str = perm.permissions_str
 
     return TemplatesManager().TemplateResponse(
+        request,
         "user_permissions.html",
         {
-            "request": request,
             "sidebar_items": side_bar,
             "user_id": user_id,
             "user_data": {
@@ -177,14 +177,14 @@ async def group_permissions_page(request: Request, group_id: str):
     permissions_str = perm.permissions_str
 
     return TemplatesManager().TemplateResponse(
+        request,
         "group_permissions.html",
         {
-            "request": request,
             "sidebar_items": side_bar,
             "group_id": group_id,
             "group_data": {
                 "permissions": permissions_str,
-                "permission_groups": permission_groups,
+                "permission_groups": permission_groups.groups,
             },
         },
     )
@@ -213,9 +213,9 @@ async def perm_group_permissions_page(request: Request, group_name: str):
     permissions_str = perm.permissions_str
 
     return TemplatesManager().TemplateResponse(
+        request,
         "perm_group_permissions.html",
         {
-            "request": request,
             "sidebar_items": side_bar,
             "group_name": group_name,
             "permissions": permissions_str,

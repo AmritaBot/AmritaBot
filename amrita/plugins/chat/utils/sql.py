@@ -4,6 +4,7 @@ import re
 import time
 from asyncio import Protocol
 from collections.abc import Sequence
+from contextlib import nullcontext
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
@@ -312,8 +313,10 @@ class MemorySessions(Model):
                 await session.commit()
 
     @classmethod
-    async def get(cls, session: AsyncSession, uni_user_id: str) -> Sequence[Self]:
-        async with database_lock(uni_user_id):
+    async def get(
+        cls, session: AsyncSession, uni_user_id: str, no_lock: bool = False
+    ) -> Sequence[Self]:
+        async with database_lock(uni_user_id) if not no_lock else nullcontext():
             await cls._expire(uni_user_id, keep_count=20)
             stmt = select(cls).where(cls.user_id == uni_user_id)
             data = (await session.execute(stmt)).scalars().all()
@@ -451,7 +454,7 @@ class UserDataExecutor:
         if self._user_sessions_temp is not None:
             return self._user_sessions_temp
         data: Sequence[MemorySessions] = await MemorySessions.get(
-            self.session, self.user_id
+            self.session, self.user_id, no_lock=True
         )
         self.session.add_all(data)
         self._user_sessions_temp = data

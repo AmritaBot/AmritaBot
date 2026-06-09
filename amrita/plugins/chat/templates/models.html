@@ -347,12 +347,14 @@ extra_css %}
     background: rgba(255, 255, 255, var(--glass-opacity-light));
     backdrop-filter: blur(var(--blur-intensity));
     -webkit-backdrop-filter: blur(var(--blur-intensity));
-    margin: 5% auto;
+    margin: 3% auto;
     padding: 20px;
     border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: 10px;
     width: 90%;
     max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
     position: relative;
     z-index: 1001;
@@ -707,6 +709,55 @@ extra_css %}
           </div>
         </div>
 
+        <!-- Thinking 配置区域 -->
+        <div style="margin-top:12px;padding-top:10px;border-top:1px dashed #ddd;">
+          <div style="font-weight:600;margin-bottom:8px;color:#555;">🧠 推理/思考配置</div>
+          {% set tc = model.thinking_config or {} %}
+          <div class="field-item">
+            <div class="field-label">启用思考类型</div>
+            <select class="field-input config-field"
+                    data-model="{{ model.name }}"
+                    data-config-field="thinking_type"
+                    data-section="thinking">
+              <option value="" {% if tc.thinking_type is none or tc.thinking_type=="" %}selected{% endif %}>不启用</option>
+              <option value="enabled" {% if tc.thinking_type=="enabled" %}selected{% endif %}>enabled</option>
+              <option value="disabled" {% if tc.thinking_type=="disabled" %}selected{% endif %}>disabled</option>
+            </select>
+          </div>
+          <div class="field-item">
+            <div class="field-label">enable_thinking</div>
+            <select class="field-input config-field"
+                    data-model="{{ model.name }}"
+                    data-config-field="enable_thinking"
+                    data-section="thinking">
+              <option value="" {% if tc.enable_thinking is none %}selected{% endif %}>不设置</option>
+              <option value="true" {% if tc.enable_thinking is true %}selected{% endif %}>true</option>
+              <option value="false" {% if tc.enable_thinking is sameas false %}selected{% endif %}>false</option>
+            </select>
+          </div>
+          <div class="field-item">
+            <div class="field-label">thinking_effort</div>
+            <input type="text" class="field-input config-field"
+                   data-model="{{ model.name }}"
+                   data-config-field="thinking_effort"
+                   data-section="thinking"
+                   value="{{ tc.thinking_effort or '' }}"
+                   placeholder="minimal/low/medium/high/xhigh/max" />
+          </div>
+          <div class="field-item">
+            <div class="field-label">content_mode</div>
+            <select class="field-input config-field"
+                    data-model="{{ model.name }}"
+                    data-config-field="content_mode"
+                    data-section="thinking">
+              <option value="" {% if tc.content_mode is none or tc.content_mode=="" %}selected{% endif %}>默认(optional)</option>
+              <option value="never" {% if tc.content_mode=="never" %}selected{% endif %}>never</option>
+              <option value="by-tool" {% if tc.content_mode=="by-tool" %}selected{% endif %}>by-tool</option>
+              <option value="optional" {% if tc.content_mode=="optional" %}selected{% endif %}>optional</option>
+            </select>
+          </div>
+        </div>
+
         <!-- 移除思维链模型字段 -->
       </div>
 
@@ -846,6 +897,40 @@ extra_css %}
         </label>
       </div>
 
+      <div style="margin-top:15px;padding-top:10px;border-top:1px dashed #ddd;">
+        <h4 style="margin-bottom:10px;color:#555;">🧠 推理/思考配置</h4>
+        <div class="form-group">
+          <label class="form-label" for="modelThinkingType">thinking_type</label>
+          <select class="form-control" id="modelThinkingType" name="thinking_type">
+            <option value="">不启用</option>
+            <option value="enabled">enabled</option>
+            <option value="disabled">disabled</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="modelEnableThinking">enable_thinking</label>
+          <select class="form-control" id="modelEnableThinking" name="enable_thinking">
+            <option value="">不设置</option>
+            <option value="true">true</option>
+            <option value="false">false</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="modelThinkingEffort">thinking_effort</label>
+          <input type="text" class="form-control" id="modelThinkingEffort"
+                 name="thinking_effort"
+                 placeholder="minimal/low/medium/high/xhigh/max" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="modelContentMode">content_mode</label>
+          <select class="form-control" id="modelContentMode" name="content_mode">
+            <option value="optional">optional（默认）</option>
+            <option value="never">never</option>
+            <option value="by-tool">by-tool</option>
+          </select>
+        </div>
+      </div>
+
       <div class="form-actions">
         <button type="button" class="btn btn-secondary" onclick="closeModal()">
           取消
@@ -875,6 +960,11 @@ extra_css %}
     document.getElementById("modelApiKey").placeholder = "";
 
     document.getElementById("modelBaseUrl").value = "https://api.openai.com/v1";
+
+    document.getElementById("modelThinkingType").value = "";
+    document.getElementById("modelEnableThinking").value = "";
+    document.getElementById("modelThinkingEffort").value = "";
+    document.getElementById("modelContentMode").value = "optional";
 
     editingModel = null;
 
@@ -917,6 +1007,14 @@ extra_css %}
               document.getElementById("modelStream").checked = false;
               document.getElementById("modelConfigMultimodal").checked = false;
             }
+
+            // 填充 thinking_config
+            const tc = model.thinking_config || {};
+            document.getElementById("modelThinkingType").value = tc.thinking_type || "";
+            document.getElementById("modelEnableThinking").value =
+              tc.enable_thinking === true ? "true" : tc.enable_thinking === false ? "false" : "";
+            document.getElementById("modelThinkingEffort").value = tc.thinking_effort || "";
+            document.getElementById("modelContentMode").value = tc.content_mode || "optional";
 
             editingModel = model.name;
 
@@ -968,6 +1066,29 @@ extra_css %}
       };
 
       modelData.config = config;
+
+      // 收集 thinking_config
+      const thinkingType = document.getElementById("modelThinkingType").value;
+      const enableThinking = document.getElementById("modelEnableThinking").value;
+      const thinkingEffort = document.getElementById("modelThinkingEffort").value;
+      const contentMode = document.getElementById("modelContentMode").value;
+
+      if (thinkingType || enableThinking || thinkingEffort || contentMode !== "optional") {
+        modelData.thinking_config = {
+          thinking_type: thinkingType || null,
+          enable_thinking: enableThinking === "true" ? true : enableThinking === "false" ? false : null,
+          thinking_effort: thinkingEffort || null,
+          content_mode: contentMode || "optional",
+        };
+      } else {
+        modelData.thinking_config = null;
+      }
+
+      // 清理表单里的 thinking 裸字段
+      delete modelData.thinking_type;
+      delete modelData.enable_thinking;
+      delete modelData.thinking_effort;
+      delete modelData.content_mode;
 
       const apiKeyInput = document.getElementById("modelApiKey");
       if (editingModel) {
@@ -1228,10 +1349,59 @@ extra_css %}
     }
   }
 
+  async function saveThinkingField(modelName, field, value) {
+    try {
+      const response = await fetch("/api/chat/models");
+      const modelListResponse = await response.json();
+
+      if (!modelListResponse.success) {
+        throw new Error("无法获取模型列表");
+      }
+
+      const model = modelListResponse.models.find((m) => m.name === modelName);
+      if (!model) {
+        throw new Error(`模型 ${modelName} 不存在`);
+      }
+
+      const tc = { ...(model.thinking_config || {}) };
+      if (field === "enable_thinking") {
+        tc[field] = value === "true" ? true : value === "false" ? false : null;
+      } else {
+        tc[field] = value || null;
+      }
+
+      const updateResponse = await fetch(
+        `/api/chat/models/${encodeURIComponent(modelName)}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: modelName,
+            thinking_config: tc,
+          }),
+        },
+      );
+
+      const result = await updateResponse.json();
+
+      if (result.success) {
+        showAlert("success", `模型 ${modelName} 的思考配置已更新`);
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error) {
+      console.error("更新思考配置失败:", error);
+      showAlert("danger", "更新思考配置失败: " + error.message);
+    }
+  }
+
   document.addEventListener("change", function (e) {
     if (e.target.classList.contains("config-field")) {
       const modelName = e.target.getAttribute("data-model");
       const field = e.target.getAttribute("data-config-field");
+      const section = e.target.getAttribute("data-section");
       let value = e.target.value;
 
       if (e.target.type === "checkbox") {
@@ -1244,7 +1414,11 @@ extra_css %}
         }
       }
 
-      saveConfigField(modelName, field, value);
+      if (section === "thinking") {
+        saveThinkingField(modelName, field, value);
+      } else {
+        saveConfigField(modelName, field, value);
+      }
     }
   });
 

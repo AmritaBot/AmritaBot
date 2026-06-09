@@ -6,9 +6,9 @@ from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import amrita_core
 import nonebot
 import nonebot.log
+from amrita_sense import logging as amlog
 from nonebot.log import default_format
 
 from amrita.config import get_amrita_config
@@ -120,7 +120,7 @@ def init():
                 logger.warning(f"发送群消息失败: {e}")
 
     Path("plugins").mkdir(exist_ok=True)
-    logger.remove(amrita_core.logging.logger_id.value)
+    logger.remove(amlog.logger_id.value)
     new_id = logger.add(
         sys.stdout,
         level=0,
@@ -129,8 +129,8 @@ def init():
         filter=default_filter,
     )
     nonebot.log.logger_id = new_id
-    amrita_core.logging.logger = logger
-    amrita_core.logging.logger_id.value = new_id
+    amlog.logger = logger
+    amlog.logger_id.value = new_id
     logger.add(AsyncErrorHandler(), level="ERROR")
     logger.add(EventRecorder(), level="WARNING")
     nonebot.init()

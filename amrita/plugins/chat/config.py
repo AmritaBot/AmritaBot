@@ -309,7 +309,9 @@ class Config(BaseModel):
                     "agent_thought_mode": tools.pop("agent_thought_mode", "chat"),
                     "agent_reasoning_hide": tools.pop("agent_reasoning_hide", False),
                 }
-                core_data["builtin"] = {k: v for k, v in builtin.items() if v is not None}
+                core_data["builtin"] = {
+                    k: v for k, v in builtin.items() if v is not None
+                }
 
                 func_cfg = {
                     "use_minimal_context": tools.pop("use_minimal_context", True),

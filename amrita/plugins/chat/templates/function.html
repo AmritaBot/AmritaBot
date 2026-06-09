@@ -1,29 +1,44 @@
 {%extends base_html%} {% block title %}Chat模块信息仪表盘{% endblock %} {% block
-topbar_title %}Chat信息仪表盘{% endblock %}
-{% block content %}
+topbar_title %}Chat信息仪表盘{% endblock %} {% block content %}
 <div class="max-w-[1200px] mx-auto">
   <!-- Stat cards -->
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
-    <div class="glass-card p-5 flex items-center transition-transform hover:-translate-y-1 hover:shadow-lg">
-      <div class="w-[50px] h-[50px] rounded-lg flex items-center justify-center mr-4 text-2xl bg-green-500/10 text-green-500 flex-shrink-0">
+    <div
+      class="glass-card p-5 flex items-center transition-transform hover:-translate-y-1 hover:shadow-lg"
+    >
+      <div
+        class="w-[50px] h-[50px] rounded-lg flex items-center justify-center mr-4 text-2xl bg-green-500/10 text-green-500 flex-shrink-0"
+      >
         <i class="fas fa-arrow-down"></i>
       </div>
       <div>
-        <h3 class="text-2xl font-bold dark:text-gray-100">{{ token_prompt }}</h3>
+        <h3 class="text-2xl font-bold dark:text-gray-100">
+          {{ token_prompt }}
+        </h3>
         <p class="text-sm text-gray-500 dark:text-gray-400">今日Tokens输入</p>
       </div>
     </div>
-    <div class="glass-card p-5 flex items-center transition-transform hover:-translate-y-1 hover:shadow-lg">
-      <div class="w-[50px] h-[50px] rounded-lg flex items-center justify-center mr-4 text-2xl bg-orange-500/10 text-orange-500 flex-shrink-0">
+    <div
+      class="glass-card p-5 flex items-center transition-transform hover:-translate-y-1 hover:shadow-lg"
+    >
+      <div
+        class="w-[50px] h-[50px] rounded-lg flex items-center justify-center mr-4 text-2xl bg-orange-500/10 text-orange-500 flex-shrink-0"
+      >
         <i class="fas fa-rocket"></i>
       </div>
       <div>
-        <h3 class="text-2xl font-bold dark:text-gray-100">{{ token_completion }}</h3>
+        <h3 class="text-2xl font-bold dark:text-gray-100">
+          {{ token_completion }}
+        </h3>
         <p class="text-sm text-gray-500 dark:text-gray-400">今日Tokens输出</p>
       </div>
     </div>
-    <div class="glass-card p-5 flex items-center transition-transform hover:-translate-y-1 hover:shadow-lg">
-      <div class="w-[50px] h-[50px] rounded-lg flex items-center justify-center mr-4 text-2xl bg-blue-500/10 text-primary flex-shrink-0">
+    <div
+      class="glass-card p-5 flex items-center transition-transform hover:-translate-y-1 hover:shadow-lg"
+    >
+      <div
+        class="w-[50px] h-[50px] rounded-lg flex items-center justify-center mr-4 text-2xl bg-blue-500/10 text-primary flex-shrink-0"
+      >
         <i class="fas fa-calculator"></i>
       </div>
       <div>
@@ -39,7 +54,9 @@ topbar_title %}Chat信息仪表盘{% endblock %}
       <div class="flex justify-between items-center mb-5">
         <h3 class="text-lg font-semibold dark:text-gray-100">Token输入统计</h3>
       </div>
-      <div class="h-[300px] bg-gray-50/50 dark:bg-gray-800/50 rounded-lg border border-black/5 dark:border-white/5 p-2">
+      <div
+        class="h-[300px] bg-gray-50/50 dark:bg-gray-800/50 rounded-lg border border-black/5 dark:border-white/5 p-2"
+      >
         <canvas id="inputChart" class="chart-canvas"></canvas>
       </div>
     </div>
@@ -47,7 +64,9 @@ topbar_title %}Chat信息仪表盘{% endblock %}
       <div class="flex justify-between items-center mb-5">
         <h3 class="text-lg font-semibold dark:text-gray-100">Token输出统计</h3>
       </div>
-      <div class="h-[300px] bg-gray-50/50 dark:bg-gray-800/50 rounded-lg border border-black/5 dark:border-white/5 p-2">
+      <div
+        class="h-[300px] bg-gray-50/50 dark:bg-gray-800/50 rounded-lg border border-black/5 dark:border-white/5 p-2"
+      >
         <canvas id="outputChart" class="chart-canvas"></canvas>
       </div>
     </div>

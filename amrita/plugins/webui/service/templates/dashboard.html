@@ -3,19 +3,16 @@ endblock %} {% block content %}
 
 <!-- Stat cards -->
 <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
-  {% set stats = [
-    ('robot', 'blue', loaded_plugins, '已加载插件'),
-    ('users', 'green', bot_connected, 'Bot已连接'),
-    ('comments', 'orange', total_message, '今日消息'),
-    ('microchip', 'purple', health, '系统健康'),
-  ] %}
-  {% for icon, color, val, label in stats %}
-  <div class="glass-card p-5 flex items-center transition-transform hover:-translate-y-1 hover:shadow-lg">
-    <div class="w-[50px] h-[50px] rounded-lg flex items-center justify-center mr-4 text-2xl flex-shrink-0
-                {% if color=='blue' %}bg-blue-500/10 text-primary dark:text-primary
-                {% elif color=='green' %}bg-green-500/10 text-green-500
-                {% elif color=='orange' %}bg-orange-500/10 text-orange-500
-                {% else %}bg-purple-500/10 text-purple-500{% endif %}">
+  {% set stats = [ ('robot', 'blue', loaded_plugins, '已加载插件'), ('users',
+  'green', bot_connected, 'Bot已连接'), ('comments', 'orange', total_message,
+  '今日消息'), ('microchip', 'purple', health, '系统健康'), ] %} {% for icon,
+  color, val, label in stats %}
+  <div
+    class="glass-card p-5 flex items-center transition-transform hover:-translate-y-1 hover:shadow-lg"
+  >
+    <div
+      class="w-[50px] h-[50px] rounded-lg flex items-center justify-center mr-4 text-2xl flex-shrink-0 {% if color=='blue' %}bg-blue-500/10 text-primary dark:text-primary {% elif color=='green' %}bg-green-500/10 text-green-500 {% elif color=='orange' %}bg-orange-500/10 text-orange-500 {% else %}bg-purple-500/10 text-purple-500{% endif %}"
+    >
       <i class="fas fa-{{ icon }}"></i>
     </div>
     <div>
@@ -32,20 +29,36 @@ endblock %} {% block content %}
     <div class="flex justify-between items-center mb-5">
       <h3 class="text-lg font-semibold dark:text-gray-100">消息统计</h3>
       <div class="flex gap-2">
-        <button class="p-1 rounded border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400 hover:bg-black/10 dark:hover:bg-white/20"><i class="fas fa-sync"></i></button>
-        <button class="p-1 rounded border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400 hover:bg-black/10 dark:hover:bg-white/20"><i class="fas fa-cog"></i></button>
+        <button
+          class="p-1 rounded border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400 hover:bg-black/10 dark:hover:bg-white/20"
+        >
+          <i class="fas fa-sync"></i>
+        </button>
+        <button
+          class="p-1 rounded border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400 hover:bg-black/10 dark:hover:bg-white/20"
+        >
+          <i class="fas fa-cog"></i>
+        </button>
       </div>
     </div>
-    <div class="h-[300px] bg-gray-50/50 dark:bg-gray-800/50 rounded-lg border border-black/5 dark:border-white/5 p-2">
+    <div
+      class="h-[300px] bg-gray-50/50 dark:bg-gray-800/50 rounded-lg border border-black/5 dark:border-white/5 p-2"
+    >
       <canvas id="messagesChart" class="w-full h-full"></canvas>
     </div>
   </div>
   <div class="glass-card p-5">
     <div class="flex justify-between items-center mb-5">
       <h3 class="text-lg font-semibold dark:text-gray-100">收发图表</h3>
-      <button class="p-1 rounded border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400 hover:bg-black/10 dark:hover:bg-white/20"><i class="fas fa-sync"></i></button>
+      <button
+        class="p-1 rounded border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400 hover:bg-black/10 dark:hover:bg-white/20"
+      >
+        <i class="fas fa-sync"></i>
+      </button>
     </div>
-    <div class="h-[300px] bg-gray-50/50 dark:bg-gray-800/50 rounded-lg border border-black/5 dark:border-white/5 p-2">
+    <div
+      class="h-[300px] bg-gray-50/50 dark:bg-gray-800/50 rounded-lg border border-black/5 dark:border-white/5 p-2"
+    >
       <canvas id="botMsgStatusChart" class="w-full h-full"></canvas>
     </div>
   </div>
@@ -58,18 +71,27 @@ endblock %} {% block content %}
   </div>
   <ul id="activity-data" class="hidden">
     {% for activity in recent_activity %}
-    <li data-icon="{{ activity.icon }}" data-icon-color="{{ activity.icon_color }}"
-        data-title="{{ activity.title }}" data-desc="{{ activity.desc }}" data-time="{{ activity.time }}">
-    </li>
+    <li
+      data-icon="{{ activity.icon }}"
+      data-icon-color="{{ activity.icon_color }}"
+      data-title="{{ activity.title }}"
+      data-desc="{{ activity.desc }}"
+      data-time="{{ activity.time }}"
+    ></li>
     {% endfor %}
   </ul>
   <ul id="activity-display" class="list-none m-0 p-0"></ul>
-  <div id="activity-pagination" class="hidden mt-4 flex flex-col sm:flex-row justify-between items-center gap-3">
+  <div
+    id="activity-pagination"
+    class="hidden mt-4 flex flex-col sm:flex-row justify-between items-center gap-3"
+  >
     <div class="text-sm text-gray-500 dark:text-gray-400">
-      显示 <span id="start-index">0</span>-<span id="end-index">0</span> 条，共 <span id="total-activities">0</span> 条记录
+      显示 <span id="start-index">0</span>-<span id="end-index">0</span> 条，共
+      <span id="total-activities">0</span> 条记录
     </div>
     <div class="flex items-center gap-3">
-      <label class="text-sm text-gray-500 dark:text-gray-400">每页显示:
+      <label class="text-sm text-gray-500 dark:text-gray-400"
+        >每页显示:
         <select id="page-size" class="ml-1 input-glass py-1 px-2 text-sm">
           <option value="5">5条</option>
           <option value="10" selected>10条</option>
@@ -78,11 +100,33 @@ endblock %} {% block content %}
         </select>
       </label>
       <div id="pagination-buttons" class="flex gap-1">
-        <button id="first-page" disabled class="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-800"><i class="fas fa-angle-double-left"></i></button>
-        <button id="prev-page" disabled class="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-800"><i class="fas fa-angle-left"></i></button>
+        <button
+          id="first-page"
+          disabled
+          class="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-800"
+        >
+          <i class="fas fa-angle-double-left"></i>
+        </button>
+        <button
+          id="prev-page"
+          disabled
+          class="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-800"
+        >
+          <i class="fas fa-angle-left"></i>
+        </button>
         <div id="page-numbers" class="flex gap-1"></div>
-        <button id="next-page" class="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><i class="fas fa-angle-right"></i></button>
-        <button id="last-page" class="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><i class="fas fa-angle-double-right"></i></button>
+        <button
+          id="next-page"
+          class="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+        >
+          <i class="fas fa-angle-right"></i>
+        </button>
+        <button
+          id="last-page"
+          class="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+        >
+          <i class="fas fa-angle-double-right"></i>
+        </button>
       </div>
     </div>
   </div>

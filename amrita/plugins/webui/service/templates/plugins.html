@@ -16,58 +16,58 @@ endblock %} {% block extra_css %}
     border-bottom: 1px solid #eee;
     margin-bottom: 10px;
   }
-  
+
   .dark .plugins-header {
     border-bottom: 1px solid var(--dark-border-color);
   }
-  
+
   .dark .page-title {
     color: var(--accent-color);
   }
-  
+
   .dark .action-btn {
     background: var(--accent-color);
   }
-  
+
   .dark .action-btn:hover {
     background: #8a2be2;
   }
-  
+
   .dark .action-btn.secondary {
     background: #5a6268;
     color: var(--dark-text-color);
   }
-  
+
   .dark .action-btn.secondary:hover {
     background: #495057;
   }
-  
+
   .dark .plugin-card {
     background: var(--dark-card-bg);
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
     border: 1px solid var(--dark-border-color);
   }
-  
+
   .dark .search-icon {
     color: #aaa;
   }
-  
+
   .dark .filter-label {
     color: #ddd;
   }
-  
+
   .dark .filter-select {
     border: 1px solid var(--dark-border-color);
     background: var(--dark-card-bg);
     color: var(--dark-text-color);
   }
-  
+
   .dark .search-input {
     border: 1px solid var(--dark-border-color);
     background: var(--dark-card-bg);
     color: var(--dark-text-color);
   }
-  
+
   .dark .plugin-tag {
     background: #333;
     color: #ccc;
@@ -76,49 +76,49 @@ endblock %} {% block extra_css %}
   .dark .plugin-meta {
     color: #aaa;
   }
-  
+
   .dark .plugin-description {
     color: #bbb;
   }
-  
+
   .dark .plugin-version {
     background: rgba(41, 128, 185, 0.2);
     color: var(--accent-color);
   }
-  
+
   .dark .plugin-name {
     color: var(--accent-color);
   }
-  
+
   .dark .plugin-card:hover {
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
   }
-  
+
   .dark .slider {
     background-color: #555;
   }
-  
+
   .dark input:checked + .slider {
     background-color: var(--accent-color);
   }
-  
+
   .dark .plugin-action-btn:hover {
     background: var(--dark-sidebar-hover);
     color: var(--accent-color);
   }
-  
+
   .dark .plugin-action-btn {
     color: #aaa;
   }
-  
+
   .dark .no-plugins {
     color: #aaa;
   }
-  
+
   .dark .no-plugins i {
     color: #555;
   }
-  
+
   .page-title {
     font-size: 24px;
     font-weight: 600;
@@ -219,7 +219,9 @@ endblock %} {% block extra_css %}
     border-radius: 10px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
     padding: 20px;
-    transition: transform 0.3s, box-shadow 0.3s;
+    transition:
+      transform 0.3s,
+      box-shadow 0.3s;
     position: relative;
     overflow: hidden;
   }
@@ -426,7 +428,10 @@ endblock %} {% block extra_css %}
 <div class="plugins-header">
   <h1 class="text-2xl font-semibold text-primary">插件管理</h1>
   <div class="flex gap-2">
-    <button class="px-4 py-2 rounded text-sm font-medium bg-primary text-white hover:bg-primary-hover" onclick="refreshPlugins()">
+    <button
+      class="px-4 py-2 rounded text-sm font-medium bg-primary text-white hover:bg-primary-hover"
+      onclick="refreshPlugins()"
+    >
       <i class="fas fa-sync-alt"></i> 刷新列表
     </button>
   </div>
@@ -534,7 +539,7 @@ endblock %} {% block extra_css %}
     });
 
     const visibleCards = Array.from(pluginCards).filter(
-      (card) => card.style.display !== "none"
+      (card) => card.style.display !== "none",
     );
     const emptyState = document.querySelector(".empty-state");
 

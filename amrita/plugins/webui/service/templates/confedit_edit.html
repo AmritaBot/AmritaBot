@@ -1,4 +1,6 @@
-{% extends "base.html" %} {% block title %}Amrita Dashboard - {{ plugin_name }} 配置编辑{% endblock %} {% block topbar_title %}{{ plugin_name }} 配置编辑{% endblock %} {% block extra_head %}
+{% extends "base.html" %} {% block title %}Amrita Dashboard - {{ plugin_name }}
+配置编辑{% endblock %} {% block topbar_title %}{{ plugin_name }} 配置编辑{%
+endblock %} {% block extra_head %}
 <link
   href="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.css"
   rel="stylesheet"
@@ -540,22 +542,24 @@
     padding-top: 10px;
     max-height: none;
     overflow: visible;
-    transition: max-height 0.3s ease, padding 0.3s ease;
+    transition:
+      max-height 0.3s ease,
+      padding 0.3s ease;
   }
 
   .dark .nested-field-content {
     border-left: 1px dashed var(--dark-border-color);
   }
-  
+
   .nested-field-child {
     margin: 8px 0;
     padding: 8px 0;
   }
-  
+
   .nested-field-child .field-label {
     padding-right: 20px;
   }
-  
+
   .nested-field-child .field-value {
     min-width: 300px;
   }
@@ -608,16 +612,39 @@
 </style>
 {% endblock %} {% block content %}
 <div class="config-container">
-  <div style="margin-bottom: 20px;">
-    <a href="/system/confedit" style="color: var(--primary-color); text-decoration: none; display: inline-flex; align-items: center;">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
+  <div style="margin-bottom: 20px">
+    <a
+      href="/system/confedit"
+      style="
+        color: var(--primary-color);
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+      "
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        style="margin-right: 5px"
+      >
         <path d="M19 12H5M12 19l-7-7 7-7"></path>
       </svg>
       返回配置管理
     </a>
   </div>
-  
-  <div class="p-3 rounded mb-4 bg-green-100 border border-green-300 text-green-800 dark:bg-green-900/20 dark:border-green-800/30 dark:text-green-400" id="success-alert" style="display: none">
+
+  <div
+    class="p-3 rounded mb-4 bg-green-100 border border-green-300 text-green-800 dark:bg-green-900/20 dark:border-green-800/30 dark:text-green-400"
+    id="success-alert"
+    style="display: none"
+  >
     配置已成功保存！
   </div>
 
@@ -631,7 +658,8 @@
 
   <h2>{{ plugin_name }} 配置编辑</h2>
   <p>
-    在此页面可以查看和修改 {{ plugin_name }} 插件的配置项。系统会自动检测配置变化并仅提交已修改的配置。<br />
+    在此页面可以查看和修改 {{ plugin_name }}
+    插件的配置项。系统会自动检测配置变化并仅提交已修改的配置。<br />
     嵌套配置项将以 <code>parent.child</code> 的形式显示。
   </p>
 
@@ -655,235 +683,278 @@
           class="status-indicator status-unmodified"
           id="status-{{ plugin_name }}"
         ></span>
-        <button
-          class="btn btn-secondary"
-          onclick="resetPluginConfig(event)"
-        >
+        <button class="btn btn-secondary" onclick="resetPluginConfig(event)">
           重置
         </button>
-        <button
-          class="btn btn-primary"
-          onclick="savePluginConfig(event)"
-        >
+        <button class="btn btn-primary" onclick="savePluginConfig(event)">
           保存
         </button>
       </div>
     </div>
     <div class="config-content">
       {% if plugin_info.fields %}
-        <!-- 预处理字段以分组嵌套字段 -->
-        {% set grouped_fields = {} %}
-        {% set standalone_fields = [] %}
-        
-        {% for field in plugin_info.fields %}
-          {% if '.' in field.name %}
-            {% set parent_name = field.name.split('.')[0] %}
-            {% set child_name = field.name.split('.')[1:]|join('.') %}
-            {% if parent_name not in grouped_fields %}
-              {% set _ = grouped_fields.update({parent_name: []}) %}
-            {% endif %}
-            {% set _ = grouped_fields[parent_name].append({'field': field, 'child_name': child_name}) %}
-          {% else %}
-            {% set _ = standalone_fields.append(field) %}
-          {% endif %}
-        {% endfor %}
-        
-        <!-- 渲染独立字段 -->
-        {% for field in standalone_fields %}
-        <div
-          class="field-item"
-          data-field="{{ field.name }}"
-          data-type="{{ field.type }}"
-        >
-          <div class="field-label">
-            <div class="field-name">{{ field.name }}</div>
-            <div class="field-description">
-              {{ field.description or '无描述' }}
-            </div>
-            {% if field.default != None %}
-            <div class="field-default">默认: {{ field.default }}</div>
-            {% endif %}
-            <div class="field-type">{{ field.type }}</div>
+      <!-- 预处理字段以分组嵌套字段 -->
+      {% set grouped_fields = {} %} {% set standalone_fields = [] %} {% for
+      field in plugin_info.fields %} {% if '.' in field.name %} {% set
+      parent_name = field.name.split('.')[0] %} {% set child_name =
+      field.name.split('.')[1:]|join('.') %} {% if parent_name not in
+      grouped_fields %} {% set _ = grouped_fields.update({parent_name: []}) %}
+      {% endif %} {% set _ = grouped_fields[parent_name].append({'field': field,
+      'child_name': child_name}) %} {% else %} {% set _ =
+      standalone_fields.append(field) %} {% endif %} {% endfor %}
+
+      <!-- 渲染独立字段 -->
+      {% for field in standalone_fields %}
+      <div
+        class="field-item"
+        data-field="{{ field.name }}"
+        data-type="{{ field.type }}"
+      >
+        <div class="field-label">
+          <div class="field-name">{{ field.name }}</div>
+          <div class="field-description">
+            {{ field.description or '无描述' }}
           </div>
-          <div class="field-value">
-            {% if field.type == 'bool' %}
-            <div class="field-input-bool-container">
-              <label class="field-input-bool-label">
-                <div class="bool-switch">
-                  <input type="checkbox" id="{{ field.name |
-                  replace('.', '_DOT_') }}" name="{{ field.name
-                  }}" data-original-value="{{ field.current_value | string }}"
-                  onchange="markFieldAsModified()" {% if field.current_value == true %}checked{%
-                  endif %}>
-                  <span class="bool-slider"></span>
-                </div>
-                <span
-                  id="{{ field.name | replace('.', '_DOT_') }}_text"
-                >
-                  {% if field.current_value == true %}True{% else %}False{% endif
+          {% if field.default != None %}
+          <div class="field-default">默认: {{ field.default }}</div>
+          {% endif %}
+          <div class="field-type">{{ field.type }}</div>
+        </div>
+        <div class="field-value">
+          {% if field.type == 'bool' %}
+          <div class="field-input-bool-container">
+            <label class="field-input-bool-label">
+              <div class="bool-switch">
+                <input
+                  type="checkbox"
+                  id="{{ field.name |
+                  replace('.', '_DOT_') }}"
+                  name="{{ field.name
+                  }}"
+                  data-original-value="{{ field.current_value | string }}"
+                  onchange="markFieldAsModified()"
+                  {%
+                  if
+                  field.current_value=""
+                  ="true"
+                  %}checked{%
+                  endif
                   %}
-                </span>
-              </label>
-            </div>
-            {% elif field.type == 'literal' %}
-            <select
-              class="field-input-select"
-              id="{{ field.name | replace('.', '_DOT_') }}"
-              name="{{ field.name }}"
-              data-original-value="{{ field.current_value | string }}"
-              onchange="markFieldAsModified()"
+                />
+                <span class="bool-slider"></span>
+              </div>
+              <span id="{{ field.name | replace('.', '_DOT_') }}_text">
+                {% if field.current_value == true %}True{% else %}False{% endif
+                %}
+              </span>
+            </label>
+          </div>
+          {% elif field.type == 'literal' %}
+          <select
+            class="field-input-select"
+            id="{{ field.name | replace('.', '_DOT_') }}"
+            name="{{ field.name }}"
+            data-original-value="{{ field.current_value | string }}"
+            onchange="markFieldAsModified()"
+          >
+            {% for value in field.literal_values %}
+            <option
+              value="{{ value }}"
+              {%
+              if
+              field.current_value=""
+              ="value"
+              or
+              (field.current_value=""
+              ="true"
+              and
+              value=""
+              ="true)"
+              or
+              (field.current_value=""
+              ="false"
+              and
+              value=""
+              ="false)"
+              %}selected{%
+              endif
+              %}
             >
-              {% for value in field.literal_values %}
-              <option value="{{ value }}"
-                {% if field.current_value == value or (field.current_value == 'true' and value == true) or (field.current_value == 'false' and value == false) %}selected{% endif %}>
-                {{ value }}
-              </option>
-              {% endfor %}
-            </select>
-            {% elif field.type == 'list' %}
+              {{ value }}
+            </option>
+            {% endfor %}
+          </select>
+          {% elif field.type == 'list' %}
+          <div
+            class="list-editor"
+            id="{{ field.name | replace('.', '_DOT_') }}_editor"
+          >
             <div
-              class="list-editor"
-              id="{{ field.name | replace('.', '_DOT_') }}_editor"
+              class="list-items sortable-list"
+              id="{{ field.name | replace('.', '_DOT_') }}_items"
+            ></div>
+            <button
+              class="list-add-btn"
+              type="button"
+              onclick="addListItem('{{ field.name }}', event)"
             >
-              <div
-                class="list-items sortable-list"
-                id="{{ field.name | replace('.', '_DOT_') }}_items"
-              ></div>
-              <button
-                class="list-add-btn"
-                type="button"
-                onclick="addListItem('{{ field.name }}', event)"
-              >
-                + 添加项
-              </button>
-              <input
-                type="hidden"
-                id="{{ field.name | replace('.', '_DOT_') }}"
-                name="{{ field.name }}"
-                value="{{ field.current_value | string }}"
-                data-original-value="{{ field.current_value | string }}"
-              />
-            </div>
-            {% else %}
+              + 添加项
+            </button>
             <input
-              type="text"
-              class="field-input"
+              type="hidden"
               id="{{ field.name | replace('.', '_DOT_') }}"
               name="{{ field.name }}"
               value="{{ field.current_value | string }}"
-              placeholder="{{ field.default | string }}"
               data-original-value="{{ field.current_value | string }}"
-              onchange="markFieldAsModified()"
             />
-            {% endif %}
           </div>
+          {% else %}
+          <input
+            type="text"
+            class="field-input"
+            id="{{ field.name | replace('.', '_DOT_') }}"
+            name="{{ field.name }}"
+            value="{{ field.current_value | string }}"
+            placeholder="{{ field.default | string }}"
+            data-original-value="{{ field.current_value | string }}"
+            onchange="markFieldAsModified()"
+          />
+          {% endif %}
         </div>
-        {% endfor %}
-        
-        <!-- 渲染分组的嵌套字段 -->
-        {% for parent_name, children in grouped_fields.items() %}
-        <div class="field-item nested-field" data-parent="{{ parent_name }}">
-          <div class="nested-field-header" onclick="toggleNestedField(this)">
-            <span class="collapse-icon">▼</span>
-            <strong>{{ parent_name }} 配置组</strong>
-          </div>
-          <div class="nested-field-content">
-            {% for item in children %}
-              {% set field = item['field'] %}
-              {% set child_name = item['child_name'] %}
-            <div
-              class="field-item nested-field-child"
-              data-field="{{ field.name }}"
-              data-type="{{ field.type }}"
-            >
-              <div class="field-label">
-                <div class="field-name">{{ child_name }}</div>
-                <div class="field-description">
-                  {{ field.description or '无描述' }}
-                </div>
-                {% if field.default != None %}
-                <div class="field-default">默认: {{ field.default }}</div>
-                {% endif %}
-                <div class="field-type">{{ field.type }}</div>
+      </div>
+      {% endfor %}
+
+      <!-- 渲染分组的嵌套字段 -->
+      {% for parent_name, children in grouped_fields.items() %}
+      <div class="field-item nested-field" data-parent="{{ parent_name }}">
+        <div class="nested-field-header" onclick="toggleNestedField(this)">
+          <span class="collapse-icon">▼</span>
+          <strong>{{ parent_name }} 配置组</strong>
+        </div>
+        <div class="nested-field-content">
+          {% for item in children %} {% set field = item['field'] %} {% set
+          child_name = item['child_name'] %}
+          <div
+            class="field-item nested-field-child"
+            data-field="{{ field.name }}"
+            data-type="{{ field.type }}"
+          >
+            <div class="field-label">
+              <div class="field-name">{{ child_name }}</div>
+              <div class="field-description">
+                {{ field.description or '无描述' }}
               </div>
-              <div class="field-value">
-                {% if field.type == 'bool' %}
-                <div class="field-input-bool-container">
-                  <label class="field-input-bool-label">
-                    <div class="bool-switch">
-                      <input type="checkbox" id="{{ field.name |
-                      replace('.', '_DOT_') }}" name="{{ field.name
-                      }}" data-original-value="{{ field.current_value | string }}"
-                      onchange="markFieldAsModified()" {% if field.current_value == true %}checked{%
-                      endif %}>
-                      <span class="bool-slider"></span>
-                    </div>
-                    <span
-                      id="{{ field.name | replace('.', '_DOT_') }}_text"
-                    >
-                      {% if field.current_value == true %}True{% else %}False{% endif
+              {% if field.default != None %}
+              <div class="field-default">默认: {{ field.default }}</div>
+              {% endif %}
+              <div class="field-type">{{ field.type }}</div>
+            </div>
+            <div class="field-value">
+              {% if field.type == 'bool' %}
+              <div class="field-input-bool-container">
+                <label class="field-input-bool-label">
+                  <div class="bool-switch">
+                    <input
+                      type="checkbox"
+                      id="{{ field.name |
+                      replace('.', '_DOT_') }}"
+                      name="{{ field.name
+                      }}"
+                      data-original-value="{{ field.current_value | string }}"
+                      onchange="markFieldAsModified()"
+                      {%
+                      if
+                      field.current_value=""
+                      ="true"
+                      %}checked{%
+                      endif
                       %}
-                    </span>
-                  </label>
-                </div>
-                {% elif field.type == 'literal' %}
-                <select
-                  class="field-input-select"
-                  id="{{ field.name | replace('.', '_DOT_') }}"
-                  name="{{ field.name }}"
-                  data-original-value="{{ field.current_value | string }}"
-                  onchange="markFieldAsModified()"
+                    />
+                    <span class="bool-slider"></span>
+                  </div>
+                  <span id="{{ field.name | replace('.', '_DOT_') }}_text">
+                    {% if field.current_value == true %}True{% else %}False{%
+                    endif %}
+                  </span>
+                </label>
+              </div>
+              {% elif field.type == 'literal' %}
+              <select
+                class="field-input-select"
+                id="{{ field.name | replace('.', '_DOT_') }}"
+                name="{{ field.name }}"
+                data-original-value="{{ field.current_value | string }}"
+                onchange="markFieldAsModified()"
+              >
+                {% for value in field.literal_values %}
+                <option
+                  value="{{ value }}"
+                  {%
+                  if
+                  field.current_value=""
+                  ="value"
+                  or
+                  (field.current_value=""
+                  ="true"
+                  and
+                  value=""
+                  ="true)"
+                  or
+                  (field.current_value=""
+                  ="false"
+                  and
+                  value=""
+                  ="false)"
+                  %}selected{%
+                  endif
+                  %}
                 >
-                  {% for value in field.literal_values %}
-                  <option value="{{ value }}"
-                    {% if field.current_value == value or (field.current_value == 'true' and value == true) or (field.current_value == 'false' and value == false) %}selected{% endif %}>
-                    {{ value }}
-                  </option>
-                  {% endfor %}
-                </select>
-                {% elif field.type == 'list' %}
+                  {{ value }}
+                </option>
+                {% endfor %}
+              </select>
+              {% elif field.type == 'list' %}
+              <div
+                class="list-editor"
+                id="{{ field.name | replace('.', '_DOT_') }}_editor"
+              >
                 <div
-                  class="list-editor"
-                  id="{{ field.name | replace('.', '_DOT_') }}_editor"
+                  class="list-items sortable-list"
+                  id="{{ field.name | replace('.', '_DOT_') }}_items"
+                ></div>
+                <button
+                  class="list-add-btn"
+                  type="button"
+                  onclick="addListItem('{{ field.name }}', event)"
                 >
-                  <div
-                    class="list-items sortable-list"
-                    id="{{ field.name | replace('.', '_DOT_') }}_items"
-                  ></div>
-                  <button
-                    class="list-add-btn"
-                    type="button"
-                    onclick="addListItem('{{ field.name }}', event)"
-                  >
-                    + 添加项
-                  </button>
-                  <input
-                    type="hidden"
-                    id="{{ field.name | replace('.', '_DOT_') }}"
-                    name="{{ field.name }}"
-                    value="{{ field.current_value | string }}"
-                    data-original-value="{{ field.current_value | string }}"
-                  />
-                </div>
-                {% else %}
+                  + 添加项
+                </button>
                 <input
-                  type="text"
-                  class="field-input"
+                  type="hidden"
                   id="{{ field.name | replace('.', '_DOT_') }}"
                   name="{{ field.name }}"
                   value="{{ field.current_value | string }}"
-                  placeholder="{{ field.default | string }}"
                   data-original-value="{{ field.current_value | string }}"
-                  onchange="markFieldAsModified()"
                 />
-                {% endif %}
               </div>
+              {% else %}
+              <input
+                type="text"
+                class="field-input"
+                id="{{ field.name | replace('.', '_DOT_') }}"
+                name="{{ field.name }}"
+                value="{{ field.current_value | string }}"
+                placeholder="{{ field.default | string }}"
+                data-original-value="{{ field.current_value | string }}"
+                onchange="markFieldAsModified()"
+              />
+              {% endif %}
             </div>
-            {% endfor %}
           </div>
+          {% endfor %}
         </div>
-        {% endfor %}
-      {% else %}
+      </div>
+      {% endfor %} {% else %}
       <p>该插件暂无配置项。</p>
       {% endif %}
     </div>
@@ -905,82 +976,84 @@
   let isModified = false;
   const sortableInstances = {};
 
-  document.addEventListener('DOMContentLoaded', function() {
-      initializeListFields();
-      updatePluginStatus('unmodified');
-      
-      // 自动折叠所有嵌套字段
-      const nestedFields = document.querySelectorAll('.field-item.nested-field');
-      nestedFields.forEach(field => {
-          field.classList.add('collapsed');
-          
-          // 查找对应的header并设置图标
-          const header = field.querySelector('.nested-field-header');
-          if (header) {
-              const icon = header.querySelector('.collapse-icon');
-              if (icon) {
-                  icon.style.transform = 'rotate(-90deg)';
-              }
-          }
-      });
+  document.addEventListener("DOMContentLoaded", function () {
+    initializeListFields();
+    updatePluginStatus("unmodified");
+
+    // 自动折叠所有嵌套字段
+    const nestedFields = document.querySelectorAll(".field-item.nested-field");
+    nestedFields.forEach((field) => {
+      field.classList.add("collapsed");
+
+      // 查找对应的header并设置图标
+      const header = field.querySelector(".nested-field-header");
+      if (header) {
+        const icon = header.querySelector(".collapse-icon");
+        if (icon) {
+          icon.style.transform = "rotate(-90deg)";
+        }
+      }
+    });
   });
 
   function toggleSection() {
-      const section = document.getElementById(`section-{{ plugin_name }}`);
-      section.classList.toggle('collapsed');
+    const section = document.getElementById(`section-{{ plugin_name }}`);
+    section.classList.toggle("collapsed");
   }
 
   function initializeListFields() {
-      const listFields = document.querySelectorAll('[data-type="list"]');
-      
-      listFields.forEach(fieldItem => {
-          const fieldName = fieldItem.dataset.field;
-          const fieldId = `${fieldName.replace(/\./g, '_DOT_')}`;
-          const hiddenInput = document.getElementById(fieldId);
-          const itemsContainer = document.getElementById(`${fieldId}_items`);
+    const listFields = document.querySelectorAll('[data-type="list"]');
 
-          if (hiddenInput && itemsContainer) {
-              try {
-                  const currentValue = hiddenInput.value;
-                  const listValue = currentValue ? JSON.parse(currentValue.replace(/'/g, '"')) : [];
-                  renderListItems(fieldName, listValue, itemsContainer);
-                  initSortableList(fieldName, itemsContainer);
-              } catch (e) {
-                  renderListItems(fieldName, [], itemsContainer);
-                  initSortableList(fieldName, itemsContainer);
-              }
-          }
-      });
+    listFields.forEach((fieldItem) => {
+      const fieldName = fieldItem.dataset.field;
+      const fieldId = `${fieldName.replace(/\./g, "_DOT_")}`;
+      const hiddenInput = document.getElementById(fieldId);
+      const itemsContainer = document.getElementById(`${fieldId}_items`);
+
+      if (hiddenInput && itemsContainer) {
+        try {
+          const currentValue = hiddenInput.value;
+          const listValue = currentValue
+            ? JSON.parse(currentValue.replace(/'/g, '"'))
+            : [];
+          renderListItems(fieldName, listValue, itemsContainer);
+          initSortableList(fieldName, itemsContainer);
+        } catch (e) {
+          renderListItems(fieldName, [], itemsContainer);
+          initSortableList(fieldName, itemsContainer);
+        }
+      }
+    });
   }
 
   function initSortableList(fieldName, container) {
-      const fieldId = `${fieldName.replace(/\./g, '_DOT_')}`;
+    const fieldId = `${fieldName.replace(/\./g, "_DOT_")}`;
 
-      if (sortableInstances[fieldId]) {
-          sortableInstances[fieldId].destroy();
-      }
+    if (sortableInstances[fieldId]) {
+      sortableInstances[fieldId].destroy();
+    }
 
-      sortableInstances[fieldId] = new Sortable(container, {
-          animation: 150,
-          ghostClass: 'sortable-ghost',
-          chosenClass: 'sortable-chosen',
-          dragClass: 'sortable-drag',
-          handle: '.drag-handle',
-          onEnd: function() {
-              updateListValue(fieldName);
-              markFieldAsModified();
-          }
-      });
+    sortableInstances[fieldId] = new Sortable(container, {
+      animation: 150,
+      ghostClass: "sortable-ghost",
+      chosenClass: "sortable-chosen",
+      dragClass: "sortable-drag",
+      handle: ".drag-handle",
+      onEnd: function () {
+        updateListValue(fieldName);
+        markFieldAsModified();
+      },
+    });
   }
 
   function renderListItems(fieldName, listValue, container) {
-      const fieldId = `${fieldName.replace(/\./g, '_DOT_')}`;
-      container.innerHTML = '';
+    const fieldId = `${fieldName.replace(/\./g, "_DOT_")}`;
+    container.innerHTML = "";
 
-      listValue.forEach((item, index) => {
-          const listItem = document.createElement('div');
-          listItem.className = 'list-item';
-          listItem.innerHTML = `
+    listValue.forEach((item, index) => {
+      const listItem = document.createElement("div");
+      listItem.className = "list-item";
+      listItem.innerHTML = `
               <div class="drag-handle">≡</div>
               <input type="text" class="list-item-input" value="${item}"
                      onchange="updateListValue('${fieldName}')">
@@ -988,22 +1061,22 @@
                   <button class="list-item-btn btn-danger" type="button" onclick="removeListItem('${fieldName}', ${index}, event)">×</button>
               </div>
           `;
-          container.appendChild(listItem);
-      });
+      container.appendChild(listItem);
+    });
 
-      updateListValue(fieldName);
+    updateListValue(fieldName);
   }
 
   function addListItem(fieldName, event) {
-      if (event) event.stopPropagation();
+    if (event) event.stopPropagation();
 
-      const fieldId = `${fieldName.replace(/\./g, '_DOT_')}`;
-      const itemsContainer = document.getElementById(`${fieldId}_items`);
+    const fieldId = `${fieldName.replace(/\./g, "_DOT_")}`;
+    const itemsContainer = document.getElementById(`${fieldId}_items`);
 
-      if (itemsContainer) {
-          const listItem = document.createElement('div');
-          listItem.className = 'list-item';
-          listItem.innerHTML = `
+    if (itemsContainer) {
+      const listItem = document.createElement("div");
+      listItem.className = "list-item";
+      listItem.innerHTML = `
               <div class="drag-handle">≡</div>
               <input type="text" class="list-item-input" value=""
                      onchange="updateListValue('${fieldName}')">
@@ -1011,216 +1084,220 @@
                   <button class="list-item-btn btn-danger" type="button" onclick="removeListItem('${fieldName}', ${itemsContainer.children.length}, event)">×</button>
               </div>
           `;
-          itemsContainer.appendChild(listItem);
-          updateListValue(fieldName);
-          markFieldAsModified();
-      }
+      itemsContainer.appendChild(listItem);
+      updateListValue(fieldName);
+      markFieldAsModified();
+    }
   }
 
   function removeListItem(fieldName, index, event) {
-      if (event) event.stopPropagation();
+    if (event) event.stopPropagation();
 
-      const fieldId = `${fieldName.replace(/\./g, '_DOT_')}`;
-      const itemsContainer = document.getElementById(`${fieldId}_items`);
+    const fieldId = `${fieldName.replace(/\./g, "_DOT_")}`;
+    const itemsContainer = document.getElementById(`${fieldId}_items`);
 
-      if (itemsContainer && itemsContainer.children[index]) {
-          itemsContainer.removeChild(itemsContainer.children[index]);
-          updateListValue(fieldName);
-          markFieldAsModified();
-      }
+    if (itemsContainer && itemsContainer.children[index]) {
+      itemsContainer.removeChild(itemsContainer.children[index]);
+      updateListValue(fieldName);
+      markFieldAsModified();
+    }
   }
 
   function updateListValue(fieldName) {
-      const fieldId = `${fieldName.replace(/\./g, '_DOT_')}`;
-      const itemsContainer = document.getElementById(`${fieldId}_items`);
-      const hiddenInput = document.getElementById(fieldId);
+    const fieldId = `${fieldName.replace(/\./g, "_DOT_")}`;
+    const itemsContainer = document.getElementById(`${fieldId}_items`);
+    const hiddenInput = document.getElementById(fieldId);
 
-      if (itemsContainer && hiddenInput) {
-          const values = [];
-          const inputs = itemsContainer.querySelectorAll('.list-item-input');
-          inputs.forEach(input => {
-              if (input.value.trim() !== '') {
-                  values.push(input.value);
-              }
-          });
+    if (itemsContainer && hiddenInput) {
+      const values = [];
+      const inputs = itemsContainer.querySelectorAll(".list-item-input");
+      inputs.forEach((input) => {
+        if (input.value.trim() !== "") {
+          values.push(input.value);
+        }
+      });
 
-          hiddenInput.value = JSON.stringify(values);
-      }
+      hiddenInput.value = JSON.stringify(values);
+    }
   }
 
   function markFieldAsModified() {
-      isModified = true;
-      updatePluginStatus('modified');
+    isModified = true;
+    updatePluginStatus("modified");
   }
 
   function updatePluginStatus(status) {
-      var indicator = document.getElementById(`status-{{ plugin_name }}`);
-      if (indicator) {
-          indicator.className = 'status-indicator';
-          indicator.classList.add(`status-${status}`);
-      }
+    var indicator = document.getElementById(`status-{{ plugin_name }}`);
+    if (indicator) {
+      indicator.className = "status-indicator";
+      indicator.classList.add(`status-${status}`);
+    }
   }
 
   function resetPluginConfig(event) {
-      if (event) event.stopPropagation();
+    if (event) event.stopPropagation();
 
-      const inputs = document.querySelectorAll(`.field-input, .field-input-select, .list-editor input[type="hidden"], .bool-switch input`);
+    const inputs = document.querySelectorAll(
+      `.field-input, .field-input-select, .list-editor input[type="hidden"], .bool-switch input`,
+    );
 
-      inputs.forEach(input => {
-          const originalValue = input.getAttribute('data-original-value');
-          if (input.tagName === 'INPUT' && input.type === 'hidden') {
-              const fieldId = input.id;
-              const fieldName = input.name;
-              try {
-                  const listValue = originalValue ? JSON.parse(originalValue.replace(/'/g, '"')) : [];
-                  const itemsContainer = document.getElementById(`${fieldId}_items`);
-                  if (itemsContainer) {
-                      renderListItems(fieldName, listValue, itemsContainer);
-                      initSortableList(fieldName, itemsContainer);
-                  }
-              } catch (e) {}
-              input.value = originalValue;
-          } else if (input.type === 'checkbox') {
-              // Handle boolean switches
-              const isChecked = (originalValue === 'True');
-              input.checked = isChecked;
-              // Update text label next to switch
-              const textElement = document.getElementById(`${input.id}_text`);
-              if (textElement) {
-                  textElement.textContent = isChecked ? 'True' : 'False';
-              }
-          } else if (input.tagName === 'SELECT') {
-              input.value = originalValue;
-          } else {
-              input.value = originalValue;
+    inputs.forEach((input) => {
+      const originalValue = input.getAttribute("data-original-value");
+      if (input.tagName === "INPUT" && input.type === "hidden") {
+        const fieldId = input.id;
+        const fieldName = input.name;
+        try {
+          const listValue = originalValue
+            ? JSON.parse(originalValue.replace(/'/g, '"'))
+            : [];
+          const itemsContainer = document.getElementById(`${fieldId}_items`);
+          if (itemsContainer) {
+            renderListItems(fieldName, listValue, itemsContainer);
+            initSortableList(fieldName, itemsContainer);
           }
-      });
+        } catch (e) {}
+        input.value = originalValue;
+      } else if (input.type === "checkbox") {
+        // Handle boolean switches
+        const isChecked = originalValue === "True";
+        input.checked = isChecked;
+        // Update text label next to switch
+        const textElement = document.getElementById(`${input.id}_text`);
+        if (textElement) {
+          textElement.textContent = isChecked ? "True" : "False";
+        }
+      } else if (input.tagName === "SELECT") {
+        input.value = originalValue;
+      } else {
+        input.value = originalValue;
+      }
+    });
 
-      isModified = false;
-      updatePluginStatus('unmodified');
-      showAlert('success', '配置已重置');
+    isModified = false;
+    updatePluginStatus("unmodified");
+    showAlert("success", "配置已重置");
   }
 
   async function savePluginConfig(event) {
-      if (event) event.stopPropagation();
+    if (event) event.stopPropagation();
 
-      showLoading();
+    showLoading();
 
-      try {
-          const inputs = document.querySelectorAll('.field-input, .field-input-select, .list-editor input[type="hidden"], .bool-switch input');
-          const configData = {};
+    try {
+      const inputs = document.querySelectorAll(
+        '.field-input, .field-input-select, .list-editor input[type="hidden"], .bool-switch input',
+      );
+      const configData = {};
 
-          inputs.forEach(input => {
-              const fieldName = input.name;
-              if (input.type === 'checkbox') {
-                  // Handle boolean switches
-                  configData[fieldName] = input.checked.toString();
-              } else {
-                  configData[fieldName] = input.value;
-              }
-          });
+      inputs.forEach((input) => {
+        const fieldName = input.name;
+        if (input.type === "checkbox") {
+          // Handle boolean switches
+          configData[fieldName] = input.checked.toString();
+        } else {
+          configData[fieldName] = input.value;
+        }
+      });
 
-          const response = await fetch(`/api/confedit/{{ plugin_name }}`, {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                  config: configData,
-                  hash: pluginHash
-              })
-          });
+      const response = await fetch(`/api/confedit/{{ plugin_name }}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          config: configData,
+          hash: pluginHash,
+        }),
+      });
 
-          const result = await response.json();
+      const result = await response.json();
 
-          if (result.code === 200) {
-              inputs.forEach(input => {
-                  if (input.type === 'checkbox') {
-                      input.setAttribute('data-original-value', input.checked.toString());
-                  } else {
-                      input.setAttribute('data-original-value', input.value);
-                  }
-              });
-
-              isModified = false;
-              updatePluginStatus('saved');
-              
-              // 使用Swal.fire代替页面顶部提示
-              Swal.fire({
-                  title: '配置保存成功!',
-                  text: '配置已成功保存，点击确定刷新页面。',
-                  icon: 'success',
-                  confirmButtonText: '确定',
-                  willClose: () => {
-                      // 刷新页面
-                      window.location.reload();
-                  }
-              });
-          } else if (result.code === 409) {
-              window.location.reload();
+      if (result.code === 200) {
+        inputs.forEach((input) => {
+          if (input.type === "checkbox") {
+            input.setAttribute("data-original-value", input.checked.toString());
           } else {
-              // 错误情况仍使用Swal.fire
-              Swal.fire({
-                  title: '配置保存失败',
-                  text: result.message,
-                  icon: 'error',
-                  confirmButtonText: '确定'
-              });
+            input.setAttribute("data-original-value", input.value);
           }
-      } catch (error) {
-          // 错误情况也使用Swal.fire
-          Swal.fire({
-              title: '保存配置时发生错误',
-              text: error.message,
-              icon: 'error',
-              confirmButtonText: '确定'
-          });
-      } finally {
-          hideLoading();
+        });
+
+        isModified = false;
+        updatePluginStatus("saved");
+
+        // 使用Swal.fire代替页面顶部提示
+        Swal.fire({
+          title: "配置保存成功!",
+          text: "配置已成功保存，点击确定刷新页面。",
+          icon: "success",
+          confirmButtonText: "确定",
+          willClose: () => {
+            // 刷新页面
+            window.location.reload();
+          },
+        });
+      } else if (result.code === 409) {
+        window.location.reload();
+      } else {
+        // 错误情况仍使用Swal.fire
+        Swal.fire({
+          title: "配置保存失败",
+          text: result.message,
+          icon: "error",
+          confirmButtonText: "确定",
+        });
       }
+    } catch (error) {
+      // 错误情况也使用Swal.fire
+      Swal.fire({
+        title: "保存配置时发生错误",
+        text: error.message,
+        icon: "error",
+        confirmButtonText: "确定",
+      });
+    } finally {
+      hideLoading();
+    }
   }
 
   function showAlert(type, message) {
-      // 原来的showAlert函数已不再使用，但仍保留以备不时之需
-      const successAlert = document.getElementById('success-alert');
-      const errorAlert = document.getElementById('error-alert');
-      const warningAlert = document.getElementById('warning-alert');
+    // 原来的showAlert函数已不再使用，但仍保留以备不时之需
+    const successAlert = document.getElementById("success-alert");
+    const errorAlert = document.getElementById("error-alert");
+    const warningAlert = document.getElementById("warning-alert");
 
-      successAlert.style.display = 'none';
-      errorAlert.style.display = 'none';
-      warningAlert.style.display = 'none';
+    successAlert.style.display = "none";
+    errorAlert.style.display = "none";
+    warningAlert.style.display = "none";
 
-      if (type === 'success') {
-          successAlert.textContent = message;
-          successAlert.style.display = 'block';
-      } else if (type === 'error') {
-          errorAlert.textContent = message;
-          errorAlert.style.display = 'block';
-      } else if (type === 'warning') {
-          warningAlert.textContent = message;
-          warningAlert.style.display = 'block';
-      }
+    if (type === "success") {
+      successAlert.textContent = message;
+      successAlert.style.display = "block";
+    } else if (type === "error") {
+      errorAlert.textContent = message;
+      errorAlert.style.display = "block";
+    } else if (type === "warning") {
+      warningAlert.textContent = message;
+      warningAlert.style.display = "block";
+    }
 
-      setTimeout(() => {
-          successAlert.style.display = 'none';
-          errorAlert.style.display = 'none';
-          warningAlert.style.display = 'none';
-      }, 3000);
+    setTimeout(() => {
+      successAlert.style.display = "none";
+      errorAlert.style.display = "none";
+      warningAlert.style.display = "none";
+    }, 3000);
   }
-  
 
   function toggleNestedField(element) {
-      const parentDiv = element.parentElement;
-      parentDiv.classList.toggle('collapsed');
-      
-      // 更新图标方向
-      const icon = element.querySelector('.collapse-icon');
-      if (parentDiv.classList.contains('collapsed')) {
-          icon.style.transform = 'rotate(-90deg)';
-      } else {
-          icon.style.transform = 'rotate(0deg)';
-      }
+    const parentDiv = element.parentElement;
+    parentDiv.classList.toggle("collapsed");
+
+    // 更新图标方向
+    const icon = element.querySelector(".collapse-icon");
+    if (parentDiv.classList.contains("collapsed")) {
+      icon.style.transform = "rotate(-90deg)";
+    } else {
+      icon.style.transform = "rotate(0deg)";
+    }
   }
-  
 </script>
 {% endblock %}

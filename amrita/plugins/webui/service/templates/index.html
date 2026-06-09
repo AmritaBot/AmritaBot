@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
@@ -9,23 +9,48 @@
     <style>
       /* 登录页专属动画 — Tailwind 无法表达的关键帧 */
       @keyframes gradientBG {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
+        0% {
+          background-position: 0% 50%;
+        }
+        50% {
+          background-position: 100% 50%;
+        }
+        100% {
+          background-position: 0% 50%;
+        }
       }
       @keyframes popup {
-        0% { transform: scale(0.1) translateY(100px); opacity: 0; }
-        70% { transform: scale(1.1) translateY(-20px); opacity: 1; }
-        100% { transform: scale(1) translateY(0); opacity: 1; }
+        0% {
+          transform: scale(0.1) translateY(100px);
+          opacity: 0;
+        }
+        70% {
+          transform: scale(1.1) translateY(-20px);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1) translateY(0);
+          opacity: 1;
+        }
       }
       @keyframes float {
-        0% { transform: translateY(0) rotate(0deg); }
-        50% { transform: translateY(-20px) rotate(10deg); }
-        100% { transform: translateY(0) rotate(0deg); }
+        0% {
+          transform: translateY(0) rotate(0deg);
+        }
+        50% {
+          transform: translateY(-20px) rotate(10deg);
+        }
+        100% {
+          transform: translateY(0) rotate(0deg);
+        }
       }
       @keyframes shine {
-        0% { transform: translateX(-100%) rotate(45deg); }
-        100% { transform: translateX(100%) rotate(45deg); }
+        0% {
+          transform: translateX(-100%) rotate(45deg);
+        }
+        100% {
+          transform: translateX(100%) rotate(45deg);
+        }
       }
       .login-card {
         animation: popup 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
@@ -34,82 +59,127 @@
       .logo-circle::after {
         content: "";
         position: absolute;
-        top: -10px; left: -10px; right: -10px; bottom: -10px;
-        background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent);
+        top: -10px;
+        left: -10px;
+        right: -10px;
+        bottom: -10px;
+        background: linear-gradient(
+          45deg,
+          transparent,
+          rgba(255, 255, 255, 0.3),
+          transparent
+        );
         transform: rotate(45deg);
         animation: shine 3s infinite;
       }
       .dark .logo-circle::after {
-        background: linear-gradient(45deg, transparent, rgba(100,100,100,0.3), transparent);
+        background: linear-gradient(
+          45deg,
+          transparent,
+          rgba(100, 100, 100, 0.3),
+          transparent
+        );
       }
     </style>
   </head>
-  <body class="flex justify-center items-center h-screen overflow-hidden
-             bg-gradient-to-br from-rose-300 via-pink-200 to-purple-300
-             dark:from-slate-900 dark:via-purple-950 dark:to-slate-900
-             bg-[length:400%_400%] animate-[gradientBG_15s_ease-infinite]">
-
+  <body
+    class="flex justify-center items-center h-screen overflow-hidden bg-gradient-to-br from-rose-300 via-pink-200 to-purple-300 dark:from-slate-900 dark:via-purple-950 dark:to-slate-900 bg-[length:400%_400%] animate-[gradientBG_15s_ease-infinite]"
+  >
     <!-- Decorative floating elements -->
-    <div class="absolute top-[10%] left-[10%] w-20 h-20 bg-white/20 rounded-full animate-[float_6s_ease-in-out_infinite]"></div>
-    <div class="absolute bottom-[15%] right-[15%] w-[60px] h-[60px] bg-orange-200/30 rounded-[30%_70%_70%_30%/30%_30%_70%_70%] animate-[float_8s_ease-in-out_infinite_1s]"></div>
-    <div class="absolute top-[20%] right-[20%] w-10 h-10 bg-blue-200/30 rounded-full animate-[float_7s_ease-in-out_infinite_--0.5s]"></div>
+    <div
+      class="absolute top-[10%] left-[10%] w-20 h-20 bg-white/20 rounded-full animate-[float_6s_ease-in-out_infinite]"
+    ></div>
+    <div
+      class="absolute bottom-[15%] right-[15%] w-[60px] h-[60px] bg-orange-200/30 rounded-[30%_70%_70%_30%/30%_30%_70%_70%] animate-[float_8s_ease-in-out_infinite_1s]"
+    ></div>
+    <div
+      class="absolute top-[20%] right-[20%] w-10 h-10 bg-blue-200/30 rounded-full animate-[float_7s_ease-in-out_infinite_--0.5s]"
+    ></div>
 
     <!-- Login card -->
-    <div class="login-card glass-modal w-full max-w-[420px] p-9 rounded-2xl z-10
-                shadow-[0_10px_30px_rgba(164,93,181,0.3)]
-                dark:shadow-[0_10px_30px_rgba(100,50,120,0.3)]">
+    <div
+      class="login-card glass-modal w-full max-w-[420px] p-9 rounded-2xl z-10 shadow-[0_10px_30px_rgba(164,93,181,0.3)] dark:shadow-[0_10px_30px_rgba(100,50,120,0.3)]"
+    >
       <div class="text-center mb-8">
         {% if logo_url %}
-        <img src="{{ logo_url }}" alt="Amrita Logo" class="mx-auto mb-5" height="200" width="200" />
+        <img
+          src="{{ logo_url }}"
+          alt="Amrita Logo"
+          class="mx-auto mb-5"
+          height="200"
+          width="200"
+        />
         {% else %}
-        <div class="logo-circle relative w-[110px] h-[110px] rounded-full bg-gradient-to-br from-pink-400 to-pink-500
-                    dark:from-purple-600 dark:to-pink-600 text-white flex items-center justify-center
-                    mx-auto mb-5 text-3xl font-bold shadow-[0_5px_15px_rgba(255,117,140,0.4)] overflow-hidden">
+        <div
+          class="logo-circle relative w-[110px] h-[110px] rounded-full bg-gradient-to-br from-pink-400 to-pink-500 dark:from-purple-600 dark:to-pink-600 text-white flex items-center justify-center mx-auto mb-5 text-3xl font-bold shadow-[0_5px_15px_rgba(255,117,140,0.4)] overflow-hidden"
+        >
           A
         </div>
         {% endif %}
-        <h1 class="text-[28px] font-bold text-purple-700 dark:text-purple-400 mb-1">Amrita Dashboard</h1>
+        <h1
+          class="text-[28px] font-bold text-purple-700 dark:text-purple-400 mb-1"
+        >
+          Amrita Dashboard
+        </h1>
         <p class="text-sm text-gray-500 dark:text-gray-400">登录到Amrita</p>
       </div>
 
       <form action="/login" method="post">
         <div class="mb-6">
-          <label for="username" class="block mb-2 text-sm font-medium text-purple-700 dark:text-purple-400">用户名</label>
-          <input type="text" id="username" name="username" placeholder="请输入您的用户名"
-                 autocomplete="username" required
-                 class="w-full px-[18px] py-[14px] border-2 border-purple-200 dark:border-gray-600 rounded-xl text-base
-                        bg-white/80 dark:bg-dark-card/80 dark:text-gray-200 transition-all
-                        focus:border-purple-400 dark:focus:border-purple-500 focus:outline-none
-                        focus:shadow-[0_0_0_3px_rgba(159,120,255,0.2)] dark:focus:shadow-[0_0_0_3px_rgba(186,85,211,0.2)]" />
+          <label
+            for="username"
+            class="block mb-2 text-sm font-medium text-purple-700 dark:text-purple-400"
+            >用户名</label
+          >
+          <input
+            type="text"
+            id="username"
+            name="username"
+            placeholder="请输入您的用户名"
+            autocomplete="username"
+            required
+            class="w-full px-[18px] py-[14px] border-2 border-purple-200 dark:border-gray-600 rounded-xl text-base bg-white/80 dark:bg-dark-card/80 dark:text-gray-200 transition-all focus:border-purple-400 dark:focus:border-purple-500 focus:outline-none focus:shadow-[0_0_0_3px_rgba(159,120,255,0.2)] dark:focus:shadow-[0_0_0_3px_rgba(186,85,211,0.2)]"
+          />
         </div>
         <div class="mb-6">
-          <label for="password" class="block mb-2 text-sm font-medium text-purple-700 dark:text-purple-400">密码</label>
-          <input type="password" id="password" name="password" placeholder="请输入您的密码"
-                 autocomplete="current-password" required
-                 class="w-full px-[18px] py-[14px] border-2 border-purple-200 dark:border-gray-600 rounded-xl text-base
-                        bg-white/80 dark:bg-dark-card/80 dark:text-gray-200 transition-all
-                        focus:border-purple-400 dark:focus:border-purple-500 focus:outline-none
-                        focus:shadow-[0_0_0_3px_rgba(159,120,255,0.2)] dark:focus:shadow-[0_0_0_3px_rgba(186,85,211,0.2)]" />
+          <label
+            for="password"
+            class="block mb-2 text-sm font-medium text-purple-700 dark:text-purple-400"
+            >密码</label
+          >
+          <input
+            type="password"
+            id="password"
+            name="password"
+            placeholder="请输入您的密码"
+            autocomplete="current-password"
+            required
+            class="w-full px-[18px] py-[14px] border-2 border-purple-200 dark:border-gray-600 rounded-xl text-base bg-white/80 dark:bg-dark-card/80 dark:text-gray-200 transition-all focus:border-purple-400 dark:focus:border-purple-500 focus:outline-none focus:shadow-[0_0_0_3px_rgba(159,120,255,0.2)] dark:focus:shadow-[0_0_0_3px_rgba(186,85,211,0.2)]"
+          />
         </div>
-        <button type="submit"
-                class="relative overflow-hidden w-full py-[15px] rounded-xl text-base font-semibold text-white
-                       bg-gradient-to-r from-purple-400 to-purple-700 dark:from-pink-500 dark:to-purple-600
-                       shadow-[0_4px_10px_rgba(159,120,255,0.4)] dark:shadow-[0_4px_10px_rgba(186,85,211,0.4)]
-                       hover:-translate-y-0.5 hover:shadow-[0_6px_15px_rgba(159,120,255,0.5)]
-                       dark:hover:shadow-[0_6px_15px_rgba(186,85,211,0.5)]
-                       active:translate-y-0 transition-all">
+        <button
+          type="submit"
+          class="relative overflow-hidden w-full py-[15px] rounded-xl text-base font-semibold text-white bg-gradient-to-r from-purple-400 to-purple-700 dark:from-pink-500 dark:to-purple-600 shadow-[0_4px_10px_rgba(159,120,255,0.4)] dark:shadow-[0_4px_10px_rgba(186,85,211,0.4)] hover:-translate-y-0.5 hover:shadow-[0_6px_15px_rgba(159,120,255,0.5)] dark:hover:shadow-[0_6px_15px_rgba(186,85,211,0.5)] active:translate-y-0 transition-all"
+        >
           登录
-          <span class="absolute top-[-50%] left-[-60%] w-[20%] h-[200%] bg-white/30 dark:bg-white/10 rotate-[25deg] transition-all duration-600 group-hover:left-[120%]"></span>
+          <span
+            class="absolute top-[-50%] left-[-60%] w-[20%] h-[200%] bg-white/30 dark:bg-white/10 rotate-[25deg] transition-all duration-600 group-hover:left-[120%]"
+          ></span>
         </button>
       </form>
 
       <div class="flex justify-between mt-6">
-        <button onclick="window.location.href='/password-help'" class="bg-transparent border-none text-purple-500 dark:text-purple-400 text-sm px-3 py-2 rounded-md hover:text-purple-700 dark:hover:text-purple-300 hover:bg-purple-500/10 hover:-translate-y-0.5 transition-all cursor-pointer">
+        <button
+          onclick="window.location.href = '/password-help'"
+          class="bg-transparent border-none text-purple-500 dark:text-purple-400 text-sm px-3 py-2 rounded-md hover:text-purple-700 dark:hover:text-purple-300 hover:bg-purple-500/10 hover:-translate-y-0.5 transition-all cursor-pointer"
+        >
           忘记密码?
         </button>
       </div>
 
-      <p class="text-center mt-8 text-xs text-gray-400 dark:text-gray-600">&copy; 2023-2025 Amrita Dashboard. 使用AGPL-3.0许可证。</p>
+      <p class="text-center mt-8 text-xs text-gray-400 dark:text-gray-600">
+        &copy; 2023-2025 Amrita Dashboard. 使用AGPL-3.0许可证。
+      </p>
     </div>
 
     <script>
@@ -123,20 +193,38 @@
         }
       }
       function detectSystemTheme() {
-        return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        return window.matchMedia &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light";
       }
       document.addEventListener("DOMContentLoaded", function () {
         const saved = localStorage.getItem("theme");
         setTheme(saved || detectSystemTheme());
-        window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", e => {
-          if (!localStorage.getItem("theme")) setTheme(e.matches ? "dark" : "light");
-        });
+        window
+          .matchMedia("(prefers-color-scheme: dark)")
+          .addEventListener("change", (e) => {
+            if (!localStorage.getItem("theme"))
+              setTheme(e.matches ? "dark" : "light");
+          });
 
         const params = new URLSearchParams(window.location.search);
         if (params.get("error") === "auth_failed") {
-          Swal.fire({ title: "登录失败", text: "用户名或密码错误，请重试。", icon: "error", confirmButtonText: "确定" });
+          Swal.fire({
+            title: "登录失败",
+            text: "用户名或密码错误，请重试。",
+            icon: "error",
+            confirmButtonText: "确定",
+          });
         } else if (params.get("logout") === "success") {
-          Swal.fire({ title: "已退出", text: "您已成功退出登录。", icon: "success", confirmButtonText: "确定", timer: 2000, showConfirmButton: false });
+          Swal.fire({
+            title: "已退出",
+            text: "您已成功退出登录。",
+            icon: "success",
+            confirmButtonText: "确定",
+            timer: 2000,
+            showConfirmButton: false,
+          });
         }
       });
     </script>

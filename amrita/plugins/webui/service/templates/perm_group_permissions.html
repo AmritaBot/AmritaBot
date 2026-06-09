@@ -10,11 +10,13 @@ content %}
       <h4>权限组名称: {{ group_name }}</h4>
     </div>
     <div class="glass-card p-5 mt-4">
-      <div
-        class="flex justify-between items-center mb-4"
-      >
+      <div class="flex justify-between items-center mb-4">
         <h3 class="text-lg font-semibold dark:text-gray-100">权限组权限</h3>
-        <button type="button" class="px-4 py-2 rounded text-sm font-medium bg-success text-white hover:bg-green-700" id="add-permission">
+        <button
+          type="button"
+          class="px-4 py-2 rounded text-sm font-medium bg-success text-white hover:bg-green-700"
+          id="add-permission"
+        >
           <i class="fas fa-plus"></i> 添加权限
         </button>
       </div>
@@ -29,11 +31,17 @@ content %}
               value=""
             />
             <div class="flex gap-2">
-              <button type="submit" class="px-4 py-2 rounded text-sm font-medium bg-primary text-white hover:bg-primary-hover">
+              <button
+                type="submit"
+                class="px-4 py-2 rounded text-sm font-medium bg-primary text-white hover:bg-primary-hover"
+              >
                 <i class="fas fa-save"></i> 保存权限
               </button>
-              <a href="/users/permissions" class="px-4 py-2 rounded text-sm font-medium bg-gray-500 text-white hover:bg-gray-600">
-                  <i class="fas fa-arrow-left"></i> 返回
+              <a
+                href="/users/permissions"
+                class="px-4 py-2 rounded text-sm font-medium bg-gray-500 text-white hover:bg-gray-600"
+              >
+                <i class="fas fa-arrow-left"></i> 返回
               </a>
             </div>
           </div>
@@ -50,7 +58,8 @@ content %}
     const entryId = "perm-" + Date.now();
 
     const entryDiv = document.createElement("div");
-    entryDiv.className = "permission-entry flex flex-col gap-2 mb-3 p-2 rounded bg-gray-50 dark:bg-gray-800";
+    entryDiv.className =
+      "permission-entry flex flex-col gap-2 mb-3 p-2 rounded bg-gray-50 dark:bg-gray-800";
     entryDiv.id = entryId;
 
     entryDiv.innerHTML = `

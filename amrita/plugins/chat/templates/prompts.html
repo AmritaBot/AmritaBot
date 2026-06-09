@@ -362,18 +362,29 @@ extra_css %}
 </style>
 {% endblock %} {% block content %}
 <div class="config-container">
-  <div class="p-3 rounded mb-4 bg-green-100 border border-green-300 text-green-800 dark:bg-green-900/20 dark:border-green-800/30 dark:text-green-400" id="success-alert" style="display: none">
+  <div
+    class="p-3 rounded mb-4 bg-green-100 border border-green-300 text-green-800 dark:bg-green-900/20 dark:border-green-800/30 dark:text-green-400"
+    id="success-alert"
+    style="display: none"
+  >
     操作成功！
   </div>
 
-  <div class="p-3 rounded mb-4 bg-red-100 border border-red-300 text-red-800 dark:bg-red-900/20 dark:border-red-800/30 dark:text-red-400" id="error-alert" style="display: none">
+  <div
+    class="p-3 rounded mb-4 bg-red-100 border border-red-300 text-red-800 dark:bg-red-900/20 dark:border-red-800/30 dark:text-red-400"
+    id="error-alert"
+    style="display: none"
+  >
     操作失败，请重试。
   </div>
 
   <div class="prompts-header">
     <h1 class="text-2xl font-semibold text-primary">提示词预设管理</h1>
     <div class="flex gap-2">
-      <button class="px-4 py-2 rounded text-sm font-medium bg-primary text-white hover:bg-primary-hover" onclick="openCreateModal('group')">
+      <button
+        class="px-4 py-2 rounded text-sm font-medium bg-primary text-white hover:bg-primary-hover"
+        onclick="openCreateModal('group')"
+      >
         <i class="fas fa-plus"></i> 创建群组提示词
       </button>
       <button class="action-btn secondary" onclick="openCreateModal('private')">
@@ -452,7 +463,11 @@ extra_css %}
         <input type="hidden" id="promptType" name="type" />
         <input type="hidden" id="promptName" name="name" />
         <div class="mb-4">
-          <label class="block mb-1 font-medium text-gray-600 dark:text-gray-400 text-sm" for="promptNameInput">提示词名称</label>
+          <label
+            class="block mb-1 font-medium text-gray-600 dark:text-gray-400 text-sm"
+            for="promptNameInput"
+            >提示词名称</label
+          >
           <input
             type="text"
             class="input-glass"
@@ -462,7 +477,11 @@ extra_css %}
           />
         </div>
         <div class="mb-4">
-          <label class="block mb-1 font-medium text-gray-600 dark:text-gray-400 text-sm" for="promptText">提示词内容</label>
+          <label
+            class="block mb-1 font-medium text-gray-600 dark:text-gray-400 text-sm"
+            for="promptText"
+            >提示词内容</label
+          >
           <textarea
             class="form-control form-control-full"
             id="promptText"

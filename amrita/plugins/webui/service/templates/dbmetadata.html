@@ -8,7 +8,9 @@ endblock %} {% block extra_head %}
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
   {% if error %}
   <div class="glass-card p-5">
-    <h3 class="text-lg font-semibold mb-3 text-red-600 dark:text-red-400">错误</h3>
+    <h3 class="text-lg font-semibold mb-3 text-red-600 dark:text-red-400">
+      错误
+    </h3>
     <div class="info-item">
       <span class="text-sm text-gray-500 dark:text-gray-400">错误信息:</span>
       <span class="text-sm font-medium dark:text-gray-200">{{ error }}</span>
@@ -19,13 +21,18 @@ endblock %} {% block extra_head %}
   <div class="glass-card p-5">
     <div class="flex justify-between items-center mb-4">
       <h3 class="text-lg font-semibold dark:text-gray-100">数据库基本信息</h3>
-      <button onclick="location.reload()" class="px-3 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+      <button
+        onclick="location.reload()"
+        class="px-3 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+      >
         <i class="fas fa-sync-alt"></i> 刷新
       </button>
     </div>
     <div class="info-item">
       <span class="text-sm text-gray-500 dark:text-gray-400">数据库类型:</span>
-      <span class="text-sm font-medium dark:text-gray-200" id="db-type">{{ db_type }}</span>
+      <span class="text-sm font-medium dark:text-gray-200" id="db-type"
+        >{{ db_type }}</span
+      >
     </div>
     <div class="info-item">
       <span class="text-sm text-gray-500 dark:text-gray-400">数据库版本:</span>
@@ -48,7 +55,9 @@ endblock %} {% block extra_head %}
     {% if db_info.server_ip is not none %}
     <div class="info-item">
       <span class="text-sm text-gray-500 dark:text-gray-400">服务器IP:</span>
-      <span class="text-sm font-medium dark:text-gray-200" id="db-server-ip">{{ db_info.server_ip }}</span>
+      <span class="text-sm font-medium dark:text-gray-200" id="db-server-ip"
+        >{{ db_info.server_ip }}</span
+      >
     </div>
     {% endif %} {% if db_info.start_time is not none %}
     <div class="info-item">
@@ -72,13 +81,17 @@ endblock %} {% block extra_head %}
     </div>
     <div class="info-item">
       <span class="text-sm text-gray-500 dark:text-gray-400">总连接数:</span>
-      <span class="text-sm font-medium dark:text-gray-200" id="total-connections"
+      <span
+        class="text-sm font-medium dark:text-gray-200"
+        id="total-connections"
         >{{ connection_stats.total_connections or 0 }}</span
       >
     </div>
     <div class="info-item">
       <span class="text-sm text-gray-500 dark:text-gray-400">活跃连接数:</span>
-      <span class="text-sm font-medium dark:text-gray-200" id="active-connections"
+      <span
+        class="text-sm font-medium dark:text-gray-200"
+        id="active-connections"
         >{{ connection_stats.active_connections or 0 }}</span
       >
     </div>
@@ -97,7 +110,9 @@ endblock %} {% block extra_head %}
     </div>
     <div class="info-item">
       <span class="text-sm text-gray-500 dark:text-gray-400">连接利用率:</span>
-      <span class="text-sm font-medium dark:text-gray-200" id="connection-utilization"
+      <span
+        class="text-sm font-medium dark:text-gray-200"
+        id="connection-utilization"
         >{{
         "%.2f"|format(connection_stats.connection_utilization_percent|default(100)|float)
         }}%</span
@@ -105,7 +120,9 @@ endblock %} {% block extra_head %}
     </div>
     {% endif %} {% if connection_stats.longest_query_seconds is not none %}
     <div class="info-item">
-      <span class="text-sm text-gray-500 dark:text-gray-400">最长查询时间:</span>
+      <span class="text-sm text-gray-500 dark:text-gray-400"
+        >最长查询时间:</span
+      >
       <span class="text-sm font-medium dark:text-gray-200" id="longest-query"
         >{{ "%.2f"|format(connection_stats.longest_query_seconds|float)
         }}秒</span
@@ -114,7 +131,9 @@ endblock %} {% block extra_head %}
     {% endif %} {% if connection_stats.waiting_connections is not none %}
     <div class="info-item">
       <span class="text-sm text-gray-500 dark:text-gray-400">等待连接数:</span>
-      <span class="text-sm font-medium dark:text-gray-200" id="waiting-connections"
+      <span
+        class="text-sm font-medium dark:text-gray-200"
+        id="waiting-connections"
         >{{ connection_stats.waiting_connections }}</span
       >
     </div>
@@ -128,8 +147,12 @@ endblock %} {% block extra_head %}
     <h3 class="text-lg font-semibold mb-4 dark:text-gray-100">缓存效率</h3>
     {% if cache_efficiency.buffer_pool_hit_ratio is not none %}
     <div class="info-item">
-      <span class="text-sm text-gray-500 dark:text-gray-400">缓冲池命中率:</span>
-      <span class="text-sm font-medium dark:text-gray-200" id="buffer-pool-hit-ratio"
+      <span class="text-sm text-gray-500 dark:text-gray-400"
+        >缓冲池命中率:</span
+      >
+      <span
+        class="text-sm font-medium dark:text-gray-200"
+        id="buffer-pool-hit-ratio"
         >{{ "%.2f"|format(cache_efficiency.buffer_pool_hit_ratio|float)
         }}%</span
       >
@@ -172,7 +195,9 @@ endblock %} {% block extra_head %}
     {% endif %} {% if cache_efficiency.cache_used_percent is not none %}
     <div class="info-item">
       <span class="text-sm text-gray-500 dark:text-gray-400">缓存使用率:</span>
-      <span class="text-sm font-medium dark:text-gray-200" id="cache-used-percent"
+      <span
+        class="text-sm font-medium dark:text-gray-200"
+        id="cache-used-percent"
         >{{ "%.2f"|format(cache_efficiency.cache_used_percent|float) }}%</span
       >
     </div>
@@ -184,39 +209,45 @@ endblock %} {% block extra_head %}
 <div class="grid grid-cols-1 gap-5">
   <div class="glass-card p-5">
     <div class="flex justify-between items-center mb-4">
-      <h3 class="text-lg font-semibold dark:text-gray-100">表活动统计 (Top 10)</h3>
+      <h3 class="text-lg font-semibold dark:text-gray-100">
+        表活动统计 (Top 10)
+      </h3>
     </div>
-    <div class="overflow-x-auto rounded-lg"><table class="table-glass w-full">
-      <thead>
-        <tr>
-          <th>表名</th>
-          <th>全表扫描</th>
-          <th>插入行数</th>
-          <th>更新行数</th>
-          <th>删除行数</th>
-          <th>存活行数</th>
-          <th>大小(MB)</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for table in table_activity %}
-        <tr>
-          <td>{{ table.table_name }}</td>
-          <td>{{ table.full_scans or 0 }}</td>
-          <td>{{ table.rows_inserted or 0 }}</td>
-          <td>{{ table.rows_updated or 0 }}</td>
-          <td>{{ table.rows_deleted or 0 }}</td>
-          <td>{{ table.live_rows or 0 }}</td>
-          <td>
-            {{ "%.2f"|format(table.total_size_mb|default(0)|float) if
-            table.total_size_mb else 'N/A' }}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table></div>
+    <div class="overflow-x-auto rounded-lg">
+      <table class="table-glass w-full">
+        <thead>
+          <tr>
+            <th>表名</th>
+            <th>全表扫描</th>
+            <th>插入行数</th>
+            <th>更新行数</th>
+            <th>删除行数</th>
+            <th>存活行数</th>
+            <th>大小(MB)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for table in table_activity %}
+          <tr>
+            <td>{{ table.table_name }}</td>
+            <td>{{ table.full_scans or 0 }}</td>
+            <td>{{ table.rows_inserted or 0 }}</td>
+            <td>{{ table.rows_updated or 0 }}</td>
+            <td>{{ table.rows_deleted or 0 }}</td>
+            <td>{{ table.live_rows or 0 }}</td>
+            <td>
+              {{ "%.2f"|format(table.total_size_mb|default(0)|float) if
+              table.total_size_mb else 'N/A' }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
     {% if table_activity|length == 0 %}
-    <p class="p-4 text-center text-gray-500 dark:text-gray-400">暂无表活动数据</p>
+    <p class="p-4 text-center text-gray-500 dark:text-gray-400">
+      暂无表活动数据
+    </p>
     {% endif %}
   </div>
 </div>
@@ -225,37 +256,43 @@ endblock %} {% block extra_head %}
 <div class="grid grid-cols-1 gap-5">
   <div class="glass-card p-5">
     <div class="flex justify-between items-center mb-4">
-      <h3 class="text-lg font-semibold dark:text-gray-100">索引使用情况 (Top 10)</h3>
+      <h3 class="text-lg font-semibold dark:text-gray-100">
+        索引使用情况 (Top 10)
+      </h3>
     </div>
-    <div class="overflow-x-auto rounded-lg"><table class="table-glass w-full">
-      <thead>
-        <tr>
-          <th>索引名</th>
-          <th>表名</th>
-          <th>扫描次数</th>
-          <th>获取行数</th>
-          <th>大小(MB)</th>
-          <th>唯一性</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for idx in index_usage %}
-        <tr>
-          <td>{{ idx.index_name }}</td>
-          <td>{{ idx.table_name }}</td>
-          <td>{{ idx.scan_count or 0 }}</td>
-          <td>{{ idx.rows_fetched or 0 }}</td>
-          <td>
-            {{ "%.2f"|format(idx.size_mb|default(0)|float) if idx.size_mb else
-            'N/A' }}
-          </td>
-          <td>{{ '是' if idx.unique else '否' }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table></div>
+    <div class="overflow-x-auto rounded-lg">
+      <table class="table-glass w-full">
+        <thead>
+          <tr>
+            <th>索引名</th>
+            <th>表名</th>
+            <th>扫描次数</th>
+            <th>获取行数</th>
+            <th>大小(MB)</th>
+            <th>唯一性</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for idx in index_usage %}
+          <tr>
+            <td>{{ idx.index_name }}</td>
+            <td>{{ idx.table_name }}</td>
+            <td>{{ idx.scan_count or 0 }}</td>
+            <td>{{ idx.rows_fetched or 0 }}</td>
+            <td>
+              {{ "%.2f"|format(idx.size_mb|default(0)|float) if idx.size_mb else
+              'N/A' }}
+            </td>
+            <td>{{ '是' if idx.unique else '否' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
     {% if index_usage|length == 0 %}
-    <p class="p-4 text-center text-gray-500 dark:text-gray-400">暂无索引使用数据</p>
+    <p class="p-4 text-center text-gray-500 dark:text-gray-400">
+      暂无索引使用数据
+    </p>
     {% endif %}
   </div>
 </div>
@@ -264,41 +301,47 @@ endblock %} {% block extra_head %}
 <div class="grid grid-cols-1 gap-5">
   <div class="glass-card p-5">
     <div class="flex justify-between items-center mb-4">
-      <h3 class="text-lg font-semibold dark:text-gray-100">查询统计 (Top 10)</h3>
+      <h3 class="text-lg font-semibold dark:text-gray-100">
+        查询统计 (Top 10)
+      </h3>
     </div>
-    <div class="overflow-x-auto rounded-lg"><table class="table-glass w-full">
-      <thead>
-        <tr>
-          <th>查询文本</th>
-          <th>执行次数</th>
-          <th>平均耗时(ms)</th>
-          <th>总耗时(ms)</th>
-          <th>返回行数</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for query in query_stats %}
-        <tr>
-          <td class="break-all max-w-[200px]">
-            {{ query.query_text[:100] ~ '...' if query.query_text and
-            query.query_text|length > 100 else (query.query_text or 'N/A') }}
-          </td>
-          <td>{{ query.total_executions or 0 }}</td>
-          <td>
-            {{ "%.2f"|format(query.avg_time_ms|default(0)|float) if
-            query.avg_time_ms else 'N/A' }}
-          </td>
-          <td>
-            {{ "%.2f"|format(query.total_time_ms|default(0)|float) if
-            query.total_time_ms else 'N/A' }}
-          </td>
-          <td>{{ query.rows_returned or 0 }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table></div>
+    <div class="overflow-x-auto rounded-lg">
+      <table class="table-glass w-full">
+        <thead>
+          <tr>
+            <th>查询文本</th>
+            <th>执行次数</th>
+            <th>平均耗时(ms)</th>
+            <th>总耗时(ms)</th>
+            <th>返回行数</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for query in query_stats %}
+          <tr>
+            <td class="break-all max-w-[200px]">
+              {{ query.query_text[:100] ~ '...' if query.query_text and
+              query.query_text|length > 100 else (query.query_text or 'N/A') }}
+            </td>
+            <td>{{ query.total_executions or 0 }}</td>
+            <td>
+              {{ "%.2f"|format(query.avg_time_ms|default(0)|float) if
+              query.avg_time_ms else 'N/A' }}
+            </td>
+            <td>
+              {{ "%.2f"|format(query.total_time_ms|default(0)|float) if
+              query.total_time_ms else 'N/A' }}
+            </td>
+            <td>{{ query.rows_returned or 0 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
     {% if query_stats|length == 0 %}
-    <p class="p-4 text-center text-gray-500 dark:text-gray-400">暂无查询统计数据</p>
+    <p class="p-4 text-center text-gray-500 dark:text-gray-400">
+      暂无查询统计数据
+    </p>
     {% endif %}
   </div>
 </div>
@@ -309,26 +352,28 @@ endblock %} {% block extra_head %}
     <div class="flex justify-between items-center mb-4">
       <h3 class="text-lg font-semibold dark:text-gray-100">锁信息</h3>
     </div>
-    <div class="overflow-x-auto rounded-lg"><table class="table-glass w-full">
-      <thead>
-        <tr>
-          <th>锁类型</th>
-          <th>锁模式</th>
-          <th>锁数量</th>
-          <th>等待数量</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for lock in lock_info %}
-        <tr>
-          <td>{{ lock.lock_type }}</td>
-          <td>{{ lock.lock_mode }}</td>
-          <td>{{ lock.lock_count }}</td>
-          <td>{{ lock.waiting_count or 0 }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table></div>
+    <div class="overflow-x-auto rounded-lg">
+      <table class="table-glass w-full">
+        <thead>
+          <tr>
+            <th>锁类型</th>
+            <th>锁模式</th>
+            <th>锁数量</th>
+            <th>等待数量</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lock in lock_info %}
+          <tr>
+            <td>{{ lock.lock_type }}</td>
+            <td>{{ lock.lock_mode }}</td>
+            <td>{{ lock.lock_count }}</td>
+            <td>{{ lock.waiting_count or 0 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
     {% if lock_info|length == 0 %}
     <p class="p-4 text-center text-gray-500 dark:text-gray-400">暂无锁信息</p>
     {% endif %}

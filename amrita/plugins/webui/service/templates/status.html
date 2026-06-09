@@ -4,19 +4,23 @@ endblock %} {% block extra_head %}
   name="viewport"
   content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
 />
-{% endblock %}
-{% block content %}
+{% endblock %} {% block content %}
 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
   <div class="glass-card p-5">
     <div class="flex justify-between items-center mb-4">
       <h3 class="text-lg font-semibold dark:text-gray-100">机器人信息</h3>
-      <button onclick="refreshData()" class="px-3 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+      <button
+        onclick="refreshData()"
+        class="px-3 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+      >
         <i class="fas fa-sync-alt"></i> 刷新
       </button>
     </div>
     <div class="info-item">
       <span class="text-sm text-gray-500 dark:text-gray-400">ID:</span>
-      <span class="text-sm font-medium dark:text-gray-200" id="bot-id">{{ bot_static_info.id }}</span>
+      <span class="text-sm font-medium dark:text-gray-200" id="bot-id"
+        >{{ bot_static_info.id }}</span
+      >
     </div>
   </div>
   <div class="glass-card p-5">
@@ -25,11 +29,15 @@ endblock %} {% block extra_head %}
     </div>
     <div class="info-item">
       <span class="text-sm text-gray-500 dark:text-gray-400">Bot名称:</span>
-      <span class="text-sm font-medium dark:text-gray-200" id="bot-name">{{ bot_static_info.name }}</span>
+      <span class="text-sm font-medium dark:text-gray-200" id="bot-name"
+        >{{ bot_static_info.name }}</span
+      >
     </div>
     <div class="info-item">
       <span class="text-sm text-gray-500 dark:text-gray-400">操作系统:</span>
-      <span class="text-sm font-medium dark:text-gray-200" id="system-os">{{ system_info.os }}</span>
+      <span class="text-sm font-medium dark:text-gray-200" id="system-os"
+        >{{ system_info.os }}</span
+      >
     </div>
     <div class="info-item">
       <span class="text-sm text-gray-500 dark:text-gray-400">Python版本:</span>
@@ -63,7 +71,12 @@ endblock %} {% block extra_head %}
     <div class="flex flex-col items-center justify-center">
       <div class="relative w-full max-w-[200px] mx-auto">
         <canvas id="cpuGauge" class="w-full h-auto max-h-[150px]"></canvas>
-        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full font-bold text-xl dark:text-gray-200" id="cpu-value">0%</div>
+        <div
+          class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full font-bold text-xl dark:text-gray-200"
+          id="cpu-value"
+        >
+          0%
+        </div>
       </div>
     </div>
   </div>
@@ -72,7 +85,12 @@ endblock %} {% block extra_head %}
     <div class="flex flex-col items-center justify-center">
       <div class="relative w-full max-w-[200px] mx-auto">
         <canvas id="memoryGauge" class="w-full h-auto max-h-[150px]"></canvas>
-        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full font-bold text-xl dark:text-gray-200" id="memory-value">0%</div>
+        <div
+          class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full font-bold text-xl dark:text-gray-200"
+          id="memory-value"
+        >
+          0%
+        </div>
       </div>
     </div>
   </div>
@@ -81,7 +99,12 @@ endblock %} {% block extra_head %}
     <div class="flex flex-col items-center justify-center">
       <div class="relative w-full max-w-[200px] mx-auto">
         <canvas id="diskGauge" class="w-full h-auto max-h-[150px]"></canvas>
-        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full font-bold text-xl dark:text-gray-200" id="disk-value">0%</div>
+        <div
+          class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full font-bold text-xl dark:text-gray-200"
+          id="disk-value"
+        >
+          0%
+        </div>
       </div>
     </div>
   </div>
@@ -89,15 +112,23 @@ endblock %} {% block extra_head %}
     <h3 class="text-lg font-semibold mb-4 dark:text-gray-100">网络流量</h3>
     <div class="info-item">
       <span class="text-sm text-gray-500 dark:text-gray-400">发送:</span>
-      <span class="text-sm font-medium dark:text-gray-200" id="network-sent">0 KB</span>
+      <span class="text-sm font-medium dark:text-gray-200" id="network-sent"
+        >0 KB</span
+      >
     </div>
     <div class="info-item">
       <span class="text-sm text-gray-500 dark:text-gray-400">接收:</span>
-      <span class="text-sm font-medium dark:text-gray-200" id="network-received">0 KB</span>
+      <span class="text-sm font-medium dark:text-gray-200" id="network-received"
+        >0 KB</span
+      >
     </div>
     <div class="info-item">
       <span class="text-sm text-gray-500 dark:text-gray-400">Bot状态:</span>
-      <span class="text-sm font-medium dark:text-gray-200 text-green-600 dark:text-green-400" id="bot-status">在线</span>
+      <span
+        class="text-sm font-medium dark:text-gray-200 text-green-600 dark:text-green-400"
+        id="bot-status"
+        >在线</span
+      >
     </div>
   </div>
 </div>
@@ -231,16 +262,15 @@ endblock %} {% block extra_head %}
       updateGauge(diskGauge, data.disk_usage);
 
       document.getElementById("cpu-value").textContent = `${data.cpu_usage}%`;
-      document.getElementById(
-        "memory-value"
-      ).textContent = `${data.memory_usage}%`;
+      document.getElementById("memory-value").textContent =
+        `${data.memory_usage}%`;
       document.getElementById("disk-value").textContent = `${data.disk_usage}%`;
 
       document.getElementById("network-sent").textContent = formatBytes(
-        data.network_io.sent
+        data.network_io.sent,
       );
       document.getElementById("network-received").textContent = formatBytes(
-        data.network_io.received
+        data.network_io.received,
       );
 
       const statusElement = document.getElementById("bot-status");

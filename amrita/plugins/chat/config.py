@@ -16,21 +16,12 @@ from amrita_core.config import (
     AmritaConfig as AmritaCoreConfig,
 )
 from amrita_core.config import (
-    BuiltinAgentConfig,
-)
-from amrita_core.config import (
-    CookieConfig as CoreCookieConfig,
-)
-from amrita_core.config import (
-    FunctionConfig as CoreFunctionConfig,
-)
-from amrita_core.config import (
     LLMConfig as CoreLLMConfig,
 )
 from nonebot import get_driver, logger
 from nonebot_plugin_uniconf import EnvfulConfigManager
 from nonebot_plugin_uniconf.manager import replace_env_vars
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing_extensions import final, override
 
 from amrita.config_manager import UniConfigManager
@@ -49,10 +40,7 @@ _cached_pattern: re.Pattern[str] | None = None
 
 
 class ToolsConfig(BaseModel):
-    use_minimal_context: bool = Field(
-        default=True,
-        description="是否使用最小上下文，即使用系统prompt+用户最后一条消息（关闭此选项将使用消息列表的所有上下文，在Agent工作流执行中可能会消耗大量Tokens，启用此选项可能会有效降低Tokens使用量）",
-    )
+    # ── Chat 插件独有（Core 已覆盖的字段移到 core.builtin / core.function_config）──
     enable_report: bool = Field(default=True, description="是否启用内容审查系统")
     report_exclude_system_prompt: bool = Field(
         default=False,
@@ -71,39 +59,6 @@ class ToolsConfig(BaseModel):
     )
     require_tools: bool = Field(
         default=False, description="是否强制要求每次调用至少使用一个工具"
-    )
-    agent_tool_call_limit: int = Field(
-        default=10, description="智能体模式下的工具调用限制"
-    )
-    agent_tool_call_notice: Literal["hide", "notify"] = Field(
-        default="hide",
-        description="智能体模式下的工具调用情况提示方式，hide为隐藏，notify为通知",
-    )
-    agent_thought_mode: Literal[
-        "reasoning", "chat", "reasoning-required", "reasoning-optional"
-    ] = Field(
-        default="chat",
-        description="智能体模式下的思考模式，reasoning模式会先执行思考过程，然后执行任务；"
-        "reasoning-required要求每次Tool Calling都执行任务分析；"
-        "reasoning-optional不要求reasoning，但是允许reasoning；"
-        "chat模式会直接执行任务",
-    )
-    agent_reasoning_hide: bool = Field(
-        default=False, description="是否隐藏智能体模式下的思考过程"
-    )
-    agent_middle_message: bool = Field(
-        default=True, description="是否在智能体模式下允许Agent向用户发送中间消息"
-    )
-    agent_mcp_client_enable: bool = Field(
-        default=False, description="是否启用MCP客户端"
-    )
-    agent_mcp_server_scripts: list[str] = Field(
-        default=[], description="MCP服务端脚本列表"
-    )
-    # 添加Core配置中FunctionConfig的tool_calling_mode
-    tool_calling_mode: Literal["agent", "rag", "none"] = Field(
-        default="agent",
-        description="工具调用模式，决定是否使用Agent或RAG调用工具",
     )
 
 
@@ -131,6 +86,14 @@ class AutoReplyConfig(BaseModel):
 
 
 class FunctionConfig(BaseModel):
+    message_type: Literal["xml", "legacy"] = Field(
+        default="legacy",
+        description=(
+            "消息格式类型：\n"
+            '  xml    — <msg role="群主" name="张三" uid="12345">\n{内容}\n</msg>（结构清晰但费tokens）\n'
+            "  legacy — [群主][张三（12345）]说:内容（紧凑但LLM易误解析）"
+        ),
+    )
     chat_pending_mode: Literal["single", "queue", "single_with_report"] = Field(
         default="queue",
         description="聊天时，如果同一个Session并发调用但是上一条消息没有处理完时插件的行为。\n"
@@ -183,19 +146,6 @@ class PresetSwitch(BaseModel):
     # TODO: 完成hook适配
 
 
-class CookieModel(BaseModel):
-    cookie: str = Field(default="", description="用于安全检测的Cookie字符串")
-    enable_cookie: bool = Field(default=False, description="是否启用Cookie泄露检测机制")
-
-    @property
-    def block_msg(self) -> list[str]:
-        return ConfigManager().config.llm.block_msg
-
-    @block_msg.setter
-    def block_msg(self, value: list[str]):
-        ConfigManager().config.llm.block_msg = value
-
-
 class ExtendConfig(BaseModel):
     say_after_self_msg_be_deleted: bool = Field(
         default=False, description="消息被撤回后是否自动回复"
@@ -245,31 +195,9 @@ class UsageLimitConfig(BaseModel):
 
 
 class LLM_Config(BaseModel):
+    # ── Chat 插件独有（Core 已覆盖的字段如 memory_length_limit 等已移至 core.llm）──
     tools: ToolsConfig = Field(default=ToolsConfig(), description="工具调用子系统")
     stream: bool = Field(default=False, description="是否启用流式响应（逐字输出）")
-    memory_length_limit: int = Field(default=50, description="记忆上下文的最大消息数量")
-    max_tokens: int = Field(default=100, description="单次回复生成的最大token数")
-    tokens_count_mode: Literal["word", "bpe", "char"] = Field(
-        default="bpe", description="Token计算模式：bpe(子词)/word(词语)/char(字符)"
-    )
-    enable_tokens_limit: bool = Field(
-        default=True, description="是否启用上下文长度限制"
-    )
-    session_tokens_windows: int = Field(default=5000, description="会话tokens窗口大小")
-    llm_timeout: int = Field(default=60, description="API请求超时时间（秒）")
-    auto_retry: bool = Field(default=True, description="请求失败时自动重试")
-    max_retries: int = Field(default=3, description="最大重试次数")
-    enable_memory_abstract: bool = Field(
-        default=True,
-        description="是否启用上下文记忆摘要(将删除上下文替换为一个摘要插入到system instruction中)",
-    )
-    memory_abstract_proportion: float = Field(
-        default=15e-2, description="上下文摘要比例(0.15=15%)"
-    )
-    enable_multi_modal: bool = Field(
-        default=True,
-        description="是否启用多模态支持（目前仅支持图像）",
-    )
     block_msg: list[str] = Field(
         default=["你好，这个问题我暂时无法处理，请稍后再试。"],
         description="触发安全熔断时随机返回的提示消息",
@@ -281,6 +209,13 @@ class LLM_Config(BaseModel):
 
 
 class Config(BaseModel):
+    # ── 直接嵌入 Core 配置 ──
+    core: AmritaCoreConfig = Field(
+        default_factory=AmritaCoreConfig,
+        description="Amrita Core 原生配置（与 chat 插件共享）。写入时自动同步到 Core 全局单例。",
+    )
+
+    # ── Chat 插件独有字段 ──
     preset_extension: PresetSwitch = Field(
         default=PresetSwitch(), description="预设模型扩展配置"
     )
@@ -288,9 +223,6 @@ class Config(BaseModel):
         default=ModelPreset(), description="默认预设配置"
     )
     session: SessionConfig = Field(default=SessionConfig(), description="会话管理配置")
-    cookies: CookieModel = Field(
-        default=CookieModel(), description="电子水印检测功能配置"
-    )
     autoreply: AutoReplyConfig = Field(
         default=AutoReplyConfig(), description="自动回复设置"
     )
@@ -315,6 +247,91 @@ class Config(BaseModel):
         default="default", description="私聊场景使用的提示词模板名称"
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_old_config(cls, data: Any) -> Any:
+        """
+        迁移旧版 flat 配置到 core 嵌入结构。
+
+        旧 TOML 格式 (无 core 键):
+            { "llm": { "memory_length_limit": ..., ... },
+              "cookies": { "cookie": ..., "enable_cookie": ... },
+              "llm.tools": { "tool_calling_mode": ..., ... } }
+
+        新 TOML 格式 (有 core 键则跳过):
+            { "core": { "llm": {...}, "cookie": {...}, "builtin": {...}, "function_config": {...} },
+              "llm": { "block_msg": ..., "agent_strategy": ..., "stream": ..., "tools": {<chat-only>} },
+              ... }
+        """
+        if not isinstance(data, dict):
+            return data
+        if "core" in data:
+            return data  # 已迁移
+
+        core_data: dict[str, Any] = {}
+
+        # cookies → core.cookie
+        if "cookies" in data:
+            cookies = data.pop("cookies")
+            if isinstance(cookies, dict):
+                core_data["cookie"] = {
+                    k: v
+                    for k, v in {
+                        "enable_cookie": cookies.get("enable_cookie", False),
+                        "cookie": cookies.get("cookie", ""),
+                    }.items()
+                    if v is not None
+                }
+
+        # llm.* → core.llm (CoreLLMConfig fields)
+        if "llm" in data and isinstance(data["llm"], dict):
+            llm = data["llm"]
+            core_llm: dict[str, Any] = {}
+            for field_name in CoreLLMConfig.model_fields:
+                if field_name in llm:
+                    val = llm.pop(field_name)
+                    if val is not None:
+                        core_llm[field_name] = val
+            if core_llm:
+                core_data["llm"] = core_llm
+
+            # llm.tools.* → core.builtin & core.function_config
+            if "tools" in llm and isinstance(llm["tools"], dict):
+                tools = llm["tools"]
+                tools.pop("use_minimal_context", None)
+                tools.pop("agent_tool_call_limit", None)
+
+                builtin = {
+                    "tool_calling_mode": tools.pop("tool_calling_mode", "agent"),
+                    "agent_tool_call_notice": tools.pop(
+                        "agent_tool_call_notice", "hide"
+                    ),
+                    "agent_thought_mode": tools.pop("agent_thought_mode", "chat"),
+                    "agent_reasoning_hide": tools.pop("agent_reasoning_hide", False),
+                }
+                core_data["builtin"] = {
+                    k: v for k, v in builtin.items() if v is not None
+                }
+
+                func_cfg = {
+                    "use_minimal_context": tools.pop("use_minimal_context", True),
+                    "agent_tool_call_limit": tools.pop("agent_tool_call_limit", 10),
+                    "agent_middle_message": tools.pop("agent_middle_message", True),
+                    "agent_mcp_client_enable": tools.pop(
+                        "agent_mcp_client_enable", False
+                    ),
+                    "agent_mcp_server_scripts": tools.pop(
+                        "agent_mcp_server_scripts", []
+                    ),
+                }
+                core_data["function_config"] = {
+                    k: v for k, v in func_cfg.items() if v is not None
+                }
+
+        if core_data:
+            data["core"] = core_data
+        return data
+
     @classmethod
     def load_from_toml(cls, path: Path) -> "Config":
         """从 TOML 文件加载配置"""
@@ -326,11 +343,11 @@ class Config(BaseModel):
 
     def validate_value(self):
         """校验配置"""
-        if self.llm.max_tokens <= 0:  # 更新配置路径
+        if self.core.llm.max_tokens <= 0:
             raise ValueError("max_tokens必须大于零!")
-        if self.llm.llm_timeout <= 0:  # 更新配置路径
+        if self.core.llm.llm_timeout <= 0:
             raise ValueError("LLM请求超时时间必须大于零！")
-        if self.llm.session_tokens_windows <= 0:
+        if self.core.llm.session_tokens_windows <= 0:
             raise ValueError("上下文最大Tokens限制必须大于零！")
         if self.session.session_control:
             if self.session.session_control_history <= 0:
@@ -348,42 +365,12 @@ class Config(BaseModel):
     def save_to_toml(self, path: Path):
         """保存配置到 TOML 文件"""
         with path.open("w", encoding="utf-8") as f:
-            f.write(tomli_w.dumps(self.model_dump()))
+            f.write(tomli_w.dumps(self.model_dump(exclude_none=True)))
 
-    def to_core_config(self) -> AmritaCoreConfig:
-        return AmritaCoreConfig(
-            builtin=BuiltinAgentConfig(
-                tool_calling_mode=self.llm.tools.tool_calling_mode,
-                agent_tool_call_notice=self.llm.tools.agent_tool_call_notice,
-                agent_thought_mode=self.llm.tools.agent_thought_mode,
-                agent_reasoning_hide=self.llm.tools.agent_reasoning_hide,
-            ),
-            function_config=CoreFunctionConfig(
-                use_minimal_context=self.llm.tools.use_minimal_context,
-                agent_tool_call_limit=self.llm.tools.agent_tool_call_limit,
-                agent_middle_message=self.llm.tools.agent_middle_message,
-                agent_mcp_client_enable=self.llm.tools.agent_mcp_client_enable,
-                agent_mcp_server_scripts=self.llm.tools.agent_mcp_server_scripts,
-            ),
-            llm=CoreLLMConfig(
-                require_tools=self.llm.tools.require_tools,
-                memory_length_limit=self.llm.memory_length_limit,
-                max_tokens=self.llm.max_tokens,
-                tokens_count_mode=self.llm.tokens_count_mode,
-                enable_tokens_limit=self.llm.enable_tokens_limit,
-                session_tokens_windows=self.llm.session_tokens_windows,
-                llm_timeout=self.llm.llm_timeout,
-                auto_retry=self.llm.auto_retry,
-                max_retries=self.llm.max_retries,
-                enable_memory_abstract=self.llm.enable_memory_abstract,
-                memory_abstract_proportion=self.llm.memory_abstract_proportion,
-                enable_multi_modal=self.llm.enable_multi_modal,
-            ),
-            cookie=CoreCookieConfig(
-                enable_cookie=self.cookies.enable_cookie,
-                cookie=self.cookies.cookie,
-            ),
-        )
+    def model_dump(self, **kwargs: Any) -> dict[str, Any]:
+        """覆盖 model_dump，默认排除 None 值以兼容 TOML 序列化。"""
+        kwargs.setdefault("exclude_none", True)
+        return super().model_dump(**kwargs)
 
 
 @dataclass
@@ -434,7 +421,7 @@ class ConfigManager(EnvfulConfigManager[Config]):
     @override
     def _update_cache(self, value: Config | None = None):
         super()._update_cache(value)
-        set_config(self.config.to_core_config())
+        set_config(self.config.core)
 
     async def __apost_init__(self):
         await self.load()

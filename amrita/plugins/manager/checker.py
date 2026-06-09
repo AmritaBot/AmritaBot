@@ -83,7 +83,9 @@ class APICalledRepo:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._repo = defaultdict(lambda: (0, 0))
-            cls._lock_pool = WeakValueLRUCache(1024, True)
+            cls._lock_pool = WeakValueLRUCache[str, aiologic.Lock](
+                capacity=1024, loose_mode=True
+            )
         return cls._instance
 
     async def push(self, api: str, is_success: bool):

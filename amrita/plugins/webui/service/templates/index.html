@@ -1,57 +1,13 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Amrita Dashboard - Login</title>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="/static/css/dist.css" />
     <style>
-      :root {
-        --primary-color: #8a2be2;
-        --secondary-color: #9370db;
-        --accent-color: #ba55d3;
-        --bg-color: #f8f9fa;
-        --text-color: #333;
-        --text-light: #fff;
-        --card-bg: #ffffff;
-        --border-color: #e0d6ff;
-        --input-bg: rgba(255, 255, 255, 0.8);
-
-        --dark-bg-color: #1a1a1a;
-        --dark-text-color: #f0f0f0;
-        --dark-card-bg: #252525;
-        --dark-border-color: #444;
-        --dark-input-bg: rgba(37, 37, 37, 0.8);
-        
-        /* 毛玻璃效果变量 */
-        --blur-intensity: 12px;
-        --glass-opacity: 0.65;
-        --glass-opacity-mobile: 0.2;
-      }
-
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-        font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
-      }
-
-      body {
-        background: linear-gradient(-45deg, #ff9a9e, #fad0c4, #fbc2eb, #a6c1ee);
-        background-size: 400% 400%;
-        height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        animation: gradientBG 15s ease infinite;
-        overflow: hidden;
-      }
-
-      body.dark-mode {
-        background: linear-gradient(-45deg, #2c1a2c, #2a1f2a, #251a25, #1a1a2c);
-        background-size: 400% 400%;
-      }
-
+      /* 登录页专属动画 — Tailwind 无法表达的关键帧 */
       @keyframes gradientBG {
         0% {
           background-position: 0% 50%;
@@ -63,7 +19,6 @@
           background-position: 0% 50%;
         }
       }
-
       @keyframes popup {
         0% {
           transform: scale(0.1) translateY(100px);
@@ -78,42 +33,6 @@
           opacity: 1;
         }
       }
-
-      .acgn-decoration {
-        position: absolute;
-        z-index: 0;
-      }
-
-      .decoration-1 {
-        top: 10%;
-        left: 10%;
-        width: 80px;
-        height: 80px;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 50%;
-        animation: float 6s ease-in-out infinite;
-      }
-
-      .decoration-2 {
-        bottom: 15%;
-        right: 15%;
-        width: 60px;
-        height: 60px;
-        background: rgba(255, 218, 185, 0.3);
-        border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
-        animation: float 8s ease-in-out infinite 1s;
-      }
-
-      .decoration-3 {
-        top: 20%;
-        right: 20%;
-        width: 40px;
-        height: 40px;
-        background: rgba(173, 216, 230, 0.3);
-        border-radius: 50%;
-        animation: float 7s ease-in-out infinite 0.5s;
-      }
-
       @keyframes float {
         0% {
           transform: translateY(0) rotate(0deg);
@@ -125,53 +44,18 @@
           transform: translateY(0) rotate(0deg);
         }
       }
-
-      .login-container {
-        background-color: rgba(255, 255, 255, var(--glass-opacity));
-        border-radius: 20px;
-        box-shadow: 0 10px 30px rgba(164, 93, 181, 0.3);
-        width: 100%;
-        max-width: 420px;
-        padding: 35px;
-        position: relative;
-        z-index: 1;
-        backdrop-filter: blur(var(--blur-intensity));
-        -webkit-backdrop-filter: blur(var(--blur-intensity));
-        border: 1px solid rgba(255, 255, 255, 0.5);
-
+      @keyframes shine {
+        0% {
+          transform: translateX(-100%) rotate(45deg);
+        }
+        100% {
+          transform: translateX(100%) rotate(45deg);
+        }
+      }
+      .login-card {
         animation: popup 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         opacity: 0;
-        transform: scale(0.1) translateY(100px);
       }
-
-      body.dark-mode .login-container {
-        background-color: rgba(37, 37, 37, var(--glass-opacity));
-        box-shadow: 0 10px 30px rgba(100, 50, 120, 0.3);
-        border: 1px solid rgba(100, 100, 100, 0.5);
-      }
-
-      .logo-section {
-        text-align: center;
-        margin-bottom: 30px;
-      }
-
-      .logo-circle {
-        width: 110px;
-        height: 110px;
-        background: linear-gradient(135deg, #ff7eb3, #ff758c);
-        color: white;
-        border-radius: 50%;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        margin: 0 auto 20px;
-        font-size: 32px;
-        font-weight: bold;
-        box-shadow: 0 5px 15px rgba(255, 117, 140, 0.4);
-        position: relative;
-        overflow: hidden;
-      }
-
       .logo-circle::after {
         content: "";
         position: absolute;
@@ -188,8 +72,7 @@
         transform: rotate(45deg);
         animation: shine 3s infinite;
       }
-
-      body.dark-mode .logo-circle::after {
+      .dark .logo-circle::after {
         background: linear-gradient(
           45deg,
           transparent,
@@ -197,236 +80,57 @@
           transparent
         );
       }
-
-      @keyframes shine {
-        0% {
-          transform: translateX(-100%) rotate(45deg);
-        }
-        100% {
-          transform: translateX(100%) rotate(45deg);
-        }
-      }
-
-      h1 {
-        color: #6a40bf;
-        font-size: 28px;
-        font-weight: 700;
-        margin-bottom: 5px;
-        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
-      }
-
-      body.dark-mode h1 {
-        color: #ba55d3;
-        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
-      }
-
-      .subtitle {
-        color: #888;
-        font-size: 14px;
-        margin-bottom: 10px;
-      }
-
-      body.dark-mode .subtitle {
-        color: #aaa;
-      }
-
-      .form-group {
-        margin-bottom: 25px;
-        position: relative;
-      }
-
-      label {
-        display: block;
-        margin-bottom: 8px;
-        color: #6a40bf;
-        font-weight: 500;
-        font-size: 14px;
-      }
-
-      body.dark-mode label {
-        color: #ba55d3;
-      }
-
-      input[type="text"],
-      input[type="password"] {
-        width: 100%;
-        padding: 14px 18px;
-        border: 2px solid #e0d6ff;
-        border-radius: 10px;
-        font-size: 16px;
-        transition: all 0.3s ease;
-        background-color: rgba(255, 255, 255, 0.8);
-      }
-
-      body.dark-mode input[type="text"],
-      body.dark-mode input[type="password"] {
-        border: 2px solid #444;
-        background-color: rgba(37, 37, 37, 0.8);
-        color: #f0f0f0;
-      }
-
-      input[type="text"]:focus,
-      input[type="password"]:focus {
-        border-color: #9f78ff;
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(159, 120, 255, 0.2);
-      }
-
-      body.dark-mode input[type="text"]:focus,
-      body.dark-mode input[type="password"]:focus {
-        border-color: #ba55d3;
-        box-shadow: 0 0 0 3px rgba(186, 85, 211, 0.2);
-      }
-
-      .login-btn {
-        background: linear-gradient(to right, #9f78ff, #6a40bf);
-        color: white;
-        border: none;
-        padding: 15px;
-        width: 100%;
-        border-radius: 10px;
-        font-size: 16px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        font-weight: 600;
-        box-shadow: 0 4px 10px rgba(159, 120, 255, 0.4);
-        position: relative;
-        overflow: hidden;
-      }
-
-      body.dark-mode .login-btn {
-        background: linear-gradient(to right, #ba55d3, #8a2be2);
-        box-shadow: 0 4px 10px rgba(186, 85, 211, 0.4);
-      }
-
-      .login-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 15px rgba(159, 120, 255, 0.5);
-      }
-
-      body.dark-mode .login-btn:hover {
-        box-shadow: 0 6px 15px rgba(186, 85, 211, 0.5);
-      }
-
-      .login-btn:active {
-        transform: translateY(0);
-      }
-
-      .login-btn::after {
-        content: "";
-        position: absolute;
-        top: -50%;
-        left: -60%;
-        width: 20%;
-        height: 200%;
-        background: rgba(255, 255, 255, 0.3);
-        transform: rotate(25deg);
-        transition: all 0.6s;
-      }
-
-      body.dark-mode .login-btn::after {
-        background: rgba(100, 100, 100, 0.3);
-      }
-
-      .login-btn:hover::after {
-        left: 120%;
-      }
-
-      .button-extensions {
-        margin-top: 25px;
-        display: flex;
-        justify-content: space-between;
-      }
-
-      .extension-btn {
-        background: none;
-        border: none;
-        color: #9f78ff;
-        cursor: pointer;
-        font-size: 14px;
-        padding: 8px 12px;
-        border-radius: 6px;
-        transition: all 0.3s ease;
-      }
-
-      body.dark-mode .extension-btn {
-        color: #ba55d3;
-      }
-
-      .extension-btn:hover {
-        color: #6a40bf;
-        background-color: rgba(159, 120, 255, 0.1);
-        transform: translateY(-2px);
-      }
-
-      body.dark-mode .extension-btn:hover {
-        color: #8a2be2;
-        background-color: rgba(186, 85, 211, 0.1);
-      }
-
-      .footer {
-        text-align: center;
-        margin-top: 30px;
-        color: #aaa;
-        font-size: 13px;
-      }
-
-      body.dark-mode .footer {
-        color: #888;
-      }
-
-      /* 响应式调整：移动端降低毛玻璃透明度 */
-      @media (max-width: 768px) {
-        .login-container {
-          background-color: rgba(255, 255, 255, var(--glass-opacity-mobile));
-        }
-        
-        body.dark-mode .login-container {
-          background-color: rgba(37, 37, 37, var(--glass-opacity-mobile));
-        }
-      }
-
-      @media (max-width: 480px) {
-        .login-container {
-          padding: 25px;
-          margin: 0 15px;
-        }
-
-        .logo-circle {
-          width: 90px;
-          height: 90px;
-          font-size: 26px;
-        }
-
-        h1 {
-          font-size: 24px;
-        }
-      }
     </style>
   </head>
-  <body>
-    <div class="acgn-decoration decoration-1"></div>
-    <div class="acgn-decoration decoration-2"></div>
-    <div class="acgn-decoration decoration-3"></div>
-    <div class="login-container">
-      <div class="logo-section">
+  <body
+    class="flex justify-center items-center h-screen overflow-hidden bg-gradient-to-br from-rose-300 via-pink-200 to-purple-300 dark:from-slate-900 dark:via-purple-950 dark:to-slate-900 bg-[length:400%_400%] animate-[gradientBG_15s_ease-infinite]"
+  >
+    <!-- Decorative floating elements -->
+    <div
+      class="absolute top-[10%] left-[10%] w-20 h-20 bg-white/20 rounded-full animate-[float_6s_ease-in-out_infinite]"
+    ></div>
+    <div
+      class="absolute bottom-[15%] right-[15%] w-[60px] h-[60px] bg-orange-200/30 rounded-[30%_70%_70%_30%/30%_30%_70%_70%] animate-[float_8s_ease-in-out_infinite_1s]"
+    ></div>
+    <div
+      class="absolute top-[20%] right-[20%] w-10 h-10 bg-blue-200/30 rounded-full animate-[float_7s_ease-in-out_infinite_--0.5s]"
+    ></div>
+
+    <!-- Login card -->
+    <div
+      class="login-card glass-modal w-full max-w-[420px] p-9 rounded-2xl z-10 shadow-[0_10px_30px_rgba(164,93,181,0.3)] dark:shadow-[0_10px_30px_rgba(100,50,120,0.3)]"
+    >
+      <div class="text-center mb-8">
         {% if logo_url %}
         <img
           src="{{ logo_url }}"
           alt="Amrita Logo"
-          class="logo"
+          class="mx-auto mb-5"
           height="200"
           width="200"
         />
         {% else %}
-        <div class="logo-circle">A</div>
+        <div
+          class="logo-circle relative w-[110px] h-[110px] rounded-full bg-gradient-to-br from-pink-400 to-pink-500 dark:from-purple-600 dark:to-pink-600 text-white flex items-center justify-center mx-auto mb-5 text-3xl font-bold shadow-[0_5px_15px_rgba(255,117,140,0.4)] overflow-hidden"
+        >
+          A
+        </div>
         {% endif %}
-        <h1>Amrita Dashboard</h1>
-        <div class="subtitle">登录到Amrita</div>
+        <h1
+          class="text-[28px] font-bold text-purple-700 dark:text-purple-400 mb-1"
+        >
+          Amrita Dashboard
+        </h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400">登录到Amrita</p>
       </div>
+
       <form action="/login" method="post">
-        <div class="form-group">
-          <label for="username">用户名</label>
+        <div class="mb-6">
+          <label
+            for="username"
+            class="block mb-2 text-sm font-medium text-purple-700 dark:text-purple-400"
+            >用户名</label
+          >
           <input
             type="text"
             id="username"
@@ -434,10 +138,15 @@
             placeholder="请输入您的用户名"
             autocomplete="username"
             required
+            class="w-full px-[18px] py-[14px] border-2 border-purple-200 dark:border-gray-600 rounded-xl text-base bg-white/80 dark:bg-dark-card/80 dark:text-gray-200 transition-all focus:border-purple-400 dark:focus:border-purple-500 focus:outline-none focus:shadow-[0_0_0_3px_rgba(159,120,255,0.2)] dark:focus:shadow-[0_0_0_3px_rgba(186,85,211,0.2)]"
           />
         </div>
-        <div class="form-group">
-          <label for="password">密码</label>
+        <div class="mb-6">
+          <label
+            for="password"
+            class="block mb-2 text-sm font-medium text-purple-700 dark:text-purple-400"
+            >密码</label
+          >
           <input
             type="password"
             id="password"
@@ -445,87 +154,78 @@
             placeholder="请输入您的密码"
             autocomplete="current-password"
             required
+            class="w-full px-[18px] py-[14px] border-2 border-purple-200 dark:border-gray-600 rounded-xl text-base bg-white/80 dark:bg-dark-card/80 dark:text-gray-200 transition-all focus:border-purple-400 dark:focus:border-purple-500 focus:outline-none focus:shadow-[0_0_0_3px_rgba(159,120,255,0.2)] dark:focus:shadow-[0_0_0_3px_rgba(186,85,211,0.2)]"
           />
         </div>
-        <button type="submit" class="login-btn">登录</button>
-        <div class="button-extensions">
-          <a href="/password-help" class="extension-btn">忘记密码?</a>
-          <a href="https://github.com/AmritaBot/Amrita" class="extension-btn">GitHub</a>
-        </div>
+        <button
+          type="submit"
+          class="relative overflow-hidden w-full py-[15px] rounded-xl text-base font-semibold text-white bg-gradient-to-r from-purple-400 to-purple-700 dark:from-pink-500 dark:to-purple-600 shadow-[0_4px_10px_rgba(159,120,255,0.4)] dark:shadow-[0_4px_10px_rgba(186,85,211,0.4)] hover:-translate-y-0.5 hover:shadow-[0_6px_15px_rgba(159,120,255,0.5)] dark:hover:shadow-[0_6px_15px_rgba(186,85,211,0.5)] active:translate-y-0 transition-all"
+        >
+          登录
+          <span
+            class="absolute top-[-50%] left-[-60%] w-[20%] h-[200%] bg-white/30 dark:bg-white/10 rotate-[25deg] transition-all duration-600 group-hover:left-[120%]"
+          ></span>
+        </button>
       </form>
-      <div class="footer">
-        &copy; 2023-2025 Amrita Dashboard. 使用AGPL-3.0许可证。
+
+      <div class="flex justify-between mt-6">
+        <button
+          onclick="window.location.href = '/password-help'"
+          class="bg-transparent border-none text-purple-500 dark:text-purple-400 text-sm px-3 py-2 rounded-md hover:text-purple-700 dark:hover:text-purple-300 hover:bg-purple-500/10 hover:-translate-y-0.5 transition-all cursor-pointer"
+        >
+          忘记密码?
+        </button>
       </div>
+
+      <p class="text-center mt-8 text-xs text-gray-400 dark:text-gray-600">
+        &copy; 2023-2025 Amrita Dashboard. 使用AGPL-3.0许可证。
+      </p>
     </div>
+
     <script>
+      function setTheme(theme) {
+        if (theme === "dark") {
+          document.documentElement.classList.add("dark");
+          localStorage.setItem("theme", "dark");
+        } else {
+          document.documentElement.classList.remove("dark");
+          localStorage.setItem("theme", "light");
+        }
+      }
+      function detectSystemTheme() {
+        return window.matchMedia &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light";
+      }
       document.addEventListener("DOMContentLoaded", function () {
-        const loginContainer = document.querySelector(".login-container");
-        setTimeout(() => {
-          loginContainer.style.opacity = "1";
-        }, 100);
-
-        const inputs = document.querySelectorAll("input");
-        inputs.forEach((input) => {
-          input.addEventListener("focus", function () {
-            this.parentElement.style.transform = "translateY(-5px)";
-            this.parentElement.style.transition = "transform 0.3s ease";
+        const saved = localStorage.getItem("theme");
+        setTheme(saved || detectSystemTheme());
+        window
+          .matchMedia("(prefers-color-scheme: dark)")
+          .addEventListener("change", (e) => {
+            if (!localStorage.getItem("theme"))
+              setTheme(e.matches ? "dark" : "light");
           });
 
-          input.addEventListener("blur", function () {
-            this.parentElement.style.transform = "translateY(0)";
-          });
-        });
-
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get("error") === "invalid_credentials") {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("error") === "auth_failed") {
           Swal.fire({
             title: "登录失败",
             text: "用户名或密码错误，请重试。",
             icon: "error",
             confirmButtonText: "确定",
           });
+        } else if (params.get("logout") === "success") {
+          Swal.fire({
+            title: "已退出",
+            text: "您已成功退出登录。",
+            icon: "success",
+            confirmButtonText: "确定",
+            timer: 2000,
+            showConfirmButton: false,
+          });
         }
-
-        function setTheme(theme) {
-          if (theme === "dark") {
-            document.body.classList.add("dark-mode");
-            localStorage.setItem("theme", "dark");
-          } else {
-            document.body.classList.remove("dark-mode");
-            localStorage.setItem("theme", "light");
-          }
-        }
-
-        function detectSystemTheme() {
-          if (
-            window.matchMedia &&
-            window.matchMedia("(prefers-color-scheme: dark)").matches
-          ) {
-            return "dark";
-          }
-          return "light";
-        }
-
-        function initTheme() {
-          const savedTheme = localStorage.getItem("theme");
-
-          if (savedTheme) {
-            setTheme(savedTheme);
-          } else {
-            const systemTheme = detectSystemTheme();
-            setTheme(systemTheme);
-          }
-
-          window
-            .matchMedia("(prefers-color-scheme: dark)")
-            .addEventListener("change", (e) => {
-              if (!localStorage.getItem("theme")) {
-                setTheme(e.matches ? "dark" : "light");
-              }
-            });
-        }
-
-        initTheme();
       });
     </script>
   </body>

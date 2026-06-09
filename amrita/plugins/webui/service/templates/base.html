@@ -1,5 +1,5 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
+<!doctype html>
+<html lang="zh-CN" class="">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,124 +10,231 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
-    <link rel="stylesheet" href="/static/css/base.css" />
-    <link rel="stylesheet" href="/static/css/dash.css" />
+    <link rel="stylesheet" href="/static/css/dist.css" />
     {% block extra_head %}{% endblock %}
     <link rel="shortcut icon" href="/static/images/Amrita.png" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     {% block extra_css %}{% endblock %} {% block head_extra %}{% endblock %}
+    <style>
+      /* ── 单页面特有（Tailwind 不覆盖的极少数特效） ── */
+      .submenu {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+      }
+      .menu-item.open .submenu {
+        max-height: 500px;
+      }
+      .menu-arrow {
+        transition: transform 0.3s;
+      }
+      .menu-item.open .menu-arrow {
+        transform: rotate(90deg);
+      }
+      .loading-bar {
+        transition:
+          width 0.3s ease,
+          opacity 0.3s ease;
+        background: linear-gradient(90deg, #3498db, #2980b9);
+        box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
+      }
+      /* ── 侧边栏折叠 ── */
+      .sidebar-collapsed {
+        width: 60px !important;
+      }
+      .sidebar-collapsed .hide-on-collapse {
+        display: none;
+      }
+      .sidebar-collapsed .submenu {
+        display: none;
+      }
+      .main-expanded {
+        margin-left: 60px !important;
+      }
+      /* ── Mobile ── */
+      .sidebar-mobile-hidden {
+        transform: translateX(-100%);
+      }
+      .sidebar-mobile-visible {
+        transform: translateX(0);
+      }
+      @media (max-width: 768px) {
+        #mainContent {
+          margin-left: 0 !important;
+        }
+        #sidebar {
+          transition: transform 0.3s ease;
+        }
+      }
+      @media (min-width: 769px) {
+        .sidebar-mobile-hidden,
+        .sidebar-mobile-visible {
+          transform: none;
+        }
+      }
+    </style>
   </head>
-  <body>
-    <div class="loading-bar" id="loadingBar"></div>
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
-    <div class="dashboard-container">
-      <div class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-          <div class="sidebar-logo">
+  <body class="overflow-x-hidden bg-[#f8f9fa] dark:bg-[#1a1a1a]">
+    <!-- Loading bar -->
+    <div
+      id="loadingBar"
+      class="loading-bar fixed top-0 left-0 h-[3px] z-[9999]"
+      style="width: 0%"
+    ></div>
+
+    <!-- Mobile sidebar overlay -->
+    <div
+      id="sidebarOverlay"
+      class="hidden fixed inset-0 bg-black/50 z-[999] md:hidden"
+      onclick="toggleMobileSidebar()"
+    ></div>
+
+    <div class="flex min-h-screen">
+      <!-- Sidebar -->
+      <aside
+        id="sidebar"
+        class="glass-sidebar fixed left-0 top-0 h-screen z-[1000] w-64 flex flex-col transition-[width] duration-300 overflow-y-auto text-white"
+      >
+        <div
+          class="flex items-center h-[60px] px-4 border-b border-white/10 flex-shrink-0"
+        >
+          <div
+            class="w-[35px] h-[35px] rounded-lg bg-gradient-to-br from-primary to-[#2980b9] flex items-center justify-center mr-3 flex-shrink-0"
+          >
             <i class="fas fa-robot"></i>
           </div>
-          <div class="sidebar-title">Amrita Dashboard</div>
+          <div
+            class="hide-on-collapse font-semibold text-lg whitespace-nowrap overflow-hidden"
+          >
+            Amrita Dashboard
+          </div>
         </div>
-        <div class="sidebar-menu">
+        <nav class="py-4 flex-1">
           {% for item in sidebar_items %}
-          <div class="menu-item">
+          <div class="menu-item relative">
             <a
               href="{{ item.url }}"
-              class="menu-link{% if item.active %} active{% endif %}"
+              class="menu-link flex items-center px-4 py-3 text-white no-underline transition-colors border-l-[3px] border-transparent hover:bg-sidebar-hover/70 {% if item.active %}border-l-accent bg-sidebar-hover/70{% endif %}"
             >
-              <div class="menu-icon">
+              <span
+                class="w-6 h-6 flex items-center justify-center mr-3 flex-shrink-0"
+              >
                 <i class="{{ item.icon }}"></i>
-              </div>
-              <div class="menu-text">{{ item.name }}</div>
+              </span>
+              <span class="hide-on-collapse whitespace-nowrap overflow-hidden"
+                >{{ item.name }}</span
+              >
               {% if item.children %}
-              <div class="menu-arrow">
-                <i class="fas fa-chevron-right"></i>
-              </div>
+              <span class="hide-on-collapse ml-auto menu-arrow"
+                ><i class="fas fa-chevron-right"></i
+              ></span>
               {% endif %}
             </a>
             {% if item.children %}
-            <div class="submenu">
+            <div class="submenu bg-black/20">
               {% for child in item.children %}
-              <div class="submenu-item">
+              <div class="py-2 pl-[45px] pr-4">
                 <a
                   href="{{ child.url }}"
-                  class="submenu-link{% if child.active %} active{% endif %}"
-                  >{{ child.name }}</a
+                  class="text-white/80 text-sm no-underline block whitespace-nowrap overflow-hidden text-ellipsis hover:text-accent {% if child.active %}text-accent opacity-100{% endif %}"
                 >
+                  {{ child.name }}
+                </a>
               </div>
               {% endfor %}
             </div>
             {% endif %}
           </div>
           {% endfor %}
-        </div>
-      </div>
-      <div class="main-content">
-        <div class="topbar">
-          <div class="topbar-left">
-            <button class="toggle-sidebar">
+        </nav>
+      </aside>
+
+      <!-- Main content -->
+      <div
+        id="mainContent"
+        class="flex-1 ml-64 transition-[margin-left] duration-300"
+      >
+        <!-- Topbar -->
+        <header
+          class="glass-topbar sticky top-0 z-[999] h-[60px] flex items-center justify-between px-5"
+        >
+          <div class="flex items-center">
+            <button
+              id="toggleSidebar"
+              class="bg-transparent border-none text-gray-700 dark:text-gray-200 text-xl cursor-pointer mr-4 p-1 rounded hover:bg-black/5 dark:hover:bg-white/10"
+            >
               <i class="fas fa-bars"></i>
             </button>
-            <div class="topbar-title">
+            <h1 class="text-lg font-semibold text-primary whitespace-nowrap">
               {% block topbar_title %}控制台{% endblock %}
-            </div>
+            </h1>
           </div>
-          <div class="topbar-right">
-            <button class="theme-toggle" id="themeToggle" title="切换主题">
+          <div class="flex items-center gap-2">
+            <button
+              id="themeToggle"
+              title="切换主题"
+              class="bg-transparent border-none text-gray-700 dark:text-gray-200 cursor-pointer p-1 rounded w-[30px] h-[30px] text-lg hover:bg-black/5 dark:hover:bg-white/10"
+            >
               <i class="fas fa-moon"></i>
             </button>
             <button
-              class="theme-toggle"
               id="githubButton"
               title="GitHub"
               onclick="jmpToGitHub()"
+              class="bg-transparent border-none cursor-pointer p-1 rounded mr-2 w-[30px] h-[30px] hover:bg-black/5 dark:hover:bg-white/10"
             >
               <img
                 src="/static/images/github-mark.svg"
                 alt="GitHub"
-                width="32"
-                height="32"
+                width="25"
+                height="25"
               />
             </button>
-            <div class="user-info">
-              <div class="user-avatar">A</div>
-              <div class="user-name">Admin</div>
-              <!--下次再改改2333-->
+            <div
+              class="flex items-center gap-2 cursor-pointer px-2 py-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+            >
+              <div
+                class="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-[#2980b9] flex items-center justify-center text-white font-bold"
+              >
+                A
+              </div>
+              <span class="text-sm dark:text-gray-200">Admin</span>
             </div>
             <form action="/logout" method="post">
-              <button type="submit" class="logout-btn" title="退出登录">
+              <button
+                type="submit"
+                title="退出登录"
+                class="bg-transparent border-none text-gray-700 dark:text-gray-200 cursor-pointer p-1 rounded hover:bg-black/5 dark:hover:bg-white/10"
+              >
                 <i class="fas fa-sign-out-alt"></i>
               </button>
             </form>
           </div>
-        </div>
-        <div class="content">{% block content %}{% endblock %}</div>
+        </header>
+
+        <!-- Page content -->
+        <main class="p-5">{% block content %}{% endblock %}</main>
       </div>
     </div>
-    <script>
-      const loadingBar = document.getElementById("loadingBar");
 
+    <script>
+      // ── Loading bar ──
+      const loadingBar = document.getElementById("loadingBar");
       function showLoading() {
         loadingBar.style.width = "30%";
-        loadingBar.classList.remove("hidden");
       }
-
       function updateLoading(progress) {
         loadingBar.style.width = progress + "%";
       }
-
       function hideLoading() {
         loadingBar.style.width = "100%";
         setTimeout(() => {
-          loadingBar.classList.add("hidden");
           loadingBar.style.width = "0%";
         }, 300);
       }
-
       showLoading();
-
       let progress = 30;
       const interval = setInterval(() => {
         progress += Math.random() * 15;
@@ -137,52 +244,70 @@
         }
         updateLoading(progress);
       }, 200);
-
       window.addEventListener("load", () => {
         clearInterval(interval);
         hideLoading();
       });
 
-      document
-        .querySelector(".toggle-sidebar")
-        .addEventListener("click", function () {
-          const sidebar = document.getElementById("sidebar");
-          const overlay = document.getElementById("sidebarOverlay");
+      // ── Sidebar toggle ──
+      const sidebar = document.getElementById("sidebar");
+      const mainContent = document.getElementById("mainContent");
+      const overlay = document.getElementById("sidebarOverlay");
 
-          if (window.innerWidth <= 768) {
-            sidebar.classList.toggle("mobile-open");
-            overlay.classList.toggle("open");
+      function isMobile() {
+        return window.innerWidth <= 768;
+      }
+
+      // ── Mobile sidebar init ──
+      if (isMobile()) {
+        const sidebar = document.getElementById("sidebar");
+        sidebar.classList.add("sidebar-mobile-hidden");
+        sidebar.classList.remove("translate-x-0");
+      }
+
+      function toggleMobileSidebar() {
+        if (isMobile()) {
+          sidebar.classList.toggle("sidebar-mobile-hidden");
+          sidebar.classList.toggle("sidebar-mobile-visible");
+          overlay.classList.toggle("hidden");
+          overlay.classList.toggle("block");
+        }
+      }
+
+      document
+        .getElementById("toggleSidebar")
+        .addEventListener("click", function () {
+          if (isMobile()) {
+            toggleMobileSidebar();
           } else {
-            sidebar.classList.toggle("collapsed");
-            document
-              .querySelector(".main-content")
-              .classList.toggle("expanded");
+            sidebar.classList.toggle("sidebar-collapsed");
+            sidebar.classList.toggle("w-64");
+            sidebar.classList.toggle("w-16");
+            mainContent.classList.toggle("main-expanded");
+            mainContent.classList.toggle("ml-64");
+            mainContent.classList.toggle("ml-16");
           }
         });
 
-      document
-        .getElementById("sidebarOverlay")
-        .addEventListener("click", function () {
-          this.classList.remove("open");
-          document.getElementById("sidebar").classList.remove("mobile-open");
-        });
-
       window.addEventListener("resize", function () {
-        const sidebar = document.getElementById("sidebar");
-        const overlay = document.getElementById("sidebarOverlay");
-
-        if (window.innerWidth > 768) {
-          sidebar.classList.remove("mobile-open");
-          overlay.classList.remove("open");
+        if (!isMobile()) {
+          overlay.classList.add("hidden");
+          overlay.classList.remove("block");
+          sidebar.classList.remove("sidebar-mobile-hidden");
+          sidebar.classList.add("sidebar-mobile-visible");
+        } else {
+          if (!sidebar.classList.contains("sidebar-mobile-hidden")) {
+            sidebar.classList.add("sidebar-mobile-hidden");
+            sidebar.classList.remove("sidebar-mobile-visible");
+          }
         }
       });
 
+      // ── Submenu toggle ──
       document.querySelectorAll(".menu-link").forEach((link) => {
         link.addEventListener("click", function (e) {
-          const parentItem = this.parentElement;
+          const parentItem = this.closest(".menu-item");
           const submenu = parentItem.querySelector(".submenu");
-          const arrow = parentItem.querySelector(".menu-arrow");
-
           if (submenu) {
             e.preventDefault();
             parentItem.classList.toggle("open");
@@ -190,9 +315,55 @@
         });
       });
 
+      // ── Theme ──
+      function setTheme(theme) {
+        const html = document.documentElement;
+        const toggle = document.getElementById("themeToggle");
+        const ghBtn = document.getElementById("githubButton");
+        if (theme === "dark") {
+          html.classList.add("dark");
+          toggle.innerHTML = '<i class="fas fa-sun"></i>';
+          ghBtn.innerHTML =
+            '<img src="/static/images/github-mark-white.svg" alt="GitHub" width="25" height="25">';
+          localStorage.setItem("theme", "dark");
+        } else {
+          html.classList.remove("dark");
+          toggle.innerHTML = '<i class="fas fa-moon"></i>';
+          ghBtn.innerHTML =
+            '<img src="/static/images/github-mark.svg" alt="GitHub" width="25" height="25">';
+          localStorage.setItem("theme", "light");
+        }
+      }
+      function toggleTheme() {
+        setTheme(
+          document.documentElement.classList.contains("dark")
+            ? "light"
+            : "dark",
+        );
+      }
+      function detectSystemTheme() {
+        return window.matchMedia &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light";
+      }
+      function initTheme() {
+        const saved = localStorage.getItem("theme");
+        setTheme(saved || detectSystemTheme());
+        window
+          .matchMedia("(prefers-color-scheme: dark)")
+          .addEventListener("change", (e) => {
+            if (!localStorage.getItem("theme"))
+              setTheme(e.matches ? "dark" : "light");
+          });
+      }
+
+      // ── Token expired check ──
       function checkTokenExpired() {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get("token_expired") === "true") {
+        if (
+          new URLSearchParams(window.location.search).get("token_expired") ===
+          "true"
+        ) {
           Swal.fire({
             title: "认证失效",
             text: "您的登录会话已过期，请重新登录。",
@@ -202,77 +373,19 @@
         }
       }
 
-      function setTheme(theme) {
-        if (theme === "dark") {
-          document.body.classList.add("dark-mode");
-          document.getElementById("themeToggle").innerHTML =
-            '<i class="fas fa-sun"></i>';
-          document.getElementById("githubButton").innerHTML =
-            '<img src="/static/images/github-mark-white.svg" alt="GitHub" width="25" height="25">';
-
-          localStorage.setItem("theme", "dark");
-        } else {
-          document.body.classList.remove("dark-mode");
-          document.getElementById("themeToggle").innerHTML =
-            '<i class="fas fa-moon"></i>';
-          document.getElementById("githubButton").innerHTML =
-            '<img src="/static/images/github-mark.svg" alt="GitHub" width="25" height="25">';
-          localStorage.setItem("theme", "light");
-        }
-      }
-
-      function toggleTheme() {
-        if (document.body.classList.contains("dark-mode")) {
-          setTheme("light");
-        } else {
-          setTheme("dark");
-        }
-      }
-
-      function detectSystemTheme() {
-        if (
-          window.matchMedia &&
-          window.matchMedia("(prefers-color-scheme: dark)").matches
-        ) {
-          return "dark";
-        }
-        return "light";
-      }
-
-      function initTheme() {
-        const savedTheme = localStorage.getItem("theme");
-
-        if (savedTheme) {
-          setTheme(savedTheme);
-        } else {
-          const systemTheme = detectSystemTheme();
-          setTheme(systemTheme);
-        }
-
-        window
-          .matchMedia("(prefers-color-scheme: dark)")
-          .addEventListener("change", (e) => {
-            if (!localStorage.getItem("theme")) {
-              setTheme(e.matches ? "dark" : "light");
-            }
-          });
-      }
-
       document.addEventListener("DOMContentLoaded", function () {
         initTheme();
-
         document
           .getElementById("themeToggle")
           .addEventListener("click", toggleTheme);
-
         checkTokenExpired();
       });
+
       async function getOnetimeToken() {
-        let token;
         const response = await fetch("/api/auth/otk");
         if (response.ok) {
           const data = await response.json();
-          token = data.token;
+          return data.token;
         } else {
           Swal.fire({
             title: "错误",
@@ -281,8 +394,8 @@
             confirmButtonText: "确定",
           });
         }
-        return token;
       }
+
       function jmpToGitHub() {
         window.open("https://github.com/AmritaBot/Amrita", "_blank");
       }

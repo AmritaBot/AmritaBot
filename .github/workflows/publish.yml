@@ -18,6 +18,15 @@ jobs:
       - name: Set up Python
         run: uv python install
 
+      - name: Download Tailwind CSS CLI
+        run: |
+          curl -sLo tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.19/tailwindcss-linux-x64
+          chmod +x tailwindcss
+
+      - name: Build Tailwind CSS
+        run: |
+          ./tailwindcss -i amrita/plugins/webui/service/static/css/tailwind.css -o amrita/plugins/webui/service/static/css/dist.css --minify
+
       - name: Publish to PyPI
         run: |
           uv build

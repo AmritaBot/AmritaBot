@@ -11,7 +11,7 @@ extra_css %}
     border-bottom: 1px solid #eee;
   }
 
-  body.dark-mode .mcp-header {
+  .dark .mcp-header {
     border-bottom: 1px solid var(--dark-border-color);
   }
 
@@ -21,7 +21,7 @@ extra_css %}
     color: var(--primary-color);
   }
 
-  body.dark-mode .page-title {
+  .dark .page-title {
     color: var(--accent-color);
   }
 
@@ -74,7 +74,7 @@ extra_css %}
     border-radius: 5px;
   }
 
-  body.dark-mode .search-input {
+  .dark .search-input {
     border: 1px solid var(--dark-border-color);
     background: var(--dark-card-bg);
     color: var(--dark-text-color);
@@ -88,7 +88,7 @@ extra_css %}
     color: #777;
   }
 
-  body.dark-mode .search-icon {
+  .dark .search-icon {
     color: #aaa;
   }
 
@@ -100,7 +100,7 @@ extra_css %}
     border: 1px solid #eee;
   }
 
-  body.dark-mode .mcp-container {
+  .dark .mcp-container {
     background: var(--dark-card-bg);
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
     border: 1px solid var(--dark-border-color);
@@ -115,7 +115,7 @@ extra_css %}
     padding-bottom: 10px;
   }
 
-  body.dark-mode .section-title {
+  .dark .section-title {
     color: var(--accent-color);
     border-bottom: 1px solid var(--dark-border-color);
   }
@@ -129,7 +129,7 @@ extra_css %}
     position: relative;
   }
 
-  body.dark-mode .mcp-card {
+  .dark .mcp-card {
     background: #2d2d2d;
     border: 1px solid var(--dark-border-color);
   }
@@ -148,7 +148,7 @@ extra_css %}
     flex-grow: 1;
   }
 
-  body.dark-mode .mcp-name {
+  .dark .mcp-name {
     color: var(--accent-color);
   }
 
@@ -227,7 +227,7 @@ extra_css %}
     margin-bottom: 3px;
   }
 
-  body.dark-mode .info-label {
+  .dark .info-label {
     color: #aaa;
   }
 
@@ -241,7 +241,7 @@ extra_css %}
     word-break: break-all;
   }
 
-  body.dark-mode .info-value {
+  .dark .info-value {
     background: rgba(37, 37, 37, var(--glass-opacity-light));
     border: 1px solid var(--dark-border-color);
     color: var(--dark-text-color);
@@ -288,7 +288,7 @@ extra_css %}
     overflow-y: auto;
   }
 
-  body.dark-mode .modal-content {
+  .dark .modal-content {
     background-color: var(--dark-bg-color);
   }
 
@@ -310,8 +310,8 @@ extra_css %}
     cursor: pointer;
   }
 
-  body.dark-mode .close:hover,
-  body.dark-mode .close:focus {
+  .dark .close:hover,
+  .dark .close:focus {
     color: #fff;
   }
 
@@ -326,7 +326,7 @@ extra_css %}
     color: #555;
   }
 
-  body.dark-mode .form-label {
+  .dark .form-label {
     color: #aaa;
   }
 
@@ -338,7 +338,7 @@ extra_css %}
     box-sizing: border-box;
   }
 
-  body.dark-mode .form-control {
+  .dark .form-control {
     border: 1px solid var(--dark-border-color);
     background: var(--dark-card-bg);
     color: var(--dark-text-color);
@@ -370,13 +370,13 @@ extra_css %}
     color: #721c24;
   }
 
-  body.dark-mode .alert-success {
+  .dark .alert-success {
     background-color: rgba(40, 167, 69, 0.1);
     border: 1px solid rgba(40, 167, 69, 0.2);
     color: #28a745;
   }
 
-  body.dark-mode .alert-danger {
+  .dark .alert-danger {
     background-color: rgba(220, 53, 69, 0.1);
     border: 1px solid rgba(220, 53, 69, 0.2);
     color: #dc3545;
@@ -397,18 +397,29 @@ extra_css %}
 </style>
 {% endblock %} {% block content %}
 <div class="config-container">
-  <div class="alert alert-success" id="success-alert" style="display: none">
+  <div
+    class="p-3 rounded mb-4 bg-green-100 border border-green-300 text-green-800 dark:bg-green-900/20 dark:border-green-800/30 dark:text-green-400"
+    id="success-alert"
+    style="display: none"
+  >
     操作成功！
   </div>
 
-  <div class="alert alert-danger" id="error-alert" style="display: none">
+  <div
+    class="p-3 rounded mb-4 bg-red-100 border border-red-300 text-red-800 dark:bg-red-900/20 dark:border-red-800/30 dark:text-red-400"
+    id="error-alert"
+    style="display: none"
+  >
     操作失败，请重试。
   </div>
 
   <div class="mcp-header">
-    <h1 class="page-title">MCP服务器管理</h1>
-    <div class="actions-container">
-      <button class="action-btn" onclick="openAddModal()">
+    <h1 class="text-2xl font-semibold text-primary">MCP服务器管理</h1>
+    <div class="flex gap-2">
+      <button
+        class="px-4 py-2 rounded text-sm font-medium bg-primary text-white hover:bg-primary-hover"
+        onclick="openAddModal()"
+      >
         <i class="fas fa-plus"></i> 添加MCP服务器
       </button>
       <button class="action-btn secondary" onclick="reloadMcpServers()">
@@ -434,11 +445,15 @@ extra_css %}
       <h2 id="modalTitle">添加MCP服务器</h2>
       <form id="mcpForm">
         <input type="hidden" id="mcpId" name="id" />
-        <div class="form-group">
-          <label class="form-label" for="mcpScript">服务器脚本路径</label>
+        <div class="mb-4">
+          <label
+            class="block mb-1 font-medium text-gray-600 dark:text-gray-400 text-sm"
+            for="mcpScript"
+            >服务器脚本路径</label
+          >
           <input
             type="text"
-            class="form-control"
+            class="input-glass"
             id="mcpScript"
             name="server_script"
             placeholder="请输入MCP服务器脚本路径或URI"
@@ -498,12 +513,12 @@ extra_css %}
             </div>
             <div class="mcp-info">
               <div class="info-item">
-                <div class="info-label">工具数量</div>
-                <div class="info-value">${server.tools_count}</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">工具数量</div>
+                <div class="text-sm font-medium dark:text-gray-200">${server.tools_count}</div>
               </div>
               <div class="info-item">
-                <div class="info-label">连接状态</div>
-                <div class="info-value">
+                <div class="text-sm text-gray-500 dark:text-gray-400">连接状态</div>
+                <div class="text-sm font-medium dark:text-gray-200">
                   <span class="status-indicator ${statusClass}"></span>
                   ${statusText}
                 </div>

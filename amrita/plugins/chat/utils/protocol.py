@@ -12,10 +12,10 @@ from amrita_core.protocol import (
     MessageMetadata,
     MessageWithMetadata,
     ModelAdapter,
-    ModelPreset,
     RawMessageContent,
     StringMessageContent,
 )
+from amrita_core.types import ModelPreset
 
 __all__ = [
     "AdapterManager",

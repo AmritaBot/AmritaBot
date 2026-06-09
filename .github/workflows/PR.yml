@@ -26,6 +26,15 @@ jobs:
           uv venv
           uv sync
 
+      - name: Download Tailwind CSS CLI
+        run: |
+          curl -sLo tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.19/tailwindcss-linux-x64
+          chmod +x tailwindcss
+
+      - name: Build Tailwind CSS
+        run: |
+          ./tailwindcss -i amrita/plugins/webui/service/static/css/tailwind.css -o amrita/plugins/webui/service/static/css/dist.css --minify
+
       - name: Get Python path
         run: |
           PYTHON_BIN="$(uv run python -c 'import sys; print(sys.executable)')"

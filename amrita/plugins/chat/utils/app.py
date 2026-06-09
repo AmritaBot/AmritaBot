@@ -108,7 +108,9 @@ class CachedUserDataRepository:
             cls._cached_group_config = LRUCache(1024)  # 其次最常访问
             cls._cached_memory = LRUCache(512)
             cls._cached_metadata = LRUCache(2048)  # 最常访问
-            cls._action_lock = WeakValueLRUCache(1024, loose_mode=True)  # 动态锁池
+            cls._action_lock = WeakValueLRUCache(
+                capacity=1024, loose_mode=True
+            )  # 动态锁池
             cls._instance = super().__new__(cls)
         return cls._instance
 

@@ -1,135 +1,130 @@
 {% extends "base.html" %} {% block title %} 仪表盘 - Amrita Dashboard {%
 endblock %} {% block content %}
-<div class="stats-grid">
-  <div class="stat-card">
-    <div class="stat-icon blue">
-      <i class="fas fa-robot"></i>
+
+<!-- Stat cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+  {% set stats = [ ('robot', 'blue', loaded_plugins, '已加载插件'), ('users',
+  'green', bot_connected, 'Bot已连接'), ('comments', 'orange', total_message,
+  '今日消息'), ('microchip', 'purple', health, '系统健康'), ] %} {% for icon,
+  color, val, label in stats %}
+  <div
+    class="glass-card p-5 flex items-center transition-transform hover:-translate-y-1 hover:shadow-lg"
+  >
+    <div
+      class="w-[50px] h-[50px] rounded-lg flex items-center justify-center mr-4 text-2xl flex-shrink-0 {% if color=='blue' %}bg-blue-500/10 text-primary dark:text-primary {% elif color=='green' %}bg-green-500/10 text-green-500 {% elif color=='orange' %}bg-orange-500/10 text-orange-500 {% else %}bg-purple-500/10 text-purple-500{% endif %}"
+    >
+      <i class="fas fa-{{ icon }}"></i>
     </div>
-    <div class="stat-info">
-      <h3>{{ loaded_plugins }}</h3>
-      <p>已加载插件</p>
-    </div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-icon green">
-      <i class="fas fa-users"></i>
-    </div>
-    <div class="stat-info">
-      <h3>{{ bot_connected }}</h3>
-      <p>Bot已连接</p>
-    </div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-icon orange">
-      <i class="fas fa-comments"></i>
-    </div>
-    <div class="stat-info">
-      <h3>{{ total_message }}</h3>
-      <p>今日消息</p>
+    <div>
+      <h3 class="text-2xl font-bold dark:text-gray-100">{{ val }}</h3>
+      <p class="text-sm text-gray-500 dark:text-gray-400">{{ label }}</p>
     </div>
   </div>
-  <div class="stat-card">
-    <div class="stat-icon purple">
-      <i class="fas fa-microchip"></i>
-    </div>
-    <div class="stat-info">
-      <h3>{{ health }}</h3>
-      <p>系统健康</p>
-    </div>
-  </div>
+  {% endfor %}
 </div>
-<div class="charts-grid">
-  <div class="chart-card">
-    <div class="chart-header">
-      <div class="chart-title">消息统计</div>
-      <div class="chart-actions">
-        <button>
+
+<!-- Charts -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-8">
+  <div class="glass-card p-5">
+    <div class="flex justify-between items-center mb-5">
+      <h3 class="text-lg font-semibold dark:text-gray-100">消息统计</h3>
+      <div class="flex gap-2">
+        <button
+          class="p-1 rounded border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400 hover:bg-black/10 dark:hover:bg-white/20"
+        >
           <i class="fas fa-sync"></i>
         </button>
-        <button>
+        <button
+          class="p-1 rounded border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400 hover:bg-black/10 dark:hover:bg-white/20"
+        >
           <i class="fas fa-cog"></i>
         </button>
       </div>
     </div>
-    <div class="chart-container">
-      <div class="chart-canvas-container">
-        <canvas id="messagesChart" class="chart-canvas"></canvas>
-      </div>
+    <div
+      class="h-[300px] bg-gray-50/50 dark:bg-gray-800/50 rounded-lg border border-black/5 dark:border-white/5 p-2"
+    >
+      <canvas id="messagesChart" class="w-full h-full"></canvas>
     </div>
   </div>
-  <div class="chart-card">
-    <div class="chart-header">
-      <div class="chart-title">收发图表</div>
-      <div class="chart-actions">
-        <button>
-          <i class="fas fa-sync"></i>
-        </button>
-      </div>
+  <div class="glass-card p-5">
+    <div class="flex justify-between items-center mb-5">
+      <h3 class="text-lg font-semibold dark:text-gray-100">收发图表</h3>
+      <button
+        class="p-1 rounded border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400 hover:bg-black/10 dark:hover:bg-white/20"
+      >
+        <i class="fas fa-sync"></i>
+      </button>
     </div>
-    <div class="chart-container">
-      <div class="chart-canvas-container">
-        <canvas id="botMsgStatusChart" class="chart-canvas"></canvas>
-      </div>
+    <div
+      class="h-[300px] bg-gray-50/50 dark:bg-gray-800/50 rounded-lg border border-black/5 dark:border-white/5 p-2"
+    >
+      <canvas id="botMsgStatusChart" class="w-full h-full"></canvas>
     </div>
   </div>
 </div>
-<div class="recent-activity">
-  <div class="chart-header">
-    <div class="chart-title">最近活动</div>
+
+<!-- Recent activity -->
+<div class="glass-card p-5">
+  <div class="flex justify-between items-center mb-5">
+    <h3 class="text-lg font-semibold dark:text-gray-100">最近活动</h3>
   </div>
-  <ul class="activity-list" id="activity-data" style="display: none">
+  <ul id="activity-data" class="hidden">
     {% for activity in recent_activity %}
     <li
-      class="activity-item"
       data-icon="{{ activity.icon }}"
       data-icon-color="{{ activity.icon_color }}"
       data-title="{{ activity.title }}"
       data-desc="{{ activity.desc }}"
       data-time="{{ activity.time }}"
-    >
-      <div class="activity-icon {{ activity.icon_color }}">
-        <i class="fas fa-{{ activity.icon }}"></i>
-      </div>
-      <div class="activity-content">
-        <div class="activity-title">{{ activity.title }}</div>
-        <div class="activity-desc">{{ activity.desc }}</div>
-        <div class="activity-time">{{ activity.time }}</div>
-      </div>
-    </li>
+    ></li>
     {% endfor %}
   </ul>
-  <ul class="activity-list" id="activity-display"></ul>
+  <ul id="activity-display" class="list-none m-0 p-0"></ul>
   <div
-    class="activity-pagination"
     id="activity-pagination"
-    style="display: none"
+    class="hidden mt-4 flex flex-col sm:flex-row justify-between items-center gap-3"
   >
-    <div class="pagination-info" id="pagination-info">
+    <div class="text-sm text-gray-500 dark:text-gray-400">
       显示 <span id="start-index">0</span>-<span id="end-index">0</span> 条，共
       <span id="total-activities">0</span> 条记录
     </div>
-    <div class="pagination-controls">
-      <div class="page-size-selector">
-        <label for="page-size">每页显示:</label>
-        <select id="page-size">
+    <div class="flex items-center gap-3">
+      <label class="text-sm text-gray-500 dark:text-gray-400"
+        >每页显示:
+        <select id="page-size" class="ml-1 input-glass py-1 px-2 text-sm">
           <option value="5">5条</option>
           <option value="10" selected>10条</option>
           <option value="20">20条</option>
           <option value="50">50条</option>
         </select>
-      </div>
-      <div class="pagination-buttons" id="pagination-buttons">
-        <button class="pagination-btn" id="first-page" disabled>
+      </label>
+      <div id="pagination-buttons" class="flex gap-1">
+        <button
+          id="first-page"
+          disabled
+          class="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-800"
+        >
           <i class="fas fa-angle-double-left"></i>
         </button>
-        <button class="pagination-btn" id="prev-page" disabled>
+        <button
+          id="prev-page"
+          disabled
+          class="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-800"
+        >
           <i class="fas fa-angle-left"></i>
         </button>
-        <div id="page-numbers"></div>
-        <button class="pagination-btn" id="next-page">
+        <div id="page-numbers" class="flex gap-1"></div>
+        <button
+          id="next-page"
+          class="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+        >
           <i class="fas fa-angle-right"></i>
         </button>
-        <button class="pagination-btn" id="last-page">
+        <button
+          id="last-page"
+          class="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+        >
           <i class="fas fa-angle-double-right"></i>
         </button>
       </div>
@@ -140,348 +135,175 @@ endblock %} {% block content %}
 <script>
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('warn') === 'weak_password') {
-                  Swal.fire({
-                      icon: 'warning',
-                      title: '密码强度不足',
-                      text: '请尽快更换密码！',
-                  });
-              }
+    Swal.fire({ icon: 'warning', title: '密码强度不足', text: '请尽快更换密码！' });
+  }
 
-
-  let messagesChart;
-  let botMsgStatusChart;
-
-
-  let currentPage = 1;
-  let itemsPerPage = 10;
-  let totalActivities = 0;
-  let totalPages = 1;
-
+  let messagesChart, botMsgStatusChart;
+  let currentPage = 1, itemsPerPage = 10, totalActivities = 0, totalPages = 1;
 
   document.addEventListener('DOMContentLoaded', function() {
-
-      initCharts();
-
-
-      bindButtonEvents();
-
-
-      initPagination();
+    initCharts();
+    bindButtonEvents();
+    initPagination();
   });
 
-
   function initCharts() {
+    const messagesCtx = document.getElementById('messagesChart').getContext('2d');
+    messagesChart = new Chart(messagesCtx, {
+      type: 'line',
+      data: {
+        labels: {{ message_stats.labels | tojson }},
+        datasets: [{
+          label: '消息数量',
+          data: {{ message_stats.data | tojson }},
+          borderColor: '#3498db',
+          backgroundColor: 'rgba(52,152,219,0.2)',
+          tension: 0.1
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+    });
 
-      const messagesCtx = document.getElementById('messagesChart').getContext('2d');
-      messagesChart = new Chart(messagesCtx, {
-          type: 'line',
-          data: {
-              labels: {{ message_stats.labels | tojson }},
-              datasets: [{
-                  label: '消息数量',
-                  data: {{ message_stats.data | tojson }},
-                  borderColor: 'rgb(138, 43, 226)',
-                  backgroundColor: 'rgba(138, 43, 226, 0.2)',
-                  tension: 0.1
-              }]
-          },
-          options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: {
-                  y: {
-                      beginAtZero: true
-                  }
-              }
-          }
-      });
-
-
-      const msgIOStatusCtx = document.getElementById('botMsgStatusChart').getContext('2d');
-      botMsgStatusChart = new Chart(msgIOStatusCtx, {
-          type: 'doughnut',
-          data: {
-              labels: {{ msg_io_status.labels | tojson }},
-              datasets: [{
-                  label: '消息收发状态',
-                  data: {{ msg_io_status.data | tojson }},
-                  backgroundColor: [
-                      'rgb(138, 43, 226)',
-                      'rgb(46, 204, 113)',
-                  ],
-                  hoverOffset: 4
-              }]
-          },
-          options: {
-              responsive: true,
-              maintainAspectRatio: false
-          }
-      });
+    const msgIOStatusCtx = document.getElementById('botMsgStatusChart').getContext('2d');
+    botMsgStatusChart = new Chart(msgIOStatusCtx, {
+      type: 'doughnut',
+      data: {
+        labels: {{ msg_io_status.labels | tojson }},
+        datasets: [{
+          label: '消息收发状态',
+          data: {{ msg_io_status.data | tojson }},
+          backgroundColor: ['#3498db', '#27ae60'],
+          hoverOffset: 4
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
   }
-
 
   function bindButtonEvents() {
-
-      document.querySelectorAll('.fa-sync').forEach(button => {
-          button.addEventListener('click', function() {
-              const chartCard = this.closest('.chart-card');
-              const chartTitle = chartCard.querySelector('.chart-title').textContent;
-
-
-              Swal.fire({
-                  title: '刷新中...',
-                  text: `正在刷新${chartTitle}数据`,
-                  allowOutsideClick: false,
-                  didOpen: () => {
-                      Swal.showLoading();
-                  }
-              });
-
-
-              refreshChartData(chartTitle)
-                  .then(() => {
-                      Swal.close();
-                      Swal.fire({
-                          title: '刷新成功',
-                          text: `${chartTitle}数据已更新`,
-                          icon: 'success',
-                          timer: 1500,
-                          showConfirmButton: false
-                      });
-                  })
-                  .catch(() => {
-                      Swal.close();
-                      Swal.fire({
-                          title: '刷新失败',
-                          text: `无法获取${chartTitle}数据`,
-                          icon: 'error',
-                          timer: 1500,
-                          showConfirmButton: false
-                      });
-                  });
-          });
+    document.querySelectorAll('.fa-sync').forEach(button => {
+      button.addEventListener('click', function() {
+        const card = this.closest('.glass-card');
+        const title = card.querySelector('h3').textContent;
+        Swal.fire({ title: '刷新中...', text: `正在刷新${title}数据`, allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        refreshChartData(title)
+          .then(() => { Swal.close(); Swal.fire({ title: '刷新成功', text: `${title}数据已更新`, icon: 'success', timer: 1500, showConfirmButton: false }); })
+          .catch(() => { Swal.close(); Swal.fire({ title: '刷新失败', text: `无法获取${title}数据`, icon: 'error', timer: 1500, showConfirmButton: false }); });
       });
+    });
 
-
-      document.querySelectorAll('.fa-cog').forEach(button => {
-          button.addEventListener('click', function() {
-              const chartCard = this.closest('.chart-card');
-              const chartTitle = chartCard.querySelector('.chart-title').textContent;
-
-
-              Swal.fire({
-                  title: `${chartTitle}设置`,
-                  html: `
-                      <div style="text-align: left;">
-                          <p>图表设置选项：</p>
-                          <div>
-                              <input type="checkbox" id="showLegend" checked>
-                              <label for="showLegend">显示图例</label>
-                          </div>
-                          <div>
-                              <input type="checkbox" id="animateChart" checked>
-                              <label for="animateChart">启用动画</label>
-                          </div>
-                          <div>
-                              <label for="chartColor">图表颜色：</label>
-                              <select id="chartColor">
-                                  <option value="default">默认</option>
-                                  <option value="blue">蓝色</option>
-                                  <option value="green">绿色</option>
-                                  <option value="orange">橙色</option>
-                              </select>
-                          </div>
-                      </div>
-                  `,
-                  showCancelButton: true,
-                  confirmButtonText: '应用',
-                  cancelButtonText: '取消'
-              }).then((result) => {
-                  if (result.isConfirmed) {
-                      Swal.fire({
-                          title: '设置已保存',
-                          text: `已更新${chartTitle}的设置`,
-                          icon: 'success',
-                          timer: 1500,
-                          showConfirmButton: false
-                      });
-                  }
-              });
-          });
+    document.querySelectorAll('.fa-cog').forEach(button => {
+      button.addEventListener('click', function() {
+        const card = this.closest('.glass-card');
+        const title = card.querySelector('h3').textContent;
+        Swal.fire({
+          title: `${title}设置`,
+          html: `<div class="text-left"><p>图表设置选项：</p><div><input type="checkbox" id="showLegend" checked><label for="showLegend"> 显示图例</label></div><div><input type="checkbox" id="animateChart" checked><label for="animateChart"> 启用动画</label></div><div><label for="chartColor">图表颜色：</label><select id="chartColor"><option value="default">默认</option><option value="blue">蓝色</option><option value="green">绿色</option><option value="orange">橙色</option></select></div></div>`,
+          showCancelButton: true, confirmButtonText: '应用', cancelButtonText: '取消'
+        }).then(result => {
+          if (result.isConfirmed) {
+            Swal.fire({ title: '设置已保存', text: `已更新${title}的设置`, icon: 'success', timer: 1500, showConfirmButton: false });
+          }
+        });
       });
+    });
   }
-
 
   async function refreshChartData(chartTitle) {
-      try {
-          if (chartTitle === '消息统计') {
-
-              const response = await fetch('/api/chart/messages',{
-          headers: {
-            "Authorization": "Bearer " + await getOnetimeToken(),
-          },
-        });
-              const data = await response.json();
-
-
-              messagesChart.data.labels = data.labels;
-              messagesChart.data.datasets[0].data = data.data;
-              messagesChart.update();
-          } else if (chartTitle === '收发图表') {
-
-              const response = await fetch('/api/chart/today-usage');
-              const data = await response.json();
-
-
-              botMsgStatusChart.data.labels = data.labels;
-              botMsgStatusChart.data.datasets[0].data = data.data;
-              botMsgStatusChart.update();
-          }
-      } catch (error) {
-          console.error('获取图表数据失败:', error);
-          throw error;
+    try {
+      if (chartTitle === '消息统计') {
+        const response = await fetch('/api/chart/messages', { headers: { "Authorization": "Bearer " + await getOnetimeToken() } });
+        const data = await response.json();
+        messagesChart.data.labels = data.labels;
+        messagesChart.data.datasets[0].data = data.data;
+        messagesChart.update();
+      } else if (chartTitle === '收发图表') {
+        const response = await fetch('/api/chart/today-usage');
+        const data = await response.json();
+        botMsgStatusChart.data.labels = data.labels;
+        botMsgStatusChart.data.datasets[0].data = data.data;
+        botMsgStatusChart.update();
       }
+    } catch (error) { console.error('获取图表数据失败:', error); throw error; }
   }
-
 
   function initPagination() {
+    const activityItems = document.querySelectorAll('#activity-data li');
+    totalActivities = activityItems.length;
+    if (totalActivities === 0) return;
 
-      const activityItems = document.querySelectorAll('#activity-data .activity-item');
-      totalActivities = activityItems.length;
+    document.getElementById('activity-pagination').classList.remove('hidden');
+    document.getElementById('activity-pagination').classList.add('flex');
 
+    document.getElementById('page-size').addEventListener('change', function() {
+      itemsPerPage = parseInt(this.value); currentPage = 1;
+      renderActivities(); updatePaginationControls();
+    });
+    document.getElementById('first-page').addEventListener('click', () => { if (currentPage > 1) { currentPage = 1; renderActivities(); updatePaginationControls(); } });
+    document.getElementById('prev-page').addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderActivities(); updatePaginationControls(); } });
+    document.getElementById('next-page').addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; renderActivities(); updatePaginationControls(); } });
+    document.getElementById('last-page').addEventListener('click', () => { if (currentPage < totalPages) { currentPage = totalPages; renderActivities(); updatePaginationControls(); } });
 
-      if (totalActivities === 0) {
-          return;
-      }
-
-
-      document.getElementById('activity-pagination').style.display = 'flex';
-
-
-      document.getElementById('page-size').addEventListener('change', function() {
-          itemsPerPage = parseInt(this.value);
-          currentPage = 1;
-          renderActivities();
-          updatePaginationControls();
-      });
-
-
-      document.getElementById('first-page').addEventListener('click', function() {
-          if (currentPage > 1) {
-              currentPage = 1;
-              renderActivities();
-              updatePaginationControls();
-          }
-      });
-
-      document.getElementById('prev-page').addEventListener('click', function() {
-          if (currentPage > 1) {
-              currentPage--;
-              renderActivities();
-              updatePaginationControls();
-          }
-      });
-
-      document.getElementById('next-page').addEventListener('click', function() {
-          if (currentPage < totalPages) {
-              currentPage++;
-              renderActivities();
-              updatePaginationControls();
-          }
-      });
-
-      document.getElementById('last-page').addEventListener('click', function() {
-          if (currentPage < totalPages) {
-              currentPage = totalPages;
-              renderActivities();
-              updatePaginationControls();
-          }
-      });
-
-
-      renderActivities();
-      updatePaginationControls();
+    renderActivities(); updatePaginationControls();
   }
-
 
   function renderActivities() {
-      const activityItems = document.querySelectorAll('#activity-data .activity-item');
-      const displayList = document.getElementById('activity-display');
-      displayList.innerHTML = '';
+    const activityItems = document.querySelectorAll('#activity-data li');
+    const displayList = document.getElementById('activity-display');
+    displayList.innerHTML = '';
+    totalPages = Math.ceil(totalActivities / itemsPerPage);
 
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = Math.min(start + itemsPerPage, totalActivities);
+    document.getElementById('start-index').textContent = start + 1;
+    document.getElementById('end-index').textContent = end;
+    document.getElementById('total-activities').textContent = totalActivities;
 
-      totalPages = Math.ceil(totalActivities / itemsPerPage);
+    const colors = { yellow: 'bg-orange-500/10 text-orange-500', purple: 'bg-purple-500/10 text-purple-500', red: 'bg-red-500/10 text-red-500', blue: 'bg-blue-500/10 text-blue-500', green: 'bg-green-500/10 text-green-500' };
 
+    for (let i = start; i < end; i++) {
+      const item = activityItems[i];
+      const icon = item.getAttribute('data-icon');
+      const iconColor = item.getAttribute('data-icon-color');
+      const title = item.getAttribute('data-title');
+      const desc = item.getAttribute('data-desc');
+      const time = item.getAttribute('data-time');
+      const colorClass = colors[iconColor] || 'bg-gray-500/10 text-gray-500';
 
-      const startIndex = (currentPage - 1) * itemsPerPage;
-      const endIndex = Math.min(startIndex + itemsPerPage, totalActivities);
-
-
-      document.getElementById('start-index').textContent = startIndex + 1;
-      document.getElementById('end-index').textContent = endIndex;
-      document.getElementById('total-activities').textContent = totalActivities;
-
-
-      for (let i = startIndex; i < endIndex; i++) {
-          const item = activityItems[i];
-          const icon = item.getAttribute('data-icon');
-          const iconColor = item.getAttribute('data-icon-color');
-          const title = item.getAttribute('data-title');
-          const desc = item.getAttribute('data-desc');
-          const time = item.getAttribute('data-time');
-
-          const li = document.createElement('li');
-          li.className = 'activity-item';
-          li.innerHTML = `
-              <div class="activity-icon ${iconColor}">
-                  <i class="fas fa-${icon}"></i>
-              </div>
-              <div class="activity-content">
-                  <div class="activity-title">${title}</div>
-                  <div class="activity-desc">${desc}</div>
-                  <div class="activity-time">${time}</div>
-              </div>
-          `;
-
-          displayList.appendChild(li);
-      }
+      const li = document.createElement('li');
+      li.className = 'flex py-4 border-b border-black/5 dark:border-white/5 last:border-b-0';
+      li.innerHTML = `
+        <div class="w-10 h-10 rounded-full flex items-center justify-center mr-4 flex-shrink-0 ${colorClass}">
+          <i class="fas fa-${icon}"></i>
+        </div>
+        <div class="flex-1">
+          <div class="font-medium dark:text-gray-200">${title}</div>
+          <div class="text-sm text-gray-500 dark:text-gray-400">${desc}</div>
+          <div class="text-xs text-gray-400 dark:text-gray-500 mt-1">${time}</div>
+        </div>`;
+      displayList.appendChild(li);
+    }
   }
 
-
   function updatePaginationControls() {
+    document.getElementById('first-page').disabled = currentPage === 1;
+    document.getElementById('prev-page').disabled = currentPage === 1;
+    document.getElementById('next-page').disabled = currentPage === totalPages;
+    document.getElementById('last-page').disabled = currentPage === totalPages;
 
-      document.getElementById('first-page').disabled = currentPage === 1;
-      document.getElementById('prev-page').disabled = currentPage === 1;
-      document.getElementById('next-page').disabled = currentPage === totalPages;
-      document.getElementById('last-page').disabled = currentPage === totalPages;
+    const container = document.getElementById('page-numbers');
+    container.innerHTML = '';
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, startPage + 4);
+    if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
 
-
-      const pageNumbersContainer = document.getElementById('page-numbers');
-      pageNumbersContainer.innerHTML = '';
-
-
-      let startPage = Math.max(1, currentPage - 2);
-      let endPage = Math.min(totalPages, startPage + 4);
-
-
-      if (endPage - startPage < 4) {
-          startPage = Math.max(1, endPage - 4);
-      }
-
-      for (let i = startPage; i <= endPage; i++) {
-          const button = document.createElement('button');
-          button.className = 'pagination-btn';
-          if (i === currentPage) {
-              button.classList.add('active');
-          }
-          button.textContent = i;
-          button.addEventListener('click', function() {
-              currentPage = i;
-              renderActivities();
-              updatePaginationControls();
-          });
-          pageNumbersContainer.appendChild(button);
-      }
+    for (let i = startPage; i <= endPage; i++) {
+      const btn = document.createElement('button');
+      btn.className = `px-3 py-1 rounded border ${i === currentPage ? 'bg-primary text-white border-primary' : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`;
+      btn.textContent = i;
+      btn.addEventListener('click', () => { currentPage = i; renderActivities(); updatePaginationControls(); });
+      container.appendChild(btn);
+    }
   }
 </script>
 {% endblock %}

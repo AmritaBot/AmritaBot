@@ -1,8 +1,8 @@
 import contextlib
 from datetime import datetime
-from typing import Generic, TypeVar, cast
+from typing import Generic, TypeVar
 
-from amrita_core.chatmanager import chat_manager
+from amrita_core.chatmanager import ChatObject
 from nonebot.adapters.onebot.v11 import Bot, Message, MessageSegment
 from nonebot.adapters.onebot.v11.event import (
     MessageEvent,
@@ -11,7 +11,11 @@ from nonebot.matcher import Matcher
 from nonebot.params import CommandArg
 from pytz import timezone, utc
 
-from amrita.plugins.chat.runtime import AmritaChatObject as ChatObject
+from amrita.plugins.chat.runtime import (
+    AmritaBotContext,
+    bot_chat_manager,
+    pending_tasks,
+)
 from amrita.plugins.chat.utils.sql import get_uni_user_id
 from amrita.utils.send import send_forward_msg
 
@@ -22,23 +26,34 @@ class ListWriteSafe(list, Generic[T]): ...
 
 
 def get_chat_objects_status(event: MessageEvent) -> dict[str, list[ChatObject]]:
-    """获取所有ChatObject的状态分类"""
-    running_objects = []
-    pending_objects = []
-    done_objects = []
-    error_objects = []
+    """获取所有ChatObject的状态分类。
 
-    all_objects = chat_manager.get_objs(get_uni_user_id(event))
+    通过隐式锁队列追踪 pending（等待锁）状态。
+    """
+    running_objects: list[ChatObject] = []
+    pending_objects: list[ChatObject] = []
+    done_objects: list[ChatObject] = []
+    error_objects: list[ChatObject] = []
 
-    for obj_instance in all_objects:
-        if obj_instance.is_running() or not hasattr(obj_instance, "is_waitting"):
-            running_objects.append(obj_instance)
-        elif obj_instance.get_exception():
-            error_objects.append(obj_instance)
-        elif obj_instance.is_done():
-            done_objects.append(obj_instance)
-        elif cast(ChatObject, obj_instance).is_waitting():
-            pending_objects.append(obj_instance)
+    uni_id = get_uni_user_id(event)
+    all_objects = bot_chat_manager.get_objs(uni_id)
+
+    # pending：仍在 waiting_tasks 且未完成的 ChatObject
+    pending_task_ids = {id(t) for t in pending_tasks.get(uni_id, []) if not t.done()}
+    remaining: list[ChatObject] = []
+    for obj in all_objects:
+        if hasattr(obj, "_task") and id(obj._task) in pending_task_ids:
+            pending_objects.append(obj)
+        else:
+            remaining.append(obj)
+
+    for obj in remaining:
+        if obj.get_exception():
+            error_objects.append(obj)
+        elif obj.is_done():
+            done_objects.append(obj)
+        else:
+            running_objects.append(obj)
 
     return {
         "running": running_objects,
@@ -49,19 +64,32 @@ def get_chat_objects_status(event: MessageEvent) -> dict[str, list[ChatObject]]:
 
 
 def format_chat_object_info(obj: ChatObject) -> str:
-    """格式化单个ChatObject的信息"""
-    event = obj.event
+    """格式化单个ChatObject的信息。
+
+    通过 _hook_kwargs["amrita"] 读取 event 上下文。
+    """
+    ctx: AmritaBotContext | None = obj._hook_kwargs.get("amrita")  # type: ignore[union-attr]
+    if ctx is None:
+        return f"\n🆔 ID: {obj.stream_id[:8]}...\n> 无上下文信息\n"
+    event = ctx["event"]
     user_id = event.user_id
     instance_id = get_uni_user_id(event)
-    status = "❓ Unknown"
-    if obj.is_waitting():
-        status = "⏳ Pending"
+
+    # 检查是否在隐式锁队列中 pending
+    in_pending = hasattr(obj, "_task") and id(obj._task) in {
+        id(t) for t in pending_tasks.get(instance_id, []) if not t.done()
+    }
+
+    if in_pending:
+        status = "⏳ Pending (等待锁)"
     elif obj.get_exception():
         status = f"❌ Error ({type(obj.get_exception()).__name__})"
     elif obj.is_done():
         status = "✅ Done"
     elif obj.is_running():
         status = "🟢 Running"
+    else:
+        status = "❓ Unknown"
 
     time_diff = (datetime.now(tz=utc) - obj.last_call).total_seconds()
     time_cost: float = (obj.end_at - obj.time).total_seconds() if obj.end_at else 0
@@ -121,18 +149,12 @@ async def send_status_report(
 
 async def terminate_chat_object(stream_id: str, event: MessageEvent) -> bool:
     """终止指定的ChatObject"""
-    all_objects: list[ChatObject] = cast(
-        list[ChatObject], chat_manager.get_objs(get_uni_user_id(event))
-    )
+    all_objects = bot_chat_manager.get_objs(get_uni_user_id(event))
     for obj in all_objects:
         if obj.stream_id.startswith(stream_id):  # 支持ID前缀匹配
-            obj_instance: ChatObject = obj
-
-            if obj_instance and (
-                obj_instance.is_running() or obj_instance.is_waitting()
-            ):
+            if obj.is_running():
                 with contextlib.suppress(Exception):
-                    obj_instance.terminate()
+                    obj.terminate()
                 return True
             break
 
@@ -152,15 +174,8 @@ async def chatobj_manage(
 
     elif plain_args == "kill" or plain_args == "terminate":
         # 仅输入 "kill" 或 "terminate"，没有指定ID，尝试杀死最后一个活动的会话
-        all_objects: list[ChatObject] = cast(
-            list[ChatObject], chat_manager.get_objs(get_uni_user_id(event))
-        )
-        active_objects = [
-            obj
-            for obj in all_objects
-            if obj.is_running()
-            and not (hasattr(obj, "is_waitting") and not obj.is_waitting())
-        ]
+        all_objects = bot_chat_manager.get_objs(get_uni_user_id(event))
+        active_objects = [obj for obj in all_objects if obj.is_running()]
         active_objects.sort(key=lambda obj: obj.last_call, reverse=True)
 
         if active_objects:
@@ -179,7 +194,7 @@ async def chatobj_manage(
         if len(stream_id_prefix) < 4:  # 至少需要4位前缀
             await matcher.finish("⚠️ 请输入至少4位的ID前缀来终止会话")
         elif stream_id_prefix == "all":
-            for obj in chat_manager.get_objs(get_uni_user_id(event)):
+            for obj in bot_chat_manager.get_objs(get_uni_user_id(event)):
                 with contextlib.suppress(Exception):
                     obj.terminate()
             await matcher.finish("⚠️ 已终止所有匹配的会话")
@@ -194,7 +209,7 @@ async def chatobj_manage(
 
     elif plain_args == "clear" or plain_args == "clean":
         count = 0
-        chat_manager.clean_obj(get_uni_user_id(event), maxitems=0)
+        bot_chat_manager.clean_obj(get_uni_user_id(event), maxitems=0)
         await matcher.finish(f"🧹 已清除 {count} 个已完成的会话")
 
     elif plain_args == "help":

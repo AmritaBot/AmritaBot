@@ -16,109 +16,109 @@ endblock %} {% block extra_css %}
     border-bottom: 1px solid #eee;
     margin-bottom: 10px;
   }
-  
-  body.dark-mode .plugins-header {
+
+  .dark .plugins-header {
     border-bottom: 1px solid var(--dark-border-color);
   }
-  
-  body.dark-mode .page-title {
+
+  .dark .page-title {
     color: var(--accent-color);
   }
-  
-  body.dark-mode .action-btn {
+
+  .dark .action-btn {
     background: var(--accent-color);
   }
-  
-  body.dark-mode .action-btn:hover {
+
+  .dark .action-btn:hover {
     background: #8a2be2;
   }
-  
-  body.dark-mode .action-btn.secondary {
+
+  .dark .action-btn.secondary {
     background: #5a6268;
     color: var(--dark-text-color);
   }
-  
-  body.dark-mode .action-btn.secondary:hover {
+
+  .dark .action-btn.secondary:hover {
     background: #495057;
   }
-  
-  body.dark-mode .plugin-card {
+
+  .dark .plugin-card {
     background: var(--dark-card-bg);
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
     border: 1px solid var(--dark-border-color);
   }
-  
-  body.dark-mode .search-icon {
+
+  .dark .search-icon {
     color: #aaa;
   }
-  
-  body.dark-mode .filter-label {
+
+  .dark .filter-label {
     color: #ddd;
   }
-  
-  body.dark-mode .filter-select {
+
+  .dark .filter-select {
     border: 1px solid var(--dark-border-color);
     background: var(--dark-card-bg);
     color: var(--dark-text-color);
   }
-  
-  body.dark-mode .search-input {
+
+  .dark .search-input {
     border: 1px solid var(--dark-border-color);
     background: var(--dark-card-bg);
     color: var(--dark-text-color);
   }
-  
-  body.dark-mode .plugin-tag {
+
+  .dark .plugin-tag {
     background: #333;
     color: #ccc;
   }
 
-  body.dark-mode .plugin-meta {
+  .dark .plugin-meta {
     color: #aaa;
   }
-  
-  body.dark-mode .plugin-description {
+
+  .dark .plugin-description {
     color: #bbb;
   }
-  
-  body.dark-mode .plugin-version {
+
+  .dark .plugin-version {
     background: rgba(41, 128, 185, 0.2);
     color: var(--accent-color);
   }
-  
-  body.dark-mode .plugin-name {
+
+  .dark .plugin-name {
     color: var(--accent-color);
   }
-  
-  body.dark-mode .plugin-card:hover {
+
+  .dark .plugin-card:hover {
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
   }
-  
-  body.dark-mode .slider {
+
+  .dark .slider {
     background-color: #555;
   }
-  
-  body.dark-mode input:checked + .slider {
+
+  .dark input:checked + .slider {
     background-color: var(--accent-color);
   }
-  
-  body.dark-mode .plugin-action-btn:hover {
+
+  .dark .plugin-action-btn:hover {
     background: var(--dark-sidebar-hover);
     color: var(--accent-color);
   }
-  
-  body.dark-mode .plugin-action-btn {
+
+  .dark .plugin-action-btn {
     color: #aaa;
   }
-  
-  body.dark-mode .no-plugins {
+
+  .dark .no-plugins {
     color: #aaa;
   }
-  
-  body.dark-mode .no-plugins i {
+
+  .dark .no-plugins i {
     color: #555;
   }
-  
+
   .page-title {
     font-size: 24px;
     font-weight: 600;
@@ -219,7 +219,9 @@ endblock %} {% block extra_css %}
     border-radius: 10px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
     padding: 20px;
-    transition: transform 0.3s, box-shadow 0.3s;
+    transition:
+      transform 0.3s,
+      box-shadow 0.3s;
     position: relative;
     overflow: hidden;
   }
@@ -424,9 +426,12 @@ endblock %} {% block extra_css %}
 </style>
 {% endblock %} {% block content %}
 <div class="plugins-header">
-  <h1 class="page-title">插件管理</h1>
-  <div class="actions-container">
-    <button class="action-btn" onclick="refreshPlugins()">
+  <h1 class="text-2xl font-semibold text-primary">插件管理</h1>
+  <div class="flex gap-2">
+    <button
+      class="px-4 py-2 rounded text-sm font-medium bg-primary text-white hover:bg-primary-hover"
+      onclick="refreshPlugins()"
+    >
       <i class="fas fa-sync-alt"></i> 刷新列表
     </button>
   </div>
@@ -449,11 +454,11 @@ endblock %} {% block extra_css %}
       <option value="remote">Pypi插件</option>
     </select>
   </div>
-  <div class="search-box">
+  <div class="relative flex-grow max-w-[300px] mb-4">
     <i class="fas fa-search search-icon"></i>
     <input
       type="text"
-      class="search-input"
+      class="input-glass pl-9"
       id="plugin-search"
       placeholder="搜索插件..."
       onkeyup="filterPlugins()"
@@ -468,9 +473,9 @@ endblock %} {% block extra_css %}
     data-source="{{ 'local' if plugin.is_local else 'remote' }}"
     data-name="{{ plugin.name|lower }}"
   >
-    <div class="plugin-header">
+    <div class="flex justify-between items-center mb-3">
       <div>
-        <h3 class="plugin-name">
+        <h3 class="text-xl font-semibold dark:text-gray-100">
           {{ plugin.name }}
           <span
             class="plugin-badge {{ 'badge-local' if plugin.is_local else 'badge-remote' }}"
@@ -534,7 +539,7 @@ endblock %} {% block extra_css %}
     });
 
     const visibleCards = Array.from(pluginCards).filter(
-      (card) => card.style.display !== "none"
+      (card) => card.style.display !== "none",
     );
     const emptyState = document.querySelector(".empty-state");
 

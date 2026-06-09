@@ -91,11 +91,11 @@ async def _(request: Request):
             }
         )
     return TemplatesManager().TemplateResponse(
+        request,
         "plugins.html",
         context={
             "plugins": plugin_list,
             "plugin_types": ["application", "library"],
-            "request": request,
             "sidebar_items": side_bar,
         },
     )

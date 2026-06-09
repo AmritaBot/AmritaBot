@@ -46,7 +46,7 @@ agent.BUILTIN_TOOLS_NAME.add(REPORT_TOOL_MEDIUM.function.name)
 @on_tools(
     data=PROCESS_MESSAGE_TOOL,
     custom_run=True,
-    enable_if=lambda: config_manager.config.llm.tools.agent_middle_message,
+    enable_if=lambda: config_manager.config.core.function_config.agent_middle_message,
 )
 async def _(ctx: ToolContext) -> str | None:
     msg: str = ctx.data["content"]

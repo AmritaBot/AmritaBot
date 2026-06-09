@@ -1,26 +1,28 @@
 {% extends "base.html" %} {% block title %} 权限组权限 - Amrita Dashboard{%
 endblock %} {% block topbar_title %}权限组权限详情{% endblock %} {% block
 content %}
-<div class="card">
-  <div class="card-header">
-    <h2 class="card-title">权限组权限详情</h2>
+<div class="glass-card p-5">
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-lg font-semibold dark:text-gray-100">权限组权限详情</h2>
   </div>
-  <div class="card-body">
+  <div class="">
     <div class="mb-3">
       <h4>权限组名称: {{ group_name }}</h4>
     </div>
-    <div class="card mt-4">
-      <div
-        class="card-header d-flex justify-content-between align-items-center"
-      >
-        <h3 class="card-title">权限组权限</h3>
-        <button type="button" class="btn btn-success" id="add-permission">
+    <div class="glass-card p-5 mt-4">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold dark:text-gray-100">权限组权限</h3>
+        <button
+          type="button"
+          class="px-4 py-2 rounded text-sm font-medium bg-success text-white hover:bg-green-700"
+          id="add-permission"
+        >
           <i class="fas fa-plus"></i> 添加权限
         </button>
       </div>
-      <div class="card-body">
+      <div class="">
         <form id="perm-group-permissions-form">
-          <div class="form-group">
+          <div class="mb-4">
             <div id="permissions-container" class="mb-3"></div>
             <input
               type="hidden"
@@ -28,14 +30,18 @@ content %}
               name="permissions"
               value=""
             />
-            <div class="d-flex gap-2">
-              <button type="submit" class="btn btn-primary">
+            <div class="flex gap-2">
+              <button
+                type="submit"
+                class="px-4 py-2 rounded text-sm font-medium bg-primary text-white hover:bg-primary-hover"
+              >
                 <i class="fas fa-save"></i> 保存权限
               </button>
-              <a href="/users/permissions" class="btn btn-secondary">
-                <button type="button">
-                  <i class="fas fa-arrow-left"></i> 返回
-                </button>
+              <a
+                href="/users/permissions"
+                class="px-4 py-2 rounded text-sm font-medium bg-gray-500 text-white hover:bg-gray-600"
+              >
+                <i class="fas fa-arrow-left"></i> 返回
               </a>
             </div>
           </div>
@@ -52,13 +58,14 @@ content %}
     const entryId = "perm-" + Date.now();
 
     const entryDiv = document.createElement("div");
-    entryDiv.className = "row g-2 align-items-center mb-2 permission-entry";
+    entryDiv.className =
+      "permission-entry flex flex-col gap-2 mb-3 p-2 rounded bg-gray-50 dark:bg-gray-800";
     entryDiv.id = entryId;
 
     entryDiv.innerHTML = `
-      <div class="col-md-5">
-        <input type="text" class="form-control permission-key" placeholder="权限节点（如 a.*）" value="${key}">
-        <select class="form-select permission-value">
+      <div>
+        <input type="text" class="input-glass mb-2" placeholder="权限节点（如 a.*）" value="${key}">
+        <select class="input-glass mb-2">
           <option value="true" ${
             value === "true" ? "selected" : ""
           }>持有</option>
@@ -66,7 +73,7 @@ content %}
             value === "false" ? "selected" : ""
           }>不持有</option>
         </select>
-        <button type="button" class="btn btn-danger remove-permission w-100">
+        <button type="button" class="w-full px-3 py-1 rounded text-sm bg-danger text-white hover:bg-red-700 remove-permission">
           <i class="fas fa-trash"></i> 删除
         </button>
       </div>
@@ -146,19 +153,5 @@ content %}
       });
   });
 </script>
-<style>
-  .permission-entry {
-    padding: 0.5rem;
-    background-color: var(background-color);
-    border-radius: 0.375rem;
-  }
-
-  #permissions-container:empty::before {
-    content: "暂无权限配置";
-    display: block;
-    text-align: center;
-    color: #6c757d;
-    padding: 1rem;
-  }
-</style>
+<!-- Tailwind: styles migrated to dist.css -->
 {% endblock %}

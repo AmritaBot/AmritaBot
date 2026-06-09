@@ -1,71 +1,28 @@
-{% extends "base.html" %} {% block title %}Amrita Dashboard - 配置管理{% endblock %} {% block topbar_title %}配置管理{% endblock %} {% block content %}
-<div class="config-container">
-  <h2>插件配置管理</h2>
-  <p>
+{% extends "base.html" %} {% block title %}Amrita Dashboard - 配置管理{%
+endblock %} {% block topbar_title %}配置管理{% endblock %} {% block content %}
+<div class="max-w-5xl mx-auto py-5">
+  <h2 class="text-2xl font-bold mb-2 dark:text-gray-100">插件配置管理</h2>
+  <p class="text-gray-500 dark:text-gray-400 mb-6">
     在此页面可以选择要编辑配置的插件。点击插件名称可以进入该插件的配置编辑页面。
   </p>
 
-  <div class="plugin-list">
+  <div>
     {% for plugin_name, plugin_info in config_list.items() %}
-    <div class="config-section" style="margin-bottom: 15px;">
-      <div class="config-header" onclick="location.href='/system/confedit/{{ plugin_name }}'">
-        <h3 class="config-title" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; width: 100%;">
-          <span>{{ plugin_name }} ({{ plugin_info.class_name }})</span>
-          <span style="font-size: 14px; color: #666;">点击编辑</span>
+    <div class="glass-card mb-4">
+      <div
+        class="flex items-center px-4 py-3 border-b border-black/5 dark:border-white/5 cursor-pointer hover:bg-black/[0.02] dark:hover:bg-white/[0.02]"
+        onclick="location.href='/system/confedit/{{ plugin_name }}'"
+      >
+        <h3 class="text-lg font-semibold flex-1 dark:text-gray-200">
+          {{ plugin_name }}
+          <span class="text-sm font-normal text-gray-400"
+            >({{ plugin_info.class_name }})</span
+          >
         </h3>
+        <span class="text-sm text-gray-400 dark:text-gray-500">点击编辑 →</span>
       </div>
     </div>
     {% endfor %}
   </div>
 </div>
-{% endblock %} {% block extra_css %}
-<style>
-  .config-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-  }
-
-  .config-section {
-    background: var(--card-bg);
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  }
-
-  body.dark-mode .config-section {
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-  }
-
-  .config-header {
-    border-bottom: 1px solid var(--border-color);
-    padding: 15px;
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-  }
-
-  body.dark-mode .config-header {
-    border-bottom: 1px solid var(--dark-border-color);
-  }
-
-  .config-header:hover {
-    background-color: var(--hover-bg);
-  }
-
-  body.dark-mode .config-header:hover {
-    background-color: var(--dark-hover-bg);
-  }
-
-  .config-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text-color);
-    margin: 0;
-    flex-grow: 1;
-  }
-
-  body.dark-mode .config-title {
-    color: var(--dark-text-color);
-  }
-</style>
-{% endblock %} 
+{% endblock %}

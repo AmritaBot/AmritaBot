@@ -1,0 +1,167 @@
+{# ── Amrita WebUI Component Macros ── Usage: {% from 'macros.html' import card,
+modal, form_field, stat_card, table, badge, btn with context %} #} {# ──
+毛玻璃卡片 ── #} {% macro card(title=None, class="") %}
+<div class="glass-card p-5 mb-5 {{ class }}">
+  {% if title %}
+  <div
+    class="flex justify-between items-center mb-4 pb-2 border-b border-black/10 dark:border-white/10"
+  >
+    <h3 class="text-lg font-semibold text-primary">{{ title }}</h3>
+    {{ caller("header_actions") }}
+  </div>
+  {% endif %} {{ caller("body") }}
+</div>
+{% endmacro %} {# ── 统计卡片 ── #} {% macro stat_card(icon, icon_color, value,
+label) %}
+<div
+  class="glass-card p-5 flex items-center transition-transform hover:-translate-y-1 hover:shadow-lg"
+>
+  <div
+    class="w-[50px] h-[50px] rounded-lg flex items-center justify-center mr-4 text-2xl {% if icon_color == 'blue' %}bg-blue-500/10 text-primary {% elif icon_color == 'green' %}bg-green-500/10 text-green-500 {% elif icon_color == 'orange' %}bg-orange-500/10 text-orange-500 {% elif icon_color == 'purple' %}bg-purple-500/10 text-purple-500 {% endif %}"
+  >
+    <i class="fas fa-{{ icon }}"></i>
+  </div>
+  <div>
+    <h3 class="text-2xl font-bold dark:text-gray-100">{{ value }}</h3>
+    <p class="text-sm text-gray-500 dark:text-gray-400">{{ label }}</p>
+  </div>
+</div>
+{% endmacro %} {# ── 模态框 ── #} {% macro modal(id, title) %}
+<div id="{{ id }}" class="hidden fixed inset-0 z-[1000]">
+  <div
+    class="absolute inset-0 bg-black/50"
+    onclick="closeModal('{{ id }}')"
+  ></div>
+  <div class="modal-inner">
+    <div
+      class="glass-modal relative z-[1001] mx-auto my-[3%] p-5 w-[90%] max-w-[600px] max-h-[90vh] overflow-y-auto"
+    >
+      <span
+        class="absolute right-4 top-2 text-2xl font-bold text-gray-400 hover:text-black dark:hover:text-white cursor-pointer"
+        onclick="closeModal('{{ id }}')"
+        >&times;</span
+      >
+      <h2 class="text-xl font-semibold mb-4 text-primary">{{ title }}</h2>
+      {{ caller() }}
+    </div>
+  </div>
+</div>
+{% endmacro %} {# ── 表单字段（标签 + 输入框） ── #} {% macro form_field(label,
+name, type="text", value="", placeholder="", required=False, class="") %}
+<div class="mb-4">
+  <label
+    class="block mb-1 font-medium text-gray-600 dark:text-gray-400 text-sm"
+    for="field_{{ name }}"
+    >{{ label }}</label
+  >
+  <input
+    type="{{ type }}"
+    id="field_{{ name }}"
+    name="{{ name }}"
+    value="{{ value }}"
+    placeholder="{{ placeholder }}"
+    class="input-glass {{ class }}"
+    {%
+    if
+    required
+    %}required{%
+    endif
+    %}
+  />
+</div>
+{% endmacro %} {# ── 表单下拉选择 ── #} {% macro form_select(label, name,
+options=[], selected="", class="") %}
+<div class="mb-4">
+  <label
+    class="block mb-1 font-medium text-gray-600 dark:text-gray-400 text-sm"
+    for="field_{{ name }}"
+    >{{ label }}</label
+  >
+  <select
+    id="field_{{ name }}"
+    name="{{ name }}"
+    class="input-glass {{ class }}"
+  >
+    {% for opt in options %}
+    <option
+      value="{{ opt.value }}"
+      {%
+      if
+      opt.value=""
+      ="selected"
+      %}selected{%
+      endif
+      %}
+    >
+      {{ opt.label }}
+    </option>
+    {% endfor %}
+  </select>
+</div>
+{% endmacro %} {# ── 表单复选框 ── #} {% macro form_checkbox(label, name,
+checked=False, class="") %}
+<div class="mb-4">
+  <label
+    class="flex items-center gap-2 cursor-pointer font-medium text-gray-600 dark:text-gray-400 text-sm"
+  >
+    <input
+      type="checkbox"
+      name="{{ name }}"
+      {%
+      if
+      checked
+      %}checked{%
+      endif
+      %}
+      class="w-4 h-4 {{ class }}"
+    />
+    {{ label }}
+  </label>
+</div>
+{% endmacro %} {# ── 按钮 ── #} {% macro btn(text, type="button",
+style="primary", class="", onclick=None, icon=None) %}
+<button
+  type="{{ type }}"
+  class="px-4 py-2 rounded text-sm font-medium transition-colors
+               {% if style == 'primary' %}bg-primary text-white hover:bg-primary-hover
+               {% elif style == 'danger' %}bg-danger text-white hover:bg-red-700
+               {% elif style == 'success' %}bg-success text-white hover:bg-green-700
+               {% elif style == 'secondary' %}bg-gray-500 text-white hover:bg-gray-600
+               {% else %}glass-card text-gray-700 dark:text-gray-300 hover:shadow-md
+               {% endif %} {{ class }}"
+  {%
+  if
+  onclick
+  %}onclick="{{ onclick }}"
+  {%
+  endif
+  %}
+>
+  {% if icon %}<i class="fas fa-{{ icon }} mr-1"></i>{% endif %} {{ text }}
+</button>
+{% endmacro %} {# ── Badge/徽章 ── #} {% macro badge(text, variant="primary") %}
+<span
+  class="inline-block px-2 py-0.5 text-xs rounded-full font-medium {% if variant == 'primary' %}bg-primary/10 text-primary {% elif variant == 'success' %}bg-green-500/10 text-green-600 {% elif variant == 'danger' %}bg-red-500/10 text-red-600 {% elif variant == 'warning' %}bg-orange-500/10 text-orange-600 {% else %}bg-gray-500/10 text-gray-600 {% endif %}"
+  >{{ text }}</span
+>
+{% endmacro %} {# ── Alert 消息 ── #} {% macro alert(type="success", id=none,
+hidden=True) %}
+<div
+  id="{{ id }}"
+  class="p-3 rounded mb-4 {% if hidden %}hidden{% endif %} {% if type == 'success' %}bg-green-100 border border-green-300 text-green-800 dark:bg-green-900/20 dark:border-green-800/30 dark:text-green-400 {% elif type == 'danger' %}bg-red-100 border border-red-300 text-red-800 dark:bg-red-900/20 dark:border-red-800/30 dark:text-red-400 {% endif %}"
+>
+  {{ caller() }}
+</div>
+{% endmacro %} {# ── 字段展示（标签+值，用于卡片内详情） ── #} {% macro
+field_item(label) %}
+<div class="mb-2">
+  <span class="text-sm font-medium text-gray-500 dark:text-gray-400"
+    >{{ label }}</span
+  >
+  <div
+    class="p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white/50 dark:bg-black/20 break-all"
+  >
+    {{ caller() }}
+  </div>
+</div>
+{% endmacro %}

@@ -1,4 +1,4 @@
-from amrita_core import logging
+from amrita_sense import logging
 from nonebot.adapters.onebot.v11.event import MessageEvent
 from nonebot.matcher import Matcher
 

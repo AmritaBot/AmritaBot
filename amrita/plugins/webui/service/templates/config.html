@@ -1,122 +1,12 @@
-{% extends "base.html" %}
-{% block title %}Amrita Dashboard - 配置编辑{% endblock %}
-{% block topbar_title %}配置编辑{% endblock %}
-{% block extra_css %}
-    <style>
-  .config-container {
-    max-width: 1200px;
-    margin: 0 auto;
-  }
-
-  .config-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: 15px;
-    border-bottom: 1px solid #eee;
-  }
-
-  body.dark-mode .config-header {
-    border-bottom: 1px solid var(--dark-border-color);
-  }
-
-  .config-title {
-    font-size: 24px;
-    font-weight: 600;
-    color: #333;
-  }
-
-  body.dark-mode .config-title {
-    color: var(--dark-text-color);
-  }
-
-  .config-actions {
-    display: flex;
-    gap: 10px;
-  }
-
-  .btn {
-    padding: 8px 16px;
-    border-radius: 4px;
-    border: none;
-    cursor: pointer;
-    font-size: 14px;
-    transition: all 0.3s;
-  }
-
-  .btn-primary {
-    background: #8a2be2;
-    color: white;
-  }
-
-  body.dark-mode .btn-primary {
-    background: #8a2be2;
-  }
-
-  .btn-primary:hover {
-    background: #7a1bd2;
-  }
-
-  body.dark-mode .btn-primary:hover {
-    background: #7a1bd2;
-  }
-
-  .btn-secondary {
-    background: #6c757d;
-    color: white;
-  }
-
-  body.dark-mode .btn-secondary {
-    background: #5c656d;
-    color: var(--dark-text-color);
-  }
-
-  .btn-secondary:hover {
-    background: #5c656d;
-  }
-
-  body.dark-mode .btn-secondary:hover {
-    background: #4c555d;
-  }
-
-  .config-editor {
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  }
-
-  body.dark-mode .config-editor {
-    border: 1px solid var(--dark-border-color);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  }
-
-  .editor-header {
-    background: #f8f9fa;
-    padding: 10px 15px;
-    border-bottom: 1px solid #ddd;
-    font-weight: 600;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  body.dark-mode .editor-header {
-    background: var(--dark-sidebar-bg);
-    border-bottom: 1px solid var(--dark-border-color);
-    color: var(--dark-text-color);
-  }
-
-  .editor-content {
-    position: relative;
-  }
-
+{% extends "base.html" %} {% block title %}Amrita Dashboard - 配置编辑{%
+endblock %} {% block topbar_title %}配置编辑{% endblock %} {% block extra_css %}
+<style>
   .config-textarea {
     min-height: 500px;
     padding: 15px;
     border: none;
     resize: vertical;
-    font-family: 'Courier New', Courier, monospace;
+    font-family: "Courier New", Courier, monospace;
     font-size: 14px;
     line-height: 1.5;
     background: #fff;
@@ -124,298 +14,206 @@
     width: 100%;
     tab-size: 4;
   }
-
-  body.dark-mode .config-textarea {
-    background: var(--dark-card-bg);
-    color: var(--dark-text-color);
+  .dark .config-textarea {
+    background: #252525;
+    color: #f0f0f0;
   }
-
   .config-textarea:focus {
     outline: none;
-    box-shadow: 0 0 0 2px rgba(138, 43, 226, 0.25);
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.25);
   }
-
-  body.dark-mode .config-textarea:focus {
-    box-shadow: 0 0 0 2px rgba(186, 85, 211, 0.25);
+  .dark .config-textarea:focus {
+    box-shadow: 0 0 0 2px rgba(26, 188, 156, 0.25);
   }
-
-  .editor-footer {
-    background: #f8f9fa;
-    padding: 10px 15px;
-    border-top: 1px solid #ddd;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  body.dark-mode .editor-footer {
-    background: var(--dark-sidebar-bg);
-    border-top: 1px solid var(--dark-border-color);
-  }
-
-  .editor-info {
-    font-size: 12px;
-    color: #666;
-  }
-
-  body.dark-mode .editor-info {
-    color: #aaa;
-  }
-
-  .save-status {
-    font-size: 12px;
-    padding: 4px 8px;
-    border-radius: 4px;
-    background: #e9ecef;
-  }
-
-  body.dark-mode .save-status {
-    background: #333;
-    color: var(--dark-text-color);
-  }
-
-  .save-status.saved {
-    background: #d4edda;
-    color: #155724;
-  }
-
-  body.dark-mode .save-status.saved {
-    background: rgba(40, 167, 69, 0.2);
-    color: #28a745;
-  }
-
-  .save-status.error {
-    background: #f8d7da;
-    color: #721c24;
-  }
-
-  body.dark-mode .save-status.error {
-    background: rgba(220, 53, 69, 0.2);
-    color: #dc3545;
-  }
-
-  .help-section {
-    margin-top: 20px;
-    padding: 20px;
-    background: #f8f9fa;
-    border-radius: 4px;
-    border: 1px solid #eee;
-  }
-
-  body.dark-mode .help-section {
-    background: var(--dark-card-bg);
-    border: 1px solid var(--dark-border-color);
-  }
-
-  .help-title {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 15px;
-    color: #333;
-  }
-
-  body.dark-mode .help-title {
-    color: var(--dark-text-color);
-  }
-
-  .help-content {
-    font-size: 14px;
-    line-height: 1.6;
-    color: #555;
-  }
-
-  body.dark-mode .help-content {
-    color: #ccc;
-  }
-
-  .help-content code {
-    background: #e9ecef;
-    padding: 2px 4px;
-    border-radius: 3px;
-    font-family: 'Courier New', Courier, monospace;
-  }
-
-  body.dark-mode .help-content code {
-    background: #333;
-  }
-
-  .help-content ul {
-    padding-left: 20px;
-  }
-
-  .help-content li {
-    margin-bottom: 8px;
-  }
-
-  
-  @media (max-width: 768px) {
-    .config-header {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .config-actions {
-      margin-top: 15px;
-    }
-
-    .editor-footer {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .editor-info {
-      margin-bottom: 10px;
-    }
-  }
-
-    </style>
-{% endblock %}
-{% block content %}
-    <div class="config-container">
-        <div class="config-header">
-            <h1 class="config-title">环境配置编辑器</h1>
-            <div class="config-actions">
-                <select class="file-selector" id="fileSelector">
-                    {% for file in env_files %}
-                        <option value="{{ file }}" {% if file == selected_file %}selected{% endif %}>{{ file }}</option>
-                    {% endfor %}
-                </select>
-                <button class="btn btn-secondary" id="resetConfig">
-                    <i class="fas fa-undo"></i> 重置
-                </button>
-                <button class="btn btn-primary" id="saveConfig">
-                    <i class="fas fa-save"></i> 保存配置
-                </button>
-            </div>
-        </div>
-        <div class="config-editor">
-            <div class="editor-header">
-                <span id="currentFileName">{{ selected_file }} 配置文件</span>
-                <span>UTF-8</span>
-            </div>
-            <div class="editor-content">
-                <textarea class="config-textarea"
-                          id="configContent"
-                          placeholder="在此处编辑配置文件内容...">{{ env_content }}</textarea>
-            </div>
-            <div class="editor-footer">
-                <div class="editor-info">
-                    <i class="fas fa-info-circle"></i> 编辑配置后需要重启机器人以使更改生效
-                </div>
-                <div class="save-status" id="saveStatus">就绪</div>
-            </div>
-        </div>
-        <div class="help-section">
-            <h2 class="help-title">配置说明</h2>
-            <div class="help-content">
-                <p>
-                    配置文件使用 dotenv 格式，每行一个配置项，格式为 <code>KEY=VALUE</code>：
-                </p>
-                <ul>
-                    <li>
-                        <strong>基本格式</strong>: <code>KEY=VALUE</code>
-                    </li>
-                    <li>
-                        <strong>注释</strong>: 以 <code>#</code> 开头的行
-                    </li>
-                    <li>
-                        <strong>字符串值</strong>: 可以不加引号，如果包含特殊字符建议使用双引号
-                    </li>
-                    <li>
-                        <strong>数组</strong>: 使用逗号分隔，如 <code>PLUGINS=plugin1,plugin2,plugin3</code>
-                    </li>
-                </ul>
-                <p>
-                    <strong>重要提示</strong>: 修改配置后需要重启服务才能生效。
-                </p>
-            </div>
-        </div>
+</style>
+{% endblock %} {% block content %}
+<div class="max-w-5xl mx-auto">
+  <div
+    class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 mb-5 border-b border-black/10 dark:border-white/10"
+  >
+    <h1 class="text-2xl font-semibold dark:text-gray-100 mb-3 sm:mb-0">
+      环境配置编辑器
+    </h1>
+    <div class="flex gap-2 items-center">
+      <select id="fileSelector" class="input-glass py-2 px-3 text-sm">
+        {% for file in env_files %}
+        <option
+          value="{{ file }}"
+          {%
+          if
+          file=""
+          ="selected_file"
+          %}selected{%
+          endif
+          %}
+        >
+          {{ file }}
+        </option>
+        {% endfor %}
+      </select>
+      <button
+        id="resetConfig"
+        class="px-4 py-2 rounded text-sm font-medium bg-gray-500 text-white hover:bg-gray-600"
+      >
+        <i class="fas fa-undo"></i> 重置
+      </button>
+      <button
+        id="saveConfig"
+        class="px-4 py-2 rounded text-sm font-medium bg-primary text-white hover:bg-primary-hover"
+      >
+        <i class="fas fa-save"></i> 保存配置
+      </button>
     </div>
-{% endblock %}
-{% block scripts %}
-    <script>
-  
-  document.addEventListener('DOMContentLoaded', function() {
-    const configContent = document.getElementById('configContent');
-    const saveConfigBtn = document.getElementById('saveConfig');
-    const resetConfigBtn = document.getElementById('resetConfig');
-    const saveStatus = document.getElementById('saveStatus');
-    const fileSelector = document.getElementById('fileSelector');
-    const currentFileName = document.getElementById('currentFileName');
-    
-    
+  </div>
+
+  <div
+    class="border border-gray-200 dark:border-gray-600 rounded overflow-hidden shadow-sm"
+  >
+    <div
+      class="flex justify-between items-center px-4 py-2 bg-gray-100 dark:bg-sidebar-dark-hover border-b border-gray-200 dark:border-gray-600 font-semibold text-sm dark:text-gray-200"
+    >
+      <span id="currentFileName">{{ selected_file }} 配置文件</span>
+      <span class="text-xs text-gray-500 dark:text-gray-400">UTF-8</span>
+    </div>
+    <textarea
+      id="configContent"
+      class="config-textarea"
+      placeholder="在此处编辑配置文件内容..."
+    >
+{{ env_content }}</textarea
+    >
+    <div
+      class="flex flex-col sm:flex-row justify-between items-start sm:items-center px-4 py-2 bg-gray-100 dark:bg-sidebar-dark-hover border-t border-gray-200 dark:border-gray-600 text-xs gap-2"
+    >
+      <span class="text-gray-500 dark:text-gray-400"
+        ><i class="fas fa-info-circle"></i>
+        编辑配置后需要重启机器人以使更改生效</span
+      >
+      <span
+        id="saveStatus"
+        class="px-2 py-1 rounded text-xs bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
+        >就绪</span
+      >
+    </div>
+  </div>
+
+  <div
+    class="mt-5 p-5 bg-gray-50 dark:bg-dark-card rounded border border-gray-200 dark:border-gray-600"
+  >
+    <h2 class="text-lg font-semibold mb-4 dark:text-gray-100">配置说明</h2>
+    <div class="text-sm leading-relaxed text-gray-600 dark:text-gray-400">
+      <p class="mb-3">
+        配置文件使用 dotenv 格式，每行一个配置项，格式为
+        <code
+          class="bg-gray-200 dark:bg-gray-700 px-1 py-0.5 rounded text-xs font-mono"
+          >KEY=VALUE</code
+        >：
+      </p>
+      <ul class="list-disc pl-5 space-y-2">
+        <li>
+          <strong>基本格式</strong>:
+          <code
+            class="bg-gray-200 dark:bg-gray-700 px-1 py-0.5 rounded text-xs font-mono"
+            >KEY=VALUE</code
+          >
+        </li>
+        <li>
+          <strong>注释</strong>: 以
+          <code
+            class="bg-gray-200 dark:bg-gray-700 px-1 py-0.5 rounded text-xs font-mono"
+            >#</code
+          >
+          开头的行
+        </li>
+        <li>
+          <strong>字符串值</strong>:
+          可以不加引号，如果包含特殊字符建议使用双引号
+        </li>
+        <li>
+          <strong>数组</strong>: 使用逗号分隔，如
+          <code
+            class="bg-gray-200 dark:bg-gray-700 px-1 py-0.5 rounded text-xs font-mono"
+            >PLUGINS=plugin1,plugin2,plugin3</code
+          >
+        </li>
+      </ul>
+      <p class="mt-3">
+        <strong>重要提示</strong>: 修改配置后需要重启服务才能生效。
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const configContent = document.getElementById("configContent");
+    const saveConfigBtn = document.getElementById("saveConfig");
+    const resetConfigBtn = document.getElementById("resetConfig");
+    const saveStatus = document.getElementById("saveStatus");
+    const fileSelector = document.getElementById("fileSelector");
+    const currentFileName = document.getElementById("currentFileName");
+
     const originalContent = configContent.value;
     let currentFile = "{{ selected_file }}";
-    
-    
-    fileSelector.addEventListener('change', async function() {
+
+    fileSelector.addEventListener("change", async function () {
       const selectedFile = this.value;
-      
-      
-      saveStatus.textContent = '加载中...';
-      saveStatus.className = 'save-status status-saving';
-      
+
+      saveStatus.textContent = "加载中...";
+      saveStatus.className = "save-status status-saving";
+
       try {
         const response = await fetch(`/api/bot/config/${selectedFile}`);
         const result = await response.json();
-        
+
         if (result.code === 200) {
-          
           configContent.value = result.content;
           currentFile = selectedFile;
-          currentFileName.textContent = selectedFile + ' 配置文件';
+          currentFileName.textContent = selectedFile + " 配置文件";
           saveStatus.textContent = `已加载 ${selectedFile}`;
-          saveStatus.className = 'save-status status-success';
-          
-          
+          saveStatus.className = "save-status status-success";
+
           setTimeout(() => {
-            saveStatus.textContent = '就绪';
-            saveStatus.className = 'save-status';
+            saveStatus.textContent = "就绪";
+            saveStatus.className = "save-status";
           }, 3000);
         } else {
-          
-          saveStatus.textContent = '加载失败: ' + result.message;
-          saveStatus.className = 'save-status status-error';
+          saveStatus.textContent = "加载失败: " + result.message;
+          saveStatus.className = "save-status status-error";
         }
       } catch (error) {
-        
-        saveStatus.textContent = '加载失败: 网络错误';
-        saveStatus.className = 'save-status status-error';
-        console.error('加载配置时出错:', error);
+        saveStatus.textContent = "加载失败: 网络错误";
+        saveStatus.className = "save-status status-error";
+        console.error("加载配置时出错:", error);
       }
     });
-    
-    
-    saveConfigBtn.addEventListener('click', async function() {
+
+    saveConfigBtn.addEventListener("click", async function () {
       const content = configContent.value;
       const filename = currentFile;
-      
-      
-      saveStatus.textContent = '保存中...';
-      saveStatus.className = 'save-status status-saving';
-      
+
+      saveStatus.textContent = "保存中...";
+      saveStatus.className = "save-status status-saving";
+
       try {
-        const response = await fetch('/api/bot/config', {
-          method: 'POST',
+        const response = await fetch("/api/bot/config", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
-            "Authorization": "Bearer " + (await getOnetimeToken()),
-          
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + (await getOnetimeToken()),
           },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             content: content,
-            filename: filename
-          })
+            filename: filename,
+          }),
         });
-        
+
         const result = await response.json();
-        
+
         if (result.code === 200) {
-          
-          saveStatus.textContent = '保存成功';
-          saveStatus.className = 'save-status status-success';
-          
-          
+          saveStatus.textContent = "保存成功";
+          saveStatus.className = "save-status status-success";
+
           let optionExists = false;
           for (let i = 0; i < fileSelector.options.length; i++) {
             if (fileSelector.options[i].value === filename) {
@@ -423,62 +221,56 @@
               break;
             }
           }
-          
+
           if (!optionExists) {
-            const newOption = document.createElement('option');
+            const newOption = document.createElement("option");
             newOption.value = filename;
             newOption.textContent = filename;
             fileSelector.appendChild(newOption);
           }
-          
-          
+
           setTimeout(() => {
-            saveStatus.textContent = '就绪';
-            saveStatus.className = 'save-status';
+            saveStatus.textContent = "就绪";
+            saveStatus.className = "save-status";
           }, 3000);
         } else {
-          
-          saveStatus.textContent = '保存失败: ' + result.error;
-          saveStatus.className = 'save-status status-error';
+          saveStatus.textContent = "保存失败: " + result.error;
+          saveStatus.className = "save-status status-error";
         }
       } catch (error) {
-        
-        saveStatus.textContent = '保存失败: 网络错误';
-        saveStatus.className = 'save-status status-error';
-        console.error('保存配置时出错:', error);
+        saveStatus.textContent = "保存失败: 网络错误";
+        saveStatus.className = "save-status status-error";
+        console.error("保存配置时出错:", error);
       }
     });
-    
-    
-    resetConfigBtn.addEventListener('click', function() {
+
+    resetConfigBtn.addEventListener("click", function () {
       Swal.fire({
-        title: '确认重置',
-        text: '确定要将配置文件重置为原始内容吗？此操作不可撤销。',
-        icon: 'warning',
+        title: "确认重置",
+        text: "确定要将配置文件重置为原始内容吗？此操作不可撤销。",
+        icon: "warning",
         showCancelButton: true,
-        confirmButtonText: '确定重置',
-        cancelButtonText: '取消'
+        confirmButtonText: "确定重置",
+        cancelButtonText: "取消",
       }).then((result) => {
         if (result.isConfirmed) {
           configContent.value = originalContent;
-          saveStatus.textContent = '已重置为原始内容';
-          saveStatus.className = 'save-status status-success';
-          
-          
+          saveStatus.textContent = "已重置为原始内容";
+          saveStatus.className = "save-status status-success";
+
           setTimeout(() => {
-            saveStatus.textContent = '就绪';
-            saveStatus.className = 'save-status';
+            saveStatus.textContent = "就绪";
+            saveStatus.className = "save-status";
           }, 3000);
         }
       });
     });
-    
-    
-    configContent.addEventListener('input', function() {
-      if (saveStatus.textContent === '就绪') {
-        saveStatus.textContent = '内容已修改';
+
+    configContent.addEventListener("input", function () {
+      if (saveStatus.textContent === "就绪") {
+        saveStatus.textContent = "内容已修改";
       }
     });
   });
-    </script>
+</script>
 {% endblock %}

@@ -1,7 +1,7 @@
 [project]
 name = "amrita"
-version = "1.1.12"
-description = "A powerful AI bot framework powered by NoneBot2"
+version = "1.2.0"
+description = "A powerful Agent bot powered by NoneBot2"
 readme = "README.md"
 license = "GPL-3.0-or-later"
 requires-python = ">=3.10, <4.0"
@@ -11,8 +11,6 @@ dependencies = [
     "click>=8.2.1",
     "colorama>=0.4",
     "toml>=0.10.2",
-    "pip>=25.2",
-    "nonebot-plugin-localstore>=0.7.4",
     "typing-extensions>=4.6.0",
     "uv>=0.8.12",
     "requests>=2.0", # See https://github.com/twindb/backup/pull/465
@@ -22,15 +20,16 @@ dependencies = [
     "zipp>=3.23.0",
     "pytz>=2025.2",
     "tomlkit>=0.13.3",
-    "nonebot-plugin-orm>=0.8.3", # See https://github.com/nonebot/plugin-orm/issues/33
     "nb-cli==1.6.0",
     "watchfiles>=1.1.1",
-    "amrita-core>=0.8.4.1, <0.9.0",
+    "amrita-core[jieba]>=0.9.1, <1.0.0",
     "aiologic>=0.16.0",
+    "amrita-sense>=0.3.0",
 ]
 
 [project.optional-dependencies]
 full = [
+    "nonebot-plugin-orm>=0.8.3", # See https://github.com/nonebot/plugin-orm/issues/33
     "nonebot-plugin-uniconf>=0.1.3",
     "aiomysql>=0.3.2",
     "aiopg>=1.4.0",
@@ -76,9 +75,7 @@ dev-dependencies = [
     "nonebot-plugin-orm[default]>=0.8.2",
     "pytest>=8.4.1",
     "amrita[full]",
-    "mcp>=1.21.1",
     "py-spy>=0.4.1",
-    "ty>=0.0.8",
     "pyright>=1.1.407",
 ]
 package = true

@@ -142,19 +142,5 @@ endblock %} {% block topbar_title %}创建权限组{% endblock %} {% block conte
       });
   });
 </script>
-<style>
-  .permission-entry {
-    padding: 0.5rem;
-    background-color:var(background-color);
-    border-radius: 0.375rem;
-  }
-
-  #permissions-container:empty::before {
-    content: "暂无权限配置";
-    display: block;
-    text-align: center;
-    color: #6c757d;
-    padding: 1rem;
-  }
-</style>
+<!-- Tailwind: styles migrated to dist.css -->
 {% endblock %}

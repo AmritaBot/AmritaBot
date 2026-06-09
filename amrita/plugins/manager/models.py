@@ -17,7 +17,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from amrita.cache import WeakValueLRUCache
 
-_lock_pool = WeakValueLRUCache(2048, True)
+_lock_pool = WeakValueLRUCache(capacity=2048, loose_mode=True)
 
 
 def lock(bid: str) -> aiologic.Lock:

@@ -1,4 +1,4 @@
-# PROJ.Amrita 🌸 - 基于 NoneBot 与 AmritaCore 的 Agent Bot
+# AmritaBot - 基于 NoneBot 与 AmritaCore 的 Agent Bot 项目
 
 <p align= "center">
   <img src="./logo/Amrita-nobg.png" width=400 height=400>

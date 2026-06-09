@@ -18,7 +18,7 @@
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   }
 
-  body.dark-mode .config-section {
+  .dark .config-section {
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
   }
 
@@ -30,7 +30,7 @@
     cursor: pointer;
   }
 
-  body.dark-mode .config-header {
+  .dark .config-header {
     border-bottom: 1px solid var(--dark-border-color);
   }
 
@@ -38,7 +38,7 @@
     background-color: var(--hover-bg);
   }
 
-  body.dark-mode .config-header:hover {
+  .dark .config-header:hover {
     background-color: var(--dark-hover-bg);
   }
 
@@ -53,7 +53,7 @@
     gap: 10px;
   }
 
-  body.dark-mode .config-title {
+  .dark .config-title {
     color: var(--dark-text-color);
   }
 
@@ -97,7 +97,7 @@
     border-bottom: none;
   }
 
-  body.dark-mode .field-item {
+  .dark .field-item {
     border-bottom: 1px solid var(--dark-border-color);
   }
 
@@ -113,7 +113,7 @@
     word-break: break-all;
   }
 
-  body.dark-mode .field-name {
+  .dark .field-name {
     color: var(--dark-text-color);
   }
 
@@ -123,7 +123,7 @@
     margin-bottom: 8px;
   }
 
-  body.dark-mode .field-description {
+  .dark .field-description {
     color: #aaa;
   }
 
@@ -134,7 +134,7 @@
     margin-bottom: 8px;
   }
 
-  body.dark-mode .field-default {
+  .dark .field-default {
     color: #999;
   }
 
@@ -153,7 +153,7 @@
     font-family: monospace;
   }
 
-  body.dark-mode .field-input {
+  .dark .field-input {
     border: 1px solid var(--dark-border-color);
     background: var(--dark-input-bg);
     color: var(--dark-text-color);
@@ -182,7 +182,7 @@
     box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
   }
 
-  body.dark-mode .field-input-select {
+  .dark .field-input-select {
     border: 1px solid var(--dark-border-color);
     background: var(--dark-input-bg);
     color: var(--dark-text-color);
@@ -200,7 +200,7 @@
     transition: color 0.3s ease;
   }
 
-  body.dark-mode .field-input-bool-label {
+  .dark .field-input-bool-label {
     color: var(--dark-text-color);
   }
 
@@ -276,7 +276,7 @@
     margin-top: 5px;
   }
 
-  body.dark-mode .field-type {
+  .dark .field-type {
     color: #999;
   }
 
@@ -302,7 +302,7 @@
     padding: 8px;
   }
 
-  body.dark-mode .list-item {
+  .dark .list-item {
     background: var(--dark-card-bg);
     border: 1px solid var(--dark-border-color);
   }
@@ -315,7 +315,7 @@
     background: var(--hover-bg);
   }
 
-  body.dark-mode .list-item.sortable-chosen {
+  .dark .list-item.sortable-chosen {
     background: var(--dark-hover-bg);
   }
 
@@ -330,7 +330,7 @@
     margin-right: 5px;
   }
 
-  body.dark-mode .list-item-input {
+  .dark .list-item-input {
     border: 1px solid var(--dark-border-color);
     background: var(--dark-input-bg);
     color: var(--dark-text-color);
@@ -354,7 +354,7 @@
     color: #000;
   }
 
-  body.dark-mode .drag-handle:hover {
+  .dark .drag-handle:hover {
     color: #fff;
   }
 
@@ -368,7 +368,7 @@
     line-height: 1;
   }
 
-  body.dark-mode .list-item-btn {
+  .dark .list-item-btn {
     border: 1px solid var(--dark-border-color);
     background: var(--dark-input-bg);
     color: var(--dark-text-color);
@@ -384,7 +384,7 @@
     font-size: 14px;
   }
 
-  body.dark-mode .list-add-btn {
+  .dark .list-add-btn {
     border: 1px solid var(--dark-border-color);
     background: var(--dark-input-bg);
     color: var(--dark-text-color);
@@ -400,7 +400,7 @@
     border-top: 1px solid var(--border-color);
   }
 
-  body.dark-mode .config-actions {
+  .dark .config-actions {
     border-top: 1px solid var(--dark-border-color);
   }
 
@@ -512,7 +512,7 @@
     border-bottom: 1px solid var(--border-color);
   }
 
-  body.dark-mode .nested-field-header {
+  .dark .nested-field-header {
     background-color: var(--dark-card-bg);
   }
 
@@ -520,7 +520,7 @@
     background-color: var(--hover-bg);
   }
 
-  body.dark-mode .nested-field-header:hover {
+  .dark .nested-field-header:hover {
     background-color: var(--dark-hover-bg);
   }
 
@@ -543,7 +543,7 @@
     transition: max-height 0.3s ease, padding 0.3s ease;
   }
 
-  body.dark-mode .nested-field-content {
+  .dark .nested-field-content {
     border-left: 1px dashed var(--dark-border-color);
   }
   
@@ -617,7 +617,7 @@
     </a>
   </div>
   
-  <div class="alert alert-success" id="success-alert" style="display: none">
+  <div class="p-3 rounded mb-4 bg-green-100 border border-green-300 text-green-800 dark:bg-green-900/20 dark:border-green-800/30 dark:text-green-400" id="success-alert" style="display: none">
     配置已成功保存！
   </div>
 

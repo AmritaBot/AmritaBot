@@ -338,7 +338,7 @@ requires-dist = [
     { name = "aiopg", marker = "extra == 'full'", specifier = ">=1.4.0" },
     { name = "aiosqlite", marker = "extra == 'full'", specifier = ">=0.21.0" },
     { name = "alembic", marker = "extra == 'full'", specifier = "==1.16.4" },
-    { name = "amrita-core", extras = ["jieba"], specifier = ">=0.9.0,<1.0.0" },
+    { name = "amrita-core", extras = ["jieba"], specifier = ">=0.9.1,<1.0.0" },
     { name = "amrita-sense", specifier = ">=0.3.0" },
     { name = "async-lru", marker = "extra == 'full'", specifier = ">=2.0.5" },
     { name = "bcrypt", marker = "extra == 'full'", specifier = ">=4.3.0" },

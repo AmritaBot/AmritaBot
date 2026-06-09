@@ -4,182 +4,100 @@ endblock %} {% block extra_head %}
   name="viewport"
   content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
 />
-{% endblock %} {% block extra_css %}
-<style>
-  .chart-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 15px;
-    box-sizing: border-box;
-  }
-
-  .gauge-container {
-    position: relative;
-    width: 100%;
-    max-width: 200px;
-    height: auto;
-    margin: 0 auto;
-  }
-
-  .gauge-container canvas {
-    width: 100% !important;
-    height: auto !important;
-    max-height: 150px;
-    display: block;
-  }
-
-  .gauge-value {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-    width: 100%;
-  }
-
-  @media (max-width: 768px) {
-    .info-grid {
-      grid-template-columns: 1fr;
-    }
-    .charts-grid {
-      grid-template-columns: 1fr;
-    }
-    .card-header {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-    .refresh-btn {
-      margin-top: 10px;
-    }
-    .chart-container {
-      margin: 10px;
-      height: auto;
-      min-height: 180px;
-    }
-    .gauge-container {
-      max-width: 150px;
-    }
-    .gauge-title {
-      font-size: 14px;
-    }
-    .gauge-value {
-      font-size: 20px;
-      text-align: center;
-      line-height: 1.5;
-    }
-  }
-</style>
-{% endblock %} {% block content %}
-<div class="info-grid">
-  <div class="info-card">
-    <div class="card-header">
-      <div class="card-title">机器人信息</div>
-      <button class="refresh-btn" onclick="refreshData()">
+{% endblock %}
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+  <div class="glass-card p-5">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-semibold dark:text-gray-100">机器人信息</h3>
+      <button onclick="refreshData()" class="px-3 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
         <i class="fas fa-sync-alt"></i> 刷新
       </button>
     </div>
     <div class="info-item">
-      <span class="info-label">ID:</span>
-      <span class="info-value" id="bot-id">{{ bot_static_info.id }}</span>
+      <span class="text-sm text-gray-500 dark:text-gray-400">ID:</span>
+      <span class="text-sm font-medium dark:text-gray-200" id="bot-id">{{ bot_static_info.id }}</span>
     </div>
-    <!--
-    <div class="info-item">
-      <span class="info-label">Bot昵称:</span>
-      <span class="info-value" id="bot-nickname"
-        >{{ bot_static_info.bot_name }}</span
-      >
-    </div>
-    -->
   </div>
-  <div class="info-card">
-    <div class="card-header">
-      <div class="card-title">系统信息</div>
+  <div class="glass-card p-5">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-semibold dark:text-gray-100">系统信息</h3>
     </div>
     <div class="info-item">
-      <span class="info-label">Bot名称:</span>
-      <span class="info-value" id="bot-name">{{ bot_static_info.name }}</span>
+      <span class="text-sm text-gray-500 dark:text-gray-400">Bot名称:</span>
+      <span class="text-sm font-medium dark:text-gray-200" id="bot-name">{{ bot_static_info.name }}</span>
     </div>
     <div class="info-item">
-      <span class="info-label">操作系统:</span>
-      <span class="info-value" id="system-os">{{ system_info.os }}</span>
+      <span class="text-sm text-gray-500 dark:text-gray-400">操作系统:</span>
+      <span class="text-sm font-medium dark:text-gray-200" id="system-os">{{ system_info.os }}</span>
     </div>
     <div class="info-item">
-      <span class="info-label">Python版本:</span>
-      <span class="info-value" id="system-python"
+      <span class="text-sm text-gray-500 dark:text-gray-400">Python版本:</span>
+      <span class="text-sm font-medium dark:text-gray-200" id="system-python"
         >{{ system_info.python_version }}</span
       >
     </div>
     <div class="info-item">
-      <span class="info-label">主机名:</span>
-      <span class="info-value" id="system-hostname"
+      <span class="text-sm text-gray-500 dark:text-gray-400">主机名:</span>
+      <span class="text-sm font-medium dark:text-gray-200" id="system-hostname"
         >{{ system_info.hostname }}</span
       >
     </div>
     <div class="info-item">
-      <span class="info-label">Amrita版本:</span>
-      <span class="info-value" id="bot-version"
+      <span class="text-sm text-gray-500 dark:text-gray-400">Amrita版本:</span>
+      <span class="text-sm font-medium dark:text-gray-200" id="bot-version"
         >{{ bot_static_info.version }}</span
       >
     </div>
     <div class="info-item">
-      <span class="info-label">运行协议:</span>
-      <span class="info-value" id="bot-platform"
+      <span class="text-sm text-gray-500 dark:text-gray-400">运行协议:</span>
+      <span class="text-sm font-medium dark:text-gray-200" id="bot-platform"
         >{{ bot_static_info.platform }}</span
       >
     </div>
   </div>
 </div>
-<div class="charts-grid">
-  <div class="chart-card">
-    <div class="card-header">
-      <div class="card-title">CPU使用率</div>
-    </div>
-    <div class="chart-container">
-      <div class="gauge-container">
-        <canvas id="cpuGauge"></canvas>
-        <div class="gauge-value" id="cpu-value">0%</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-5">
+  <div class="glass-card p-5">
+    <h3 class="text-lg font-semibold mb-4 dark:text-gray-100">CPU使用率</h3>
+    <div class="flex flex-col items-center justify-center">
+      <div class="relative w-full max-w-[200px] mx-auto">
+        <canvas id="cpuGauge" class="w-full h-auto max-h-[150px]"></canvas>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full font-bold text-xl dark:text-gray-200" id="cpu-value">0%</div>
       </div>
     </div>
   </div>
-  <div class="chart-card">
-    <div class="card-header">
-      <div class="card-title">内存使用率</div>
-    </div>
-    <div class="chart-container">
-      <div class="gauge-container">
-        <canvas id="memoryGauge"></canvas>
-        <div class="gauge-value" id="memory-value">0%</div>
+  <div class="glass-card p-5">
+    <h3 class="text-lg font-semibold mb-4 dark:text-gray-100">内存使用率</h3>
+    <div class="flex flex-col items-center justify-center">
+      <div class="relative w-full max-w-[200px] mx-auto">
+        <canvas id="memoryGauge" class="w-full h-auto max-h-[150px]"></canvas>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full font-bold text-xl dark:text-gray-200" id="memory-value">0%</div>
       </div>
     </div>
   </div>
-  <div class="chart-card">
-    <div class="card-header">
-      <div class="card-title">磁盘使用率</div>
-    </div>
-    <div class="chart-container">
-      <div class="gauge-container">
-        <canvas id="diskGauge"></canvas>
-        <div class="gauge-value" id="disk-value">0%</div>
+  <div class="glass-card p-5">
+    <h3 class="text-lg font-semibold mb-4 dark:text-gray-100">磁盘使用率</h3>
+    <div class="flex flex-col items-center justify-center">
+      <div class="relative w-full max-w-[200px] mx-auto">
+        <canvas id="diskGauge" class="w-full h-auto max-h-[150px]"></canvas>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full font-bold text-xl dark:text-gray-200" id="disk-value">0%</div>
       </div>
     </div>
   </div>
-  <div class="info-card">
-    <div class="card-header">
-      <div class="card-title">网络流量</div>
+  <div class="glass-card p-5">
+    <h3 class="text-lg font-semibold mb-4 dark:text-gray-100">网络流量</h3>
+    <div class="info-item">
+      <span class="text-sm text-gray-500 dark:text-gray-400">发送:</span>
+      <span class="text-sm font-medium dark:text-gray-200" id="network-sent">0 KB</span>
     </div>
     <div class="info-item">
-      <span class="info-label">发送:</span>
-      <span class="info-value" id="network-sent">0 KB</span>
+      <span class="text-sm text-gray-500 dark:text-gray-400">接收:</span>
+      <span class="text-sm font-medium dark:text-gray-200" id="network-received">0 KB</span>
     </div>
     <div class="info-item">
-      <span class="info-label">接收:</span>
-      <span class="info-value" id="network-received">0 KB</span>
-    </div>
-    <div class="info-item">
-      <span class="info-label">Bot状态:</span>
-      <span class="info-value status-online" id="bot-status">在线</span>
+      <span class="text-sm text-gray-500 dark:text-gray-400">Bot状态:</span>
+      <span class="text-sm font-medium dark:text-gray-200 text-green-600 dark:text-green-400" id="bot-status">在线</span>
     </div>
   </div>
 </div>

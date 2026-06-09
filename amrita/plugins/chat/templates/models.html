@@ -11,7 +11,7 @@ extra_css %}
     border-bottom: 1px solid #eee;
   }
 
-  body.dark-mode .models-header {
+  .dark .models-header {
     border-bottom: 1px solid var(--dark-border-color);
   }
 
@@ -21,7 +21,7 @@ extra_css %}
     color: var(--primary-color);
   }
 
-  body.dark-mode .page-title {
+  .dark .page-title {
     color: var(--accent-color);
   }
 
@@ -73,7 +73,7 @@ extra_css %}
     border-radius: 5px;
   }
 
-  body.dark-mode .search-input {
+  .dark .search-input {
     border: 1px solid var(--dark-border-color);
     background: var(--dark-card-bg);
     color: var(--dark-text-color);
@@ -87,7 +87,7 @@ extra_css %}
     color: #777;
   }
 
-  body.dark-mode .search-icon {
+  .dark .search-icon {
     color: #aaa;
   }
 
@@ -115,7 +115,7 @@ extra_css %}
     box-sizing: border-box;
   }
 
-  body.dark-mode .model-card {
+  .dark .model-card {
     background: var(--dark-card-bg);
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
     border: 1px solid var(--dark-border-color);
@@ -141,7 +141,7 @@ extra_css %}
     word-break: break-word;
   }
 
-  body.dark-mode .model-name {
+  .dark .model-name {
     color: var(--accent-color);
   }
 
@@ -153,7 +153,7 @@ extra_css %}
     padding-top: 15px;
   }
 
-  body.dark-mode .model-actions {
+  .dark .model-actions {
     border-top: 1px solid var(--dark-border-color);
   }
 
@@ -206,7 +206,7 @@ extra_css %}
     font-size: 14px;
   }
 
-  body.dark-mode .field-label {
+  .dark .field-label {
     color: #aaa;
   }
 
@@ -220,7 +220,7 @@ extra_css %}
     word-break: break-all;
   }
 
-  body.dark-mode .field-value {
+  .dark .field-value {
     background: rgba(37, 37, 37, var(--glass-opacity-light));
     border: 1px solid var(--dark-border-color);
     color: var(--dark-text-color);
@@ -238,7 +238,7 @@ extra_css %}
     box-sizing: border-box;
   }
 
-  body.dark-mode .field-input {
+  .dark .field-input {
     border: 1px solid var(--dark-border-color);
     background: rgba(37, 37, 37, var(--glass-opacity-light));
     color: var(--dark-text-color);
@@ -360,7 +360,7 @@ extra_css %}
     z-index: 1001;
   }
 
-  body.dark-mode .modal-content {
+  .dark .modal-content {
     background: rgba(37, 37, 37, var(--glass-opacity-light));
     border: 1px solid rgba(68, 68, 68, 0.3);
   }
@@ -391,8 +391,8 @@ extra_css %}
     cursor: pointer;
   }
 
-  body.dark-mode .close:hover,
-  body.dark-mode .close:focus {
+  .dark .close:hover,
+  .dark .close:focus {
     color: #fff;
   }
 
@@ -407,7 +407,7 @@ extra_css %}
     color: #555;
   }
 
-  body.dark-mode .form-label {
+  .dark .form-label {
     color: #aaa;
   }
 
@@ -419,7 +419,7 @@ extra_css %}
     box-sizing: border-box;
   }
 
-  body.dark-mode .form-control {
+  .dark .form-control {
     border: 1px solid var(--dark-border-color);
     background: var(--dark-card-bg);
     color: var(--dark-text-color);
@@ -451,13 +451,13 @@ extra_css %}
     color: #721c24;
   }
 
-  body.dark-mode .alert-success {
+  .dark .alert-success {
     background-color: rgba(40, 167, 69, 0.1);
     border: 1px solid rgba(40, 167, 69, 0.2);
     color: #28a745;
   }
 
-  body.dark-mode .alert-danger {
+  .dark .alert-danger {
     background-color: rgba(220, 53, 69, 0.1);
     border: 1px solid rgba(220, 53, 69, 0.2);
     color: #dc3545;
@@ -546,18 +546,18 @@ extra_css %}
 </style>
 {% endblock %} {% block content %}
 <div class="config-container">
-  <div class="alert alert-success" id="success-alert" style="display: none">
+  <div class="p-3 rounded mb-4 bg-green-100 border border-green-300 text-green-800 dark:bg-green-900/20 dark:border-green-800/30 dark:text-green-400" id="success-alert" style="display: none">
     操作成功！
   </div>
 
-  <div class="alert alert-danger" id="error-alert" style="display: none">
+  <div class="p-3 rounded mb-4 bg-red-100 border border-red-300 text-red-800 dark:bg-red-900/20 dark:border-red-800/30 dark:text-red-400" id="error-alert" style="display: none">
     操作失败，请重试。
   </div>
 
-  <div class="models-header">
-    <h1 class="page-title">模型预设管理</h1>
-    <div class="actions-container">
-      <button class="action-btn" onclick="openCreateModal()">
+  <div class="flex justify-between items-center mb-5 pb-4 border-b border-black/5 dark:border-white/5">
+    <h1 class="text-2xl font-semibold text-primary">模型预设管理</h1>
+    <div class="flex gap-2">
+      <button class="px-4 py-2 rounded text-sm font-medium bg-primary text-white hover:bg-primary-hover" onclick="openCreateModal()">
         <i class="fas fa-plus"></i> 创建预设
       </button>
       <button class="action-btn secondary" onclick="refreshModels()">
@@ -566,23 +566,23 @@ extra_css %}
     </div>
   </div>
 
-  <div class="search-box">
+  <div class="relative flex-grow max-w-[300px] mb-4">
     <i class="fas fa-search search-icon"></i>
     <input
       type="text"
-      class="search-input"
+      class="input-glass pl-9"
       id="model-search"
       placeholder="搜索模型预设..."
       onkeyup="filterModels()"
     />
   </div>
 
-  <div class="models-grid" id="models-container">
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5" id="models-container">
     {% for model in models %}
-    <div class="model-card" data-name="{{ model.name|lower }}">
-      <div class="model-header">
+    <div class="glass-card p-5 transition-transform hover:-translate-y-1 hover:shadow-lg" data-name="{{ model.name|lower }}">
+      <div class="flex justify-between items-start mb-4">
         <div>
-          <h3 class="model-name">
+          <h3 class="text-lg font-semibold dark:text-gray-100">
             {{ model.name }} {% if model.name == current_default %}
             <span class="plugin-badge badge-local">默认</span>
             {% endif %}
@@ -612,7 +612,7 @@ extra_css %}
 
       <div class="field-item">
         <button
-          class="expand-config-btn"
+          class="w-full px-4 py-2 rounded text-sm font-medium bg-gray-500 text-white hover:bg-gray-600"
           onclick="toggleConfigDetails(this)"
           data-model="{{ model.name }}"
         >
@@ -761,15 +761,15 @@ extra_css %}
         <!-- 移除思维链模型字段 -->
       </div>
 
-      <div class="model-actions">
+      <div class="flex gap-2 mt-4 pt-4 border-t border-black/5 dark:border-white/5">
         <button
-          class="model-btn btn-edit"
+          class="flex-1 px-3 py-2 rounded text-sm font-medium bg-primary text-white hover:bg-primary-hover"
           onclick="openEditModal('{{ model.name }}')"
         >
           <i class="fas fa-edit"></i> 编辑
         </button>
         <button
-          class="model-btn btn-delete"
+          class="flex-1 px-3 py-2 rounded text-sm font-medium bg-danger text-white hover:bg-red-700"
           onclick="deleteModel('{{ model.name }}')"
         >
           <i class="fas fa-trash"></i> 删除
@@ -787,62 +787,62 @@ extra_css %}
     <h2 id="modalTitle">创建模型预设</h2>
     <form id="modelForm">
       <input type="hidden" id="modelId" name="id" />
-      <div class="form-group">
-        <label class="form-label" for="modelName">预设名称</label>
+      <div class="mb-4">
+        <label class="block mb-1 font-medium text-gray-600 dark:text-gray-400 text-sm" for="modelName">预设名称</label>
         <input
           type="text"
-          class="form-control"
+          class="input-glass"
           id="modelName"
           name="name"
           placeholder="例如：my-gpt4"
           required
         />
       </div>
-      <div class="form-group">
-        <label class="form-label" for="modelModel">模型名称</label>
+      <div class="mb-4">
+        <label class="block mb-1 font-medium text-gray-600 dark:text-gray-400 text-sm" for="modelModel">模型名称</label>
         <input
           type="text"
-          class="form-control"
+          class="input-glass"
           id="modelModel"
           name="model"
           placeholder="例如：gpt-4o"
           required
         />
       </div>
-      <div class="form-group">
-        <label class="form-label" for="modelBaseUrl">API基础地址</label>
+      <div class="mb-4">
+        <label class="block mb-1 font-medium text-gray-600 dark:text-gray-400 text-sm" for="modelBaseUrl">API基础地址</label>
         <input
           type="text"
-          class="form-control"
+          class="input-glass"
           id="modelBaseUrl"
           name="base_url"
           value="https://api.openai.com/v1"
         />
       </div>
-      <div class="form-group">
-        <label class="form-label" for="modelApiKey">API密钥</label>
+      <div class="mb-4">
+        <label class="block mb-1 font-medium text-gray-600 dark:text-gray-400 text-sm" for="modelApiKey">API密钥</label>
         <input
           type="password"
-          class="form-control"
+          class="input-glass"
           id="modelApiKey"
           name="api_key"
         />
       </div>
-      <div class="form-group">
-        <label class="form-label" for="modelProtocol">协议</label>
+      <div class="mb-4">
+        <label class="block mb-1 font-medium text-gray-600 dark:text-gray-400 text-sm" for="modelProtocol">协议</label>
         <input
           type="text"
-          class="form-control"
+          class="input-glass"
           id="modelProtocol"
           name="protocol"
           value="__main__"
         />
       </div>
-      <div class="form-group">
-        <label class="form-label" for="modelTopK">Top K</label>
+      <div class="mb-4">
+        <label class="block mb-1 font-medium text-gray-600 dark:text-gray-400 text-sm" for="modelTopK">Top K</label>
         <input
           type="number"
-          class="form-control"
+          class="input-glass"
           id="modelTopK"
           name="top_k"
           min="1"
@@ -851,11 +851,11 @@ extra_css %}
         />
       </div>
 
-      <div class="form-group">
-        <label class="form-label" for="modelTopP">Top P</label>
+      <div class="mb-4">
+        <label class="block mb-1 font-medium text-gray-600 dark:text-gray-400 text-sm" for="modelTopP">Top P</label>
         <input
           type="number"
-          class="form-control"
+          class="input-glass"
           id="modelTopP"
           name="top_p"
           min="0"
@@ -865,11 +865,11 @@ extra_css %}
         />
       </div>
 
-      <div class="form-group">
-        <label class="form-label" for="modelTemperature">Temperature</label>
+      <div class="mb-4">
+        <label class="block mb-1 font-medium text-gray-600 dark:text-gray-400 text-sm" for="modelTemperature">Temperature</label>
         <input
           type="number"
-          class="form-control"
+          class="input-glass"
           id="modelTemperature"
           name="temperature"
           min="0"
@@ -879,15 +879,15 @@ extra_css %}
         />
       </div>
 
-      <div class="form-group">
-        <label class="form-label">
+      <div class="mb-4">
+        <label class="block mb-1 font-medium text-gray-600 dark:text-gray-400 text-sm">
           <input type="checkbox" id="modelStream" name="stream" />
           流式响应
         </label>
       </div>
 
-      <div class="form-group">
-        <label class="form-label">
+      <div class="mb-4">
+        <label class="block mb-1 font-medium text-gray-600 dark:text-gray-400 text-sm">
           <input
             type="checkbox"
             id="modelConfigMultimodal"
@@ -899,31 +899,31 @@ extra_css %}
 
       <div style="margin-top:15px;padding-top:10px;border-top:1px dashed #ddd;">
         <h4 style="margin-bottom:10px;color:#555;">🧠 推理/思考配置</h4>
-        <div class="form-group">
-          <label class="form-label" for="modelThinkingType">thinking_type</label>
-          <select class="form-control" id="modelThinkingType" name="thinking_type">
+        <div class="mb-4">
+          <label class="block mb-1 font-medium text-gray-600 dark:text-gray-400 text-sm" for="modelThinkingType">thinking_type</label>
+          <select class="input-glass" id="modelThinkingType" name="thinking_type">
             <option value="">不启用</option>
             <option value="enabled">enabled</option>
             <option value="disabled">disabled</option>
           </select>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="modelEnableThinking">enable_thinking</label>
-          <select class="form-control" id="modelEnableThinking" name="enable_thinking">
+        <div class="mb-4">
+          <label class="block mb-1 font-medium text-gray-600 dark:text-gray-400 text-sm" for="modelEnableThinking">enable_thinking</label>
+          <select class="input-glass" id="modelEnableThinking" name="enable_thinking">
             <option value="">不设置</option>
             <option value="true">true</option>
             <option value="false">false</option>
           </select>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="modelThinkingEffort">thinking_effort</label>
-          <input type="text" class="form-control" id="modelThinkingEffort"
+        <div class="mb-4">
+          <label class="block mb-1 font-medium text-gray-600 dark:text-gray-400 text-sm" for="modelThinkingEffort">thinking_effort</label>
+          <input type="text" class="input-glass" id="modelThinkingEffort"
                  name="thinking_effort"
                  placeholder="minimal/low/medium/high/xhigh/max" />
         </div>
-        <div class="form-group">
-          <label class="form-label" for="modelContentMode">content_mode</label>
-          <select class="form-control" id="modelContentMode" name="content_mode">
+        <div class="mb-4">
+          <label class="block mb-1 font-medium text-gray-600 dark:text-gray-400 text-sm" for="modelContentMode">content_mode</label>
+          <select class="input-glass" id="modelContentMode" name="content_mode">
             <option value="optional">optional（默认）</option>
             <option value="never">never</option>
             <option value="by-tool">by-tool</option>

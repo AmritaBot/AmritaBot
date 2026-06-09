@@ -222,3 +222,6 @@ __marimo__/
 /bot.py
 /Test/
 /temp/
+
+# ZSSM
+.github/prompts

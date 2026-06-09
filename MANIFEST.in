@@ -5,7 +5,7 @@ recursive-exclude data *
 recursive-exclude example *
 global-include *.html
 global-include *.css
-recursive-exclude amrita/plugins/webui/service/static/dist.css
+recursive-exclude amrita/plugins/webui/service/static tailwind.css
 global-include *.js
 global-exclude __pycache__
 global-exclude *.pyc

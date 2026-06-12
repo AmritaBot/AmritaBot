@@ -1,5 +1,6 @@
 include README.md
 include LICENSE
+recursive-exclude amrita/plugins/webui/service/static/css *
 recursive-include amrita/plugins/webui/service/static/css dist.css
 recursive-include amrita/plugins/webui/service/static/js *
 recursive-include amrita/plugins/webui/service/static/images *

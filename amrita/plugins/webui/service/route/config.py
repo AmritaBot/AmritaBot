@@ -1,15 +1,20 @@
 from __future__ import annotations
 
 import glob
+import logging
 import os
 from pathlib import Path
 
 import aiofiles
 from fastapi import Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
+
+from amrita.plugins.webui.service.response import fail, ok
 
 from ..main import TemplatesManager, app
 from ..sidebar import SideBarManager
+
+logger = logging.getLogger(__name__)
 
 # 获取项目根目录
 PROJECT_ROOT = Path(os.getcwd())
@@ -71,24 +76,17 @@ async def update_config(request: Request):
     filename = data.get("filename", ".env")
 
     if not content:
-        return JSONResponse(
-            status_code=400,
-            content={"message": "Invalid request data"},
-        )
+        return fail(400, "Invalid request data")
 
     try:
         # 写入指定文件
         env_file_path = PROJECT_ROOT / filename
         async with aiofiles.open(env_file_path, "w", encoding="utf-8") as f:
             await f.write(content)
-        return JSONResponse(
-            {"code": 200, "message": f"配置文件 {filename} 更新成功", "error": None},
-            200,
-        )
-    except Exception as e:
-        return JSONResponse(
-            {"code": 500, "message": "配置文件更新失败", "error": str(e)}, 500
-        )
+        return ok(f"配置文件 {filename} 更新成功")
+    except Exception:
+        logger.exception("Failed to update config file")
+        return fail(500, "配置文件更新失败")
 
 
 @app.get("/api/bot/config/{filename}")
@@ -100,16 +98,11 @@ async def get_config(filename: str):
         # 读取指定文件
         env_file_path = PROJECT_ROOT / filename
         if not env_file_path.exists():
-            return JSONResponse(
-                {"code": 404, "message": "文件不存在", "content": ""}, 404
-            )
+            return fail(404, "文件不存在", data={"content": ""})
 
         async with aiofiles.open(env_file_path, encoding="utf-8") as f:
             content = await f.read()
-        return JSONResponse(
-            {"code": 200, "message": "success", "content": content}, 200
-        )
-    except Exception as e:
-        return JSONResponse(
-            {"code": 500, "message": "读取文件失败", "error": str(e)}, 500
-        )
+        return ok("success", data={"content": content})
+    except Exception:
+        logger.exception("Failed to read config file")
+        return fail(500, "读取文件失败")

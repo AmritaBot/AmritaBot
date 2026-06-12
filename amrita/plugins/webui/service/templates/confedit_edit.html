@@ -5,669 +5,40 @@ endblock %} {% block extra_head %}
   href="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.css"
   rel="stylesheet"
 />
-{% endblock %} {% block extra_css %}
-<style>
-  .config-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-  }
-
-  .config-section {
-    background: var(--card-bg);
-    border-radius: 8px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  }
-
-  .dark .config-section {
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-  }
-
-  .config-header {
-    border-bottom: 1px solid var(--border-color);
-    padding: 15px;
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-  }
-
-  .dark .config-header {
-    border-bottom: 1px solid var(--dark-border-color);
-  }
-
-  .config-header:hover {
-    background-color: var(--hover-bg);
-  }
-
-  .dark .config-header:hover {
-    background-color: var(--dark-hover-bg);
-  }
-
-  .config-title {
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--text-color);
-    margin: 0;
-    flex-grow: 1;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .dark .config-title {
-    color: var(--dark-text-color);
-  }
-
-  .collapse-icon {
-    display: inline-block;
-    font-size: 12px;
-    transition: transform 0.3s ease;
-    width: 20px;
-    text-align: center;
-  }
-
-  .config-section.collapsed .collapse-icon {
-    transform: rotate(-90deg);
-  }
-
-  .config-actions-header {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    margin-left: auto;
-    white-space: nowrap;
-  }
-
-  .config-content {
-    padding: 0 20px 20px 20px;
-    display: block;
-  }
-
-  .config-section.collapsed .config-content {
-    display: none;
-  }
-
-  .field-item {
-    display: flex;
-    flex-wrap: wrap;
-    padding: 15px 0;
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .field-item:last-child {
-    border-bottom: none;
-  }
-
-  .dark .field-item {
-    border-bottom: 1px solid var(--dark-border-color);
-  }
-
-  .field-label {
-    flex: 0 0 250px;
-    padding-right: 20px;
-  }
-
-  .field-name {
-    font-weight: 600;
-    color: var(--text-color);
-    margin-bottom: 5px;
-    word-break: break-all;
-  }
-
-  .dark .field-name {
-    color: var(--dark-text-color);
-  }
-
-  .field-description {
-    font-size: 14px;
-    color: #666;
-    margin-bottom: 8px;
-  }
-
-  .dark .field-description {
-    color: #aaa;
-  }
-
-  .field-default {
-    font-size: 12px;
-    color: #888;
-    font-style: italic;
-    margin-bottom: 8px;
-  }
-
-  .dark .field-default {
-    color: #999;
-  }
-
-  .field-value {
-    flex: 1;
-    min-width: 300px;
-  }
-
-  .field-input {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    background: var(--input-bg);
-    color: var(--text-color);
-    font-family: monospace;
-  }
-
-  .dark .field-input {
-    border: 1px solid var(--dark-border-color);
-    background: var(--dark-input-bg);
-    color: var(--dark-text-color);
-  }
-
-  .field-input-select {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    background: var(--input-bg);
-    color: var(--text-color);
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: right 1rem center;
-    background-size: 1em;
-    transition: all 0.3s ease;
-  }
-
-  .field-input-select:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
-  }
-
-  .dark .field-input-select {
-    border: 1px solid var(--dark-border-color);
-    background: var(--dark-input-bg);
-    color: var(--dark-text-color);
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-  }
-
-  .field-input-bool-label {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: normal;
-    margin: 0;
-    cursor: pointer;
-    color: var(--text-color);
-    transition: color 0.3s ease;
-  }
-
-  .dark .field-input-bool-label {
-    color: var(--dark-text-color);
-  }
-
-  .field-input-bool-container {
-    display: flex;
-    align-items: center;
-    height: 100%;
-  }
-
-  .bool-switch {
-    position: relative;
-    display: inline-block;
-    width: 50px;
-    height: 24px;
-  }
-
-  .bool-switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
-
-  .bool-slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #ccc;
-    transition: 0.4s;
-    border-radius: 24px;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  .bool-slider:before {
-    position: absolute;
-    content: "";
-    height: 18px;
-    width: 18px;
-    left: 3px;
-    bottom: 3px;
-    background-color: white;
-    transition: 0.4s;
-    border-radius: 50%;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  }
-
-  .bool-switch input:checked + .bool-slider {
-    background-color: var(--primary-color);
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
-  }
-
-  .bool-switch input:checked + .bool-slider:before {
-    transform: translateX(26px);
-  }
-
-  .bool-switch input:focus + .bool-slider {
-    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
-  }
-
-  .bool-switch:hover .bool-slider {
-    background-color: #b3b3b3;
-  }
-
-  .bool-switch input:checked:hover + .bool-slider {
-    background-color: #007bff;
-  }
-
-  .field-type {
-    font-size: 12px;
-    color: #888;
-    margin-top: 5px;
-  }
-
-  .dark .field-type {
-    color: #999;
-  }
-
-  .list-editor {
-    width: 100%;
-  }
-
-  .list-items {
-    margin-bottom: 10px;
-  }
-
-  .sortable-list {
-    min-height: 20px;
-  }
-
-  .list-item {
-    display: flex;
-    align-items: center;
-    margin-bottom: 5px;
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    padding: 8px;
-  }
-
-  .dark .list-item {
-    background: var(--dark-card-bg);
-    border: 1px solid var(--dark-border-color);
-  }
-
-  .list-item.sortable-ghost {
-    opacity: 0.4;
-  }
-
-  .list-item.sortable-chosen {
-    background: var(--hover-bg);
-  }
-
-  .dark .list-item.sortable-chosen {
-    background: var(--dark-hover-bg);
-  }
-
-  .list-item-input {
-    flex: 1;
-    padding: 6px 10px;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    background: var(--input-bg);
-    color: var(--text-color);
-    font-family: monospace;
-    margin-right: 5px;
-  }
-
-  .dark .list-item-input {
-    border: 1px solid var(--dark-border-color);
-    background: var(--dark-input-bg);
-    color: var(--dark-text-color);
-  }
-
-  .list-item-actions {
-    display: flex;
-    gap: 5px;
-  }
-
-  .drag-handle {
-    padding: 6px 10px;
-    cursor: grab;
-    color: #666;
-    display: flex;
-    align-items: center;
-    user-select: none;
-  }
-
-  .drag-handle:hover {
-    color: #000;
-  }
-
-  .dark .drag-handle:hover {
-    color: #fff;
-  }
-
-  .list-item-btn {
-    padding: 6px 10px;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    background: var(--input-bg);
-    color: var(--text-color);
-    cursor: pointer;
-    line-height: 1;
-  }
-
-  .dark .list-item-btn {
-    border: 1px solid var(--dark-border-color);
-    background: var(--dark-input-bg);
-    color: var(--dark-text-color);
-  }
-
-  .list-add-btn {
-    padding: 6px 10px;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    background: var(--input-bg);
-    color: var(--text-color);
-    cursor: pointer;
-    font-size: 14px;
-  }
-
-  .dark .list-add-btn {
-    border: 1px solid var(--dark-border-color);
-    background: var(--dark-input-bg);
-    color: var(--dark-text-color);
-  }
-
-  .config-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 10px;
-    padding-top: 10px;
-    margin-bottom: 20px;
-    border-top: 1px solid var(--border-color);
-  }
-
-  .dark .config-actions {
-    border-top: 1px solid var(--dark-border-color);
-  }
-
-  .btn {
-    padding: 10px 20px;
-    border-radius: 4px;
-    border: none;
-    cursor: pointer;
-    font-size: 14px;
-    transition: all 0.3s;
-  }
-
-  .btn-primary {
-    background: var(--primary-color);
-    color: white;
-  }
-
-  .btn-primary:hover {
-    opacity: 0.9;
-  }
-
-  .btn-secondary {
-    background: #6c757d;
-    color: white;
-  }
-
-  .btn-secondary:hover {
-    background: #5a6268;
-  }
-
-  .btn-success {
-    background: #28a745;
-    color: white;
-  }
-
-  .btn-warning {
-    background: #ffc107;
-    color: #212529;
-  }
-
-  .btn-danger {
-    background: #dc3545;
-    color: white;
-  }
-
-  .alert {
-    padding: 15px;
-    border-radius: 4px;
-    margin-bottom: 20px;
-  }
-
-  .alert-success {
-    background: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
-  }
-
-  .alert-error {
-    background: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-  }
-
-  .alert-warning {
-    background: #fff3cd;
-    color: #856404;
-    border: 1px solid #ffeaa7;
-  }
-
-  .status-indicator {
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    margin-right: 5px;
-  }
-
-  .status-modified {
-    background-color: #ffc107;
-  }
-
-  .status-saved {
-    background-color: #28a745;
-  }
-
-  .status-unmodified {
-    background-color: #6c757d;
-  }
-
-  .nested-field {
-    margin: 10px 0;
-    border-left: 3px solid #007bff;
-    background-color: var(--hover-bg);
-    border-radius: 4px;
-    padding: 0 10px 10px;
-  }
-
-  .nested-field-header {
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    padding: 10px;
-    background-color: var(--card-bg);
-    border-radius: 4px;
-    margin-top: 10px;
-    margin-left: -10px;
-    margin-right: -10px;
-    margin-bottom: 10px;
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .dark .nested-field-header {
-    background-color: var(--dark-card-bg);
-  }
-
-  .nested-field-header:hover {
-    background-color: var(--hover-bg);
-  }
-
-  .dark .nested-field-header:hover {
-    background-color: var(--dark-hover-bg);
-  }
-
-  .nested-field-header .collapse-icon {
-    margin-right: 8px;
-    transition: transform 0.3s ease;
-  }
-
-  .nested-field-header.collapsed .collapse-icon {
-    transform: rotate(-90deg);
-  }
-
-  .nested-field-content {
-    margin-top: 5px;
-    padding-left: 25px;
-    border-left: 1px dashed var(--border-color);
-    padding-top: 10px;
-    max-height: none;
-    overflow: visible;
-    transition:
-      max-height 0.3s ease,
-      padding 0.3s ease;
-  }
-
-  .dark .nested-field-content {
-    border-left: 1px dashed var(--dark-border-color);
-  }
-
-  .nested-field-child {
-    margin: 8px 0;
-    padding: 8px 0;
-  }
-
-  .nested-field-child .field-label {
-    padding-right: 20px;
-  }
-
-  .nested-field-child .field-value {
-    min-width: 300px;
-  }
-
-  .nested-field.collapsed .nested-field-content {
-    max-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    overflow: hidden;
-  }
-
-  .nested-field-child {
-    margin: 8px 0;
-  }
-
-  @media (max-width: 768px) {
-    .field-item {
-      flex-direction: column;
-    }
-
-    .field-label {
-      flex: 0 0 auto;
-      margin-bottom: 10px;
-      padding-right: 0;
-    }
-
-    .field-value {
-      flex: 0 0 auto;
-      min-width: auto;
-      width: 100%;
-    }
-
-    .config-header {
-      flex-direction: column;
-      align-items: stretch;
-      gap: 10px;
-    }
-
-    .config-title {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 5px;
-    }
-
-    .config-actions-header {
-      align-self: stretch;
-      justify-content: flex-start;
-    }
-  }
-</style>
 {% endblock %} {% block content %}
-<div class="config-container">
-  <div style="margin-bottom: 20px">
-    <a
-      href="/system/confedit"
-      style="
-        color: var(--primary-color);
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-      "
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        style="margin-right: 5px"
-      >
+  <div class="mb-5">
+    <a href="/system/confedit" class="inline-flex items-center text-primary hover:text-primary-hover transition-colors">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1.5">
         <path d="M19 12H5M12 19l-7-7 7-7"></path>
       </svg>
       返回配置管理
     </a>
   </div>
 
-  <div
-    class="p-3 rounded mb-4 bg-green-100 border border-green-300 text-green-800 dark:bg-green-900/20 dark:border-green-800/30 dark:text-green-400"
-    id="success-alert"
-    style="display: none"
-  >
+  <div class="p-3 rounded mb-4 bg-green-100 border border-green-300 text-green-800 dark:bg-green-900/20 dark:border-green-800/30 dark:text-green-400 hidden" id="success-alert">
     配置已成功保存！
   </div>
 
-  <div class="alert alert-error" id="error-alert" style="display: none">
+  <div class="p-3 rounded mb-4 bg-red-100 border border-red-300 text-red-800 dark:bg-red-900/20 dark:border-red-800/30 dark:text-red-400 hidden" id="error-alert">
     保存配置时出错，请重试。
   </div>
 
-  <div class="alert alert-warning" id="warning-alert" style="display: none">
+  <div class="p-3 rounded mb-4 bg-yellow-100 border border-yellow-300 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800/30 dark:text-yellow-400 hidden" id="warning-alert">
     警告信息
   </div>
 
-  <h2>{{ plugin_name }} 配置编辑</h2>
-  <p>
+  <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">{{ plugin_name }} 配置编辑</h2>
+  <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
     在此页面可以查看和修改 {{ plugin_name }}
     插件的配置项。系统会自动检测配置变化并仅提交已修改的配置。<br />
-    嵌套配置项将以 <code>parent.child</code> 的形式显示。
+    嵌套配置项将以 <code class="text-xs bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">parent.child</code> 的形式显示。
   </p>
 
-  <div class="config-actions">
-    <button class="btn btn-secondary" onclick="resetPluginConfig()">
+  <div class="flex justify-end gap-2 mb-4 pt-2 border-t border-gray-200 dark:border-gray-700">
+    <button class="px-4 py-2 rounded text-sm font-medium bg-gray-500 text-white hover:bg-gray-600 transition-colors" onclick="resetPluginConfig()">
       重置
     </button>
-    <button class="btn btn-primary" onclick="savePluginConfig()">
+    <button class="px-4 py-2 rounded text-sm font-medium bg-primary text-white hover:bg-primary-hover transition-colors" onclick="savePluginConfig()">
       保存修改
     </button>
   </div>
@@ -683,10 +54,10 @@ endblock %} {% block extra_head %}
           class="status-indicator status-unmodified"
           id="status-{{ plugin_name }}"
         ></span>
-        <button class="btn btn-secondary" onclick="resetPluginConfig(event)">
+        <button class="px-4 py-2 rounded text-sm font-medium bg-gray-500 text-white hover:bg-gray-600 transition-colors" onclick="resetPluginConfig(event)">
           重置
         </button>
-        <button class="btn btn-primary" onclick="savePluginConfig(event)">
+        <button class="px-4 py-2 rounded text-sm font-medium bg-primary text-white hover:bg-primary-hover transition-colors" onclick="savePluginConfig(event)">
           保存
         </button>
       </div>
@@ -733,13 +104,9 @@ endblock %} {% block extra_head %}
                   }}"
                   data-original-value="{{ field.current_value | string }}"
                   onchange="markFieldAsModified()"
-                  {%
-                  if
-                  field.current_value=""
-                  ="true"
-                  %}checked{%
-                  endif
-                  %}
+                  {% if field.current_value == "true" %}
+                  checked
+                  {% endif %}
                 />
                 <span class="bool-slider"></span>
               </div>
@@ -760,25 +127,7 @@ endblock %} {% block extra_head %}
             {% for value in field.literal_values %}
             <option
               value="{{ value }}"
-              {%
-              if
-              field.current_value=""
-              ="value"
-              or
-              (field.current_value=""
-              ="true"
-              and
-              value=""
-              ="true)"
-              or
-              (field.current_value=""
-              ="false"
-              and
-              value=""
-              ="false)"
-              %}selected{%
-              endif
-              %}
+              {% if field.current_value == value or (field.current_value == "true" and value == "true") or (field.current_value == "false" and value == "false") %}selected{% endif %}
             >
               {{ value }}
             </option>
@@ -862,13 +211,7 @@ endblock %} {% block extra_head %}
                       }}"
                       data-original-value="{{ field.current_value | string }}"
                       onchange="markFieldAsModified()"
-                      {%
-                      if
-                      field.current_value=""
-                      ="true"
-                      %}checked{%
-                      endif
-                      %}
+                      {% if field.current_value == "true" %}checked{% endif %}
                     />
                     <span class="bool-slider"></span>
                   </div>
@@ -889,25 +232,7 @@ endblock %} {% block extra_head %}
                 {% for value in field.literal_values %}
                 <option
                   value="{{ value }}"
-                  {%
-                  if
-                  field.current_value=""
-                  ="value"
-                  or
-                  (field.current_value=""
-                  ="true"
-                  and
-                  value=""
-                  ="true)"
-                  or
-                  (field.current_value=""
-                  ="false"
-                  and
-                  value=""
-                  ="false)"
-                  %}selected{%
-                  endif
-                  %}
+                  {% if field.current_value == value or (field.current_value == "true" and value == "true") or (field.current_value == "false" and value == "false") %}selected{% endif %}
                 >
                   {{ value }}
                 </option>
@@ -960,15 +285,15 @@ endblock %} {% block extra_head %}
     </div>
   </div>
 
-  <div class="config-actions">
-    <button class="btn btn-secondary" onclick="resetPluginConfig()">
+  <div class="flex justify-end gap-2 mb-4 pt-2 border-t border-gray-200 dark:border-gray-700">
+    <button class="px-4 py-2 rounded text-sm font-medium bg-gray-500 text-white hover:bg-gray-600 transition-colors" onclick="resetPluginConfig()">
       重置
     </button>
-    <button class="btn btn-primary" onclick="savePluginConfig()">
+    <button class="px-4 py-2 rounded text-sm font-medium bg-primary text-white hover:bg-primary-hover transition-colors" onclick="savePluginConfig()">
       保存修改
     </button>
   </div>
-</div>
+
 {% endblock %} {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
@@ -1058,7 +383,7 @@ endblock %} {% block extra_head %}
               <input type="text" class="list-item-input" value="${item}"
                      onchange="updateListValue('${fieldName}')">
               <div class="list-item-actions">
-                  <button class="list-item-btn btn-danger" type="button" onclick="removeListItem('${fieldName}', ${index}, event)">×</button>
+                  <button class="list-item-btn" type="button" onclick="removeListItem('${fieldName}', ${index}, event)">×</button>
               </div>
           `;
       container.appendChild(listItem);
@@ -1081,7 +406,7 @@ endblock %} {% block extra_head %}
               <input type="text" class="list-item-input" value=""
                      onchange="updateListValue('${fieldName}')">
               <div class="list-item-actions">
-                  <button class="list-item-btn btn-danger" type="button" onclick="removeListItem('${fieldName}', ${itemsContainer.children.length}, event)">×</button>
+                  <button class="list-item-btn" type="button" onclick="removeListItem('${fieldName}', ${itemsContainer.children.length}, event)">×</button>
               </div>
           `;
       itemsContainer.appendChild(listItem);

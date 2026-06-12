@@ -1,14 +1,14 @@
 include README.md
 include LICENSE
-recursive-include amrita/plugins/webui/service/static *
+recursive-exclude amrita/plugins/webui/service/static/css *
+recursive-include amrita/plugins/webui/service/static/css dist.css
+recursive-include amrita/plugins/webui/service/static/js *
+recursive-include amrita/plugins/webui/service/static/images *
 recursive-exclude data *
 recursive-exclude example *
 global-include *.html
-global-include *.css
-recursive-exclude amrita/plugins/webui/service/static tailwind.css
 global-include *.js
 global-exclude __pycache__
 global-exclude *.pyc
 global-exclude *.pyo
 global-exclude *~
-exclude bot.py

@@ -569,7 +569,12 @@ async def reload_mcp_servers():
     """重载所有MCP服务器"""
     try:
         client_manager = ClientManager()
-        await client_manager.initialize_all()
+        for cl in (client_manager.clients).copy():
+            await client_manager.unregister_client(cl.server_script)
+            await cl.close_no_wait()  # 虽然热重载，但是为了避免竞态，这里先把会话掐了
+            cl.tools.clear()
+            cl.openai_tools.clear()
+            await cl.bound_to(client_manager)
 
         return JSONResponse(
             {"success": True, "message": "MCP服务器重载成功"}, status_code=200
@@ -577,7 +582,10 @@ async def reload_mcp_servers():
     except Exception as e:
         logger.opt(exception=e, colors=True).error("重载MCP服务器失败")
         return JSONResponse(
-            {"success": False, "message": "重载MCP服务器失败"},
+            {
+                "success": False,
+                "message": "重载MCP服务器失败，查看控制台以获得详细信息",
+            },
             status_code=500,
         )
 

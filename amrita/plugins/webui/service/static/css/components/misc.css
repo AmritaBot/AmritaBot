@@ -1,0 +1,105 @@
+/* ── Shared misc components (page-title, action-btn, info-item, etc.) ── */
+@layer components {
+  .page-title {
+    @apply text-2xl font-semibold;
+    color: var(--primary-color);
+  }
+  .dark .page-title {
+    color: var(--accent-color);
+  }
+
+  .actions-container {
+    @apply flex gap-2.5 mb-2.5 mt-1;
+  }
+
+  .action-btn {
+    @apply text-white border-none px-4 py-2 rounded cursor-pointer flex items-center;
+    background: var(--primary-color);
+    transition: background 0.3s;
+  }
+  .dark .action-btn {
+    background: var(--accent-color);
+  }
+  .action-btn:hover {
+    background: var(--accent-color);
+  }
+  .dark .action-btn:hover {
+    background: #8a2be2;
+  }
+  .action-btn i {
+    @apply mr-1.5;
+  }
+  .action-btn.danger {
+    background: #e74c3c;
+  }
+  .dark .action-btn.danger {
+    background: #c0392b;
+  }
+  .action-btn.danger:hover {
+    background: #c0392b;
+  }
+  .dark .action-btn.danger:hover {
+    background: #a53125;
+  }
+  .action-btn.secondary {
+    background: #6c757d;
+  }
+  .action-btn.secondary:hover {
+    background: #5a6268;
+  }
+  .dark .action-btn.secondary {
+    background: #5a6268;
+    color: var(--dark-text-color);
+  }
+  .dark .action-btn.secondary:hover {
+    background: #495057;
+  }
+
+  .info-item {
+    @apply flex justify-between py-2.5;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  }
+  .dark .info-item {
+    border-bottom-color: rgba(68, 68, 68, 0.3);
+  }
+  .info-item:last-child {
+    border-bottom: none;
+  }
+
+  .permission-entry {
+    @apply p-2 rounded-md;
+  }
+  .dark .permission-entry {
+    background-color: rgba(37, 37, 37, 0.5);
+  }
+
+  .chart-canvas {
+    @apply !w-full !h-full;
+  }
+
+  .no-data,
+  .empty-state {
+    @apply text-center py-12 px-5;
+    color: #777;
+  }
+  .dark .no-data,
+  .dark .empty-state {
+    color: #aaa;
+  }
+  .no-data i,
+  .empty-icon {
+    @apply text-5xl mb-4;
+    color: #ddd;
+  }
+  .dark .no-data i,
+  .dark .empty-icon {
+    color: #555;
+  }
+  .no-data p {
+    @apply text-lg mb-5;
+  }
+  .empty-text {
+    @apply mb-5;
+    color: #777;
+  }
+}

@@ -1,33 +1,5 @@
 {% extends "base.html" %} {% block title %}Amrita Dashboard - 配置编辑{%
-endblock %} {% block topbar_title %}配置编辑{% endblock %} {% block extra_css %}
-<style>
-  .config-textarea {
-    min-height: 500px;
-    padding: 15px;
-    border: none;
-    resize: vertical;
-    font-family: "Courier New", Courier, monospace;
-    font-size: 14px;
-    line-height: 1.5;
-    background: #fff;
-    color: #333;
-    width: 100%;
-    tab-size: 4;
-  }
-  .dark .config-textarea {
-    background: #252525;
-    color: #f0f0f0;
-  }
-  .config-textarea:focus {
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.25);
-  }
-  .dark .config-textarea:focus {
-    box-shadow: 0 0 0 2px rgba(26, 188, 156, 0.25);
-  }
-</style>
-{% endblock %} {% block content %}
-<div class="max-w-5xl mx-auto">
+endblock %} {% block topbar_title %}配置编辑{% endblock %} {% block content %}
   <div
     class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 mb-5 border-b border-black/10 dark:border-white/10"
   >
@@ -39,13 +11,7 @@ endblock %} {% block topbar_title %}配置编辑{% endblock %} {% block extra_cs
         {% for file in env_files %}
         <option
           value="{{ file }}"
-          {%
-          if
-          file=""
-          ="selected_file"
-          %}selected{%
-          endif
-          %}
+          {% if file == selected_file %}selected{% endif %}
         >
           {{ file }}
         </option>
@@ -142,7 +108,7 @@ endblock %} {% block topbar_title %}配置编辑{% endblock %} {% block extra_cs
       </p>
     </div>
   </div>
-</div>
+
 {% endblock %} {% block scripts %}
 <script>
   document.addEventListener("DOMContentLoaded", function () {

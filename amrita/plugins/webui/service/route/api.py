@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from importlib import metadata
 from typing import Literal
@@ -18,10 +19,13 @@ from pydantic import BaseModel
 from amrita.plugins.manager.blacklist.black import BL_Manager
 from amrita.plugins.manager.models import get_usage
 from amrita.plugins.webui.service.authlib import TOKEN_KEY, TokenManager
+from amrita.plugins.webui.service.response import fail, ok
 from amrita.utils.system_health import calculate_system_usage
 
 from ..main import app, try_get_bot
 from ..sidebar import SideBarManager
+
+logger = logging.getLogger(__name__)
 
 
 class RequestDataSchema(BaseModel):
@@ -70,9 +74,10 @@ async def add_blacklist_item(data: RequestDataSchema):
             else BL_Manager.group_append
         )
         await func(data.id, data.reason)
-    except Exception as e:
-        return JSONResponse({"code": 500, "error": str(e)}, status_code=500)
-    return JSONResponse({"code": 200, "error": None}, 200)
+    except Exception:
+        logger.exception("Failed to add blacklist item")
+        return fail(500, "添加黑名单失败")
+    return ok("已添加到黑名单")
 
 
 @app.get("/api/chart/messages")
@@ -92,8 +97,9 @@ async def get_messages_chart_data():
         return {"labels": labels, "data": data}
     except ValueError:
         raise HTTPException(status_code=500, detail="Bot未连接")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Failed to get messages chart data")
+        raise HTTPException(status_code=500, detail="内部错误")
 
 
 @app.get("/api/chart/today-usage")
@@ -136,7 +142,7 @@ async def remove_blacklist_batch(data: BlacklistRemoveSchema, type: str):
             await BL_Manager.private_remove(id)
         elif type == "group":
             await BL_Manager.group_remove(id)
-    return JSONResponse({"code": 200, "error": None}, 200)
+    return ok("已批量移除")
 
 
 @app.post("/api/blacklist/remove/{type}/{id}")
@@ -152,7 +158,7 @@ async def remove_blacklist_item(request: Request, type: str, id: str):
     """
     func = BL_Manager.private_remove if type == "user" else BL_Manager.group_remove
     await func(id)
-    return JSONResponse({"code": 200, "error": None}, 200)
+    return ok("已移除")
 
 
 @app.get("/api/plugins/list")

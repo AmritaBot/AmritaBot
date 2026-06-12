@@ -1,6 +1,5 @@
 {%extends base_html%} {% block title %}Chat模块信息仪表盘{% endblock %} {% block
 topbar_title %}Chat信息仪表盘{% endblock %} {% block content %}
-<div class="max-w-[1200px] mx-auto">
   <!-- Stat cards -->
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
     <div
@@ -71,7 +70,7 @@ topbar_title %}Chat信息仪表盘{% endblock %} {% block content %}
       </div>
     </div>
   </div>
-</div>
+
 {% endblock %} {%block scripts%}
 <script>
   const CHART_DATA_JSON = `{{ chart_data | tojson }}`;

@@ -68,7 +68,7 @@ def format_chat_object_info(obj: ChatObject) -> str:
 
     通过 _hook_kwargs["amrita"] 读取 event 上下文。
     """
-    ctx: AmritaBotContext | None = obj._hook_kwargs.get("amrita")  # type: ignore[union-attr]
+    ctx: AmritaBotContext | None = obj._hook_kwargs.get("amrita")
     if ctx is None:
         return f"\n🆔 ID: {obj.stream_id[:8]}...\n> 无上下文信息\n"
     event = ctx["event"]

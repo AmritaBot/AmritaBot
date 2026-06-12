@@ -397,5 +397,10 @@ cli.add_command(plugin)
 
 def main(*args, **kwargs):
     colorama.init()
+    click.echo(
+        warn(
+            "This CLI is deprecated. Please use `amctl` instead. We will remove this CLI in the future."
+        )
+    )
 
     cli(*args, **kwargs)

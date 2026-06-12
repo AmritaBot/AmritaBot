@@ -225,7 +225,7 @@ class PermissionStorage:
             cls._cached_member_to_permission_group_data = LRUCache(config.cache_size)
             cls._lock_pool = WeakValueLRUCache[str, Lock](
                 capacity=2048, loose_mode=True
-            )  # type: ignore[call-arg]
+            )
         return cls._instance
 
     def _make_lock(self, name: str) -> Lock:

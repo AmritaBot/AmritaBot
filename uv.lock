@@ -269,7 +269,7 @@ wheels = [
 
 [[package]]
 name = "amrita"
-version = "1.2.0"
+version = "1.2.1"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
@@ -339,7 +339,7 @@ requires-dist = [
     { name = "aiosqlite", marker = "extra == 'full'", specifier = ">=0.21.0" },
     { name = "alembic", marker = "extra == 'full'", specifier = "==1.16.4" },
     { name = "amrita-core", extras = ["jieba"], specifier = ">=0.9.1,<1.0.0" },
-    { name = "amrita-sense", specifier = ">=0.3.0" },
+    { name = "amrita-sense", specifier = ">=0.3.1" },
     { name = "async-lru", marker = "extra == 'full'", specifier = ">=2.0.5" },
     { name = "bcrypt", marker = "extra == 'full'", specifier = ">=4.3.0" },
     { name = "click", specifier = ">=8.2.1" },
@@ -416,16 +416,17 @@ jieba = [
 
 [[package]]
 name = "amrita-sense"
-version = "0.3.0"
+version = "0.3.1.post1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiologic" },
     { name = "anyio" },
+    { name = "exceptiongroup" },
     { name = "loguru" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/60/a6/59dbf636e4947ce43c2d9f0268fbc3dc9ebb29b982a1f456065314350b19/amrita_sense-0.3.0.tar.gz", hash = "sha256:ed3b7040bbad49121454241b17c23260b1e931f92b76d12c1228989c5468154c", size = 60928, upload-time = "2026-06-07T03:01:35.651Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/28/53/c3c5e04969b87c2e6197a13fde6b56b6e986d70eb5557f708494f31af032/amrita_sense-0.3.1.post1.tar.gz", hash = "sha256:64e7a45cdba73b3d113e660337b474f2f118455c6fd918b18594475c469350a5", size = 61284, upload-time = "2026-06-11T12:36:35.762Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/aa/f8/04e0a5b7cdebcbaf8b2f18ef694e71775687673c162d30bfb70978518644/amrita_sense-0.3.0-py3-none-any.whl", hash = "sha256:fce4502168fa540b7d4d316dd0c37920d4f58ca1c4cfcd75f2ada5615bf237ff", size = 57196, upload-time = "2026-06-07T03:01:36.659Z" },
+    { url = "https://files.pythonhosted.org/packages/17/21/d0b92673ae7ee93f9ac85dc8a75224b6add34fd916892232b637376842e2/amrita_sense-0.3.1.post1-py3-none-any.whl", hash = "sha256:1ace88ad944d305564bedf3f58c08ff0d3143848d3b2092ed10aef5cb0f24364", size = 57594, upload-time = "2026-06-11T12:36:34.745Z" },
 ]
 
 [[package]]

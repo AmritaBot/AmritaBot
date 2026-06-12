@@ -534,7 +534,9 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
                 debug_log("继续运行...")
 
                 await chat  # 等待工作流完成
-                memory.memory_json = chat.data  # type: ignore[assignment]
+                memory.memory_json = AwaredMemory.model_validate(
+                    chat.data, from_attributes=True
+                )
                 await cudr.update_memory_data(memory)
                 if can_send_message:
                     await send_response(chat, chat.response.content)

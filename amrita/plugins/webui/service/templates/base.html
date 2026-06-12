@@ -15,6 +15,9 @@
     <link rel="shortcut icon" href="/static/images/Amrita.png" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- 共享 JS 模块 -->
+    <script src="/static/js/perm-utils.js"></script>
+    <script src="/static/js/theme.js"></script>
 
     {% block extra_css %}{% endblock %} {% block head_extra %}{% endblock %}
     <style>
@@ -50,33 +53,21 @@
       .sidebar-collapsed .submenu {
         display: none;
       }
-      .main-expanded {
-        margin-left: 60px !important;
-      }
       /* ── Mobile ── */
-      .sidebar-mobile-hidden {
-        transform: translateX(-100%);
-      }
-      .sidebar-mobile-visible {
-        transform: translateX(0);
-      }
       @media (max-width: 768px) {
-        #mainContent {
-          margin-left: 0 !important;
-        }
         #sidebar {
+          position: fixed;
+          z-index: 1000;
+          transform: translateX(-100%);
           transition: transform 0.3s ease;
         }
-      }
-      @media (min-width: 769px) {
-        .sidebar-mobile-hidden,
-        .sidebar-mobile-visible {
-          transform: none;
+        #sidebar.mobile-open {
+          transform: translateX(0);
         }
       }
     </style>
   </head>
-  <body class="overflow-x-hidden bg-[#f8f9fa] dark:bg-[#1a1a1a]">
+  <body class="m-0 p-0 w-full overflow-x-hidden bg-[#f8f9fa] dark:bg-[#1a1a1a]">
     <!-- Loading bar -->
     <div
       id="loadingBar"
@@ -87,15 +78,15 @@
     <!-- Mobile sidebar overlay -->
     <div
       id="sidebarOverlay"
-      class="hidden fixed inset-0 bg-black/50 z-[999] md:hidden"
-      onclick="toggleMobileSidebar()"
+      class="hidden fixed inset-0 bg-black/50 z-40 md:hidden"
+      onclick="closeMobileSidebar()"
     ></div>
 
-    <div class="flex min-h-screen">
+    <div class="w-full flex min-h-screen p-0 items-start">
       <!-- Sidebar -->
       <aside
         id="sidebar"
-        class="glass-sidebar fixed left-0 top-0 h-screen z-[1000] w-64 flex flex-col transition-[width] duration-300 overflow-y-auto text-white"
+        class="glass-sidebar sticky top-0 h-screen z-30 w-64 flex-shrink-0 flex flex-col transition-[width] duration-300 overflow-y-auto text-white"
       >
         <div
           class="flex items-center h-[60px] px-4 border-b border-white/10 flex-shrink-0"
@@ -154,11 +145,11 @@
       <!-- Main content -->
       <div
         id="mainContent"
-        class="flex-1 ml-64 transition-[margin-left] duration-300"
+        class="flex-1 min-w-0 flex flex-col"
       >
         <!-- Topbar -->
         <header
-          class="glass-topbar sticky top-0 z-[999] h-[60px] flex items-center justify-between px-5"
+          class="glass-topbar sticky top-0 z-20 h-[60px] flex items-center justify-between px-5"
         >
           <div class="flex items-center">
             <button
@@ -215,7 +206,9 @@
         </header>
 
         <!-- Page content -->
-        <main class="p-5">{% block content %}{% endblock %}</main>
+        <main class="w-full p-5">
+          {% block content %}{% endblock %}
+        </main>
       </div>
     </div>
 
@@ -251,41 +244,33 @@
 
       // ── Sidebar toggle ──
       const sidebar = document.getElementById("sidebar");
-      const mainContent = document.getElementById("mainContent");
       const overlay = document.getElementById("sidebarOverlay");
 
       function isMobile() {
         return window.innerWidth <= 768;
       }
 
-      // ── Mobile sidebar init ──
-      if (isMobile()) {
-        const sidebar = document.getElementById("sidebar");
-        sidebar.classList.add("sidebar-mobile-hidden");
-        sidebar.classList.remove("translate-x-0");
+      function openMobileSidebar() {
+        sidebar.classList.add("mobile-open");
+        overlay.classList.remove("hidden");
+        overlay.classList.add("block");
       }
 
-      function toggleMobileSidebar() {
-        if (isMobile()) {
-          sidebar.classList.toggle("sidebar-mobile-hidden");
-          sidebar.classList.toggle("sidebar-mobile-visible");
-          overlay.classList.toggle("hidden");
-          overlay.classList.toggle("block");
-        }
+      function closeMobileSidebar() {
+        sidebar.classList.remove("mobile-open");
+        overlay.classList.add("hidden");
+        overlay.classList.remove("block");
       }
 
       document
         .getElementById("toggleSidebar")
         .addEventListener("click", function () {
           if (isMobile()) {
-            toggleMobileSidebar();
+            openMobileSidebar();
           } else {
             sidebar.classList.toggle("sidebar-collapsed");
             sidebar.classList.toggle("w-64");
             sidebar.classList.toggle("w-16");
-            mainContent.classList.toggle("main-expanded");
-            mainContent.classList.toggle("ml-64");
-            mainContent.classList.toggle("ml-16");
           }
         });
 
@@ -293,13 +278,7 @@
         if (!isMobile()) {
           overlay.classList.add("hidden");
           overlay.classList.remove("block");
-          sidebar.classList.remove("sidebar-mobile-hidden");
-          sidebar.classList.add("sidebar-mobile-visible");
-        } else {
-          if (!sidebar.classList.contains("sidebar-mobile-hidden")) {
-            sidebar.classList.add("sidebar-mobile-hidden");
-            sidebar.classList.remove("sidebar-mobile-visible");
-          }
+          sidebar.classList.remove("mobile-open");
         }
       });
 
@@ -315,48 +294,8 @@
         });
       });
 
-      // ── Theme ──
-      function setTheme(theme) {
-        const html = document.documentElement;
-        const toggle = document.getElementById("themeToggle");
-        const ghBtn = document.getElementById("githubButton");
-        if (theme === "dark") {
-          html.classList.add("dark");
-          toggle.innerHTML = '<i class="fas fa-sun"></i>';
-          ghBtn.innerHTML =
-            '<img src="/static/images/github-mark-white.svg" alt="GitHub" width="25" height="25">';
-          localStorage.setItem("theme", "dark");
-        } else {
-          html.classList.remove("dark");
-          toggle.innerHTML = '<i class="fas fa-moon"></i>';
-          ghBtn.innerHTML =
-            '<img src="/static/images/github-mark.svg" alt="GitHub" width="25" height="25">';
-          localStorage.setItem("theme", "light");
-        }
-      }
-      function toggleTheme() {
-        setTheme(
-          document.documentElement.classList.contains("dark")
-            ? "light"
-            : "dark",
-        );
-      }
-      function detectSystemTheme() {
-        return window.matchMedia &&
-          window.matchMedia("(prefers-color-scheme: dark)").matches
-          ? "dark"
-          : "light";
-      }
-      function initTheme() {
-        const saved = localStorage.getItem("theme");
-        setTheme(saved || detectSystemTheme());
-        window
-          .matchMedia("(prefers-color-scheme: dark)")
-          .addEventListener("change", (e) => {
-            if (!localStorage.getItem("theme"))
-              setTheme(e.matches ? "dark" : "light");
-          });
-      }
+      // ── Theme (delegated to /static/js/theme.js) ──
+      initTheme();
 
       // ── Token expired check ──
       function checkTokenExpired() {

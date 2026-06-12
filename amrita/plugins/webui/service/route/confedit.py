@@ -6,11 +6,11 @@ from ast import literal_eval
 from typing import Any, Literal, get_args, get_origin
 
 from fastapi import HTTPException, Request
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from amrita.config_manager import UniConfigManager
 from amrita.plugins.webui.API import PageContext, PageResponse, on_page
+from amrita.plugins.webui.service.response import fail, ok
 from amrita.plugins.webui.service.sidebar import SideBarCategory, SideBarManager
 
 
@@ -351,24 +351,9 @@ async def get_plugin_config(owner_name: str):
         # 计算配置哈希
         config_hash = calculate_config_hash(config_data)
 
-        return JSONResponse(
-            {
-                "code": 200,
-                "data": config_data,
-                "hash": config_hash,
-                "message": "success",
-            }
-        )
+        return ok("success", data={"config": config_data, "hash": config_hash})
     except Exception as e:
-        return JSONResponse(
-            {
-                "code": 500,
-                "message": f"获取配置失败: {e!s}",
-                "data": None,
-                "hash": None,
-            },
-            status_code=500,
-        )
+        return fail(500, f"获取配置失败: {e!s}")
 
 
 @app.post("/api/confedit/{owner_name}")
@@ -402,21 +387,15 @@ async def save_plugin_config(owner_name: str, request: Request):
 
         # 检查哈希是否匹配，防止并发冲突
         if provided_hash != current_hash:
-            return JSONResponse(
-                {
-                    "code": 409,
-                    "message": "配置已被其他用户修改，请刷新页面后重试",
-                    "current_hash": current_hash,
-                },
-                status_code=409,
+            return fail(
+                409,
+                "配置已被其他用户修改，请刷新页面后重试",
+                data={"current_hash": current_hash},
             )
 
         # 获取配置类
         if not config_manager.has_config_class(owner_name):
-            return JSONResponse(
-                {"code": 404, "message": f"插件 {owner_name} 未注册配置类"},
-                status_code=404,
-            )
+            return fail(404, f"插件 {owner_name} 未注册配置类")
 
         config_class = config_manager.get_config_class_by_name(owner_name)
         assert config_class is not None
@@ -432,9 +411,7 @@ async def save_plugin_config(owner_name: str, request: Request):
         # 计算新的哈希值
         new_hash = calculate_config_hash(new_config_data)
 
-        return JSONResponse({"code": 200, "message": "配置保存成功", "hash": new_hash})
+        return ok("配置保存成功", data={"hash": new_hash})
 
     except Exception as e:
-        return JSONResponse(
-            {"code": 500, "message": f"保存配置失败: {e!s}"}, status_code=500
-        )
+        return fail(500, f"保存配置失败: {e!s}")

@@ -7,9 +7,9 @@ modal, form_field, stat_card, table, badge, btn with context %} #} {# ──
     class="flex justify-between items-center mb-4 pb-2 border-b border-black/10 dark:border-white/10"
   >
     <h3 class="text-lg font-semibold text-primary">{{ title }}</h3>
-    {{ caller("header_actions") }}
   </div>
-  {% endif %} {{ caller("body") }}
+  {% endif %}
+  {{ caller() }}
 </div>
 {% endmacro %} {# ── 统计卡片 ── #} {% macro stat_card(icon, icon_color, value,
 label) %}
@@ -85,13 +85,7 @@ options=[], selected="", class="") %}
     {% for opt in options %}
     <option
       value="{{ opt.value }}"
-      {%
-      if
-      opt.value=""
-      ="selected"
-      %}selected{%
-      endif
-      %}
+      {% if opt.value == selected %}selected{% endif %}
     >
       {{ opt.label }}
     </option>

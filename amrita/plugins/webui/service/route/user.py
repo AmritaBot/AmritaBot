@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from amrita.plugins.manager.blacklist.black import BL_Manager
 from amrita.plugins.perm.models import PermissionStorage
 from amrita.plugins.perm.nodelib import Permissions
+from amrita.plugins.webui.service.response import fail, ok
 
 from ..main import TemplatesManager, app
 from ..sidebar import SideBarManager
@@ -89,16 +90,13 @@ async def permissions_page(request: Request):
 async def delete_perm_group(request: Request):
     group_name = (await request.json()).get("group_name")
     if not group_name:
-        return JSONResponse(
-            {"code": 400, "error": "Invalid request"},
-            status_code=400,
-        )
+        return fail(400, "Invalid request")
     dt = PermissionStorage()
     try:
         await dt.delete_permission_group(group_name)
     except Exception as e:
-        return JSONResponse({"code": 500, "error": str(e)}, status_code=500)
-    return JSONResponse({"code": 200, "error": None})
+        return fail(500, str(e))
+    return ok("权限组已删除")
 
 
 @app.get("/users/permissions/create_perm_group", response_class=HTMLResponse)
@@ -233,9 +231,9 @@ async def update_user_permissions(user_id: str, permissions: str = Form(...)):
         user_data.permissions = perm.dump_data()
         await dt.update_member_permission(user_data)
 
-        return {"success": True, "message": "用户权限已更新"}
+        return ok("用户权限已更新")
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return fail(400, str(e))
 
 
 @app.post("/api/users/permissions/group/{group_id}")
@@ -248,9 +246,9 @@ async def update_group_permissions(group_id: str, permissions: str = Form(...)):
         group_data.permissions = perm.dump_data()
 
         await st.update_member_permission(group_data)
-        return {"success": True, "message": "群组权限已更新"}
+        return ok("群组权限已更新")
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return fail(400, str(e))
 
 
 @app.post("/api/users/permissions/perm_group/{group_name}")
@@ -263,6 +261,6 @@ async def update_perm_group_permissions(group_name: str, permissions: str = Form
         data = await st.get_permission_group(group_name)
         data.permissions = permissions_data
         await st.update_permission_group(data)
-        return {"success": True, "message": "权限组权限已更新"}
+        return ok("权限组权限已更新")
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return fail(400, str(e))

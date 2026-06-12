@@ -1,146 +1,116 @@
-{% extends "base.html" %} {% block title %} 创建权限组 - Amrita Dashboard{%
-endblock %} {% block topbar_title %}创建权限组{% endblock %} {% block content %}
-<div class="card">
-  <div class="card-header">
-    <h2 class="card-title">创建权限组</h2>
-  </div>
-  <div class="card-body">
-    <form id="create-perm-group-form">
-      <div class="form-group mb-3">
-        <label for="group_name" class="form-label">权限组名称</label>
-        <input
-          type="text"
-          class="form-control"
-          id="group_name"
-          name="group_name"
-          placeholder="请输入权限组名称"
-        />
-      </div>
-      <div class="card mt-4">
-        <div
-          class="card-header d-flex justify-content-between align-items-center"
-        >
-          <h3 class="card-title">权限组权限</h3>
-          <button type="button" class="btn btn-success" id="add-permission">
-            <i class="fas fa-plus"></i> 添加权限
-          </button>
-        </div>
-        <div class="card-body">
-          <div class="form-group">
-            <div id="permissions-container" class="mb-3"></div>
-            <input
-              type="hidden"
-              id="permissions-data"
-              name="permissions"
-              value=""
-            />
-            <div class="d-flex gap-2">
-              <button type="submit" class="btn btn-primary">
-                <i class="fas fa-save"></i> 创建权限组
-              </button>
-              <a href="/users/permissions" class="btn btn-secondary">
-                <button type="button">
-                  <i class="fas fa-arrow-left"></i> 返回
-                </button>
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </form>
+{% extends "base.html" %}
+{% import "macros.html" as m %}
+{% block title %}创建权限组 - Amrita Dashboard{% endblock %}
+{% block topbar_title %}创建权限组{% endblock %}
+{% block content %}
+
+<!-- Group Name + Preset -->
+<div class="glass-card p-4 mb-5">
+  <div class="flex flex-wrap items-end gap-4">
+    <div class="flex-1 min-w-[200px]">
+      <label for="group_name" class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">权限组名称</label>
+      <input type="text" id="group_name" required
+        class="w-full px-3 py-2 rounded-lg text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
+        placeholder="请输入权限组名称">
+    </div>
+    <div class="flex-1 min-w-[200px]">
+      <label for="preset-select" class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+        <i class="fas fa-magic mr-1 text-blue-500"></i>权限预设（可选）
+      </label>
+      <select id="preset-select"
+        class="w-full px-3 py-2 rounded-lg text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors">
+        <option value="">-- 手动配置 --</option>
+        <option value="admin">管理员 (admin.* command.* chat.*)</option>
+        <option value="moderator">版主 (chat.* command.ban)</option>
+        <option value="user">普通用户 (chat.send)</option>
+        <option value="blacklist">黑名单 (全部禁止)</option>
+      </select>
+    </div>
   </div>
 </div>
-<script>
-  function addPermissionEntry(key = "", value = "true") {
-    const container = document.getElementById("permissions-container");
-    const entryId = "perm-" + Date.now();
 
-    const entryDiv = document.createElement("div");
-    entryDiv.className = "row g-2 align-items-center mb-2 permission-entry";
-    entryDiv.id = entryId;
-
-    entryDiv.innerHTML = `
-      <div class="col-md-5">
-        <input type="text" class="form-control permission-key" placeholder="权限节点（如 a.*）" value="${key}">
-        <select class="form-select permission-value">
-          <option value="true" ${
-            value === "true" ? "selected" : ""
-          }>持有</option>
-          <option value="false" ${
-            value === "false" ? "selected" : ""
-          }>不持有</option>
-        </select>
-        <button type="button" class="btn btn-danger remove-permission w-100">
-          <i class="fas fa-trash"></i> 删除
+<!-- Two-column layout -->
+<div class="flex flex-col lg:flex-row gap-5">
+  <!-- Left: Tag panel -->
+  <div class="lg:w-64 flex-shrink-0">
+    <div class="glass-card p-4 sticky top-[76px]">
+      <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-3">
+        <i class="fas fa-tags mr-1.5 text-primary"></i>快速权限
+      </h4>
+      <div id="perm-tags" class="flex flex-wrap gap-2"></div>
+      <div class="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+        <button onclick="PermEditor.showAddDialog()"
+          class="w-full px-3 py-2 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+          <i class="fas fa-plus mr-1"></i> 手动添加
         </button>
       </div>
-    `;
+    </div>
+  </div>
 
-    container.appendChild(entryDiv);
+  <!-- Right: Editor -->
+  <div class="flex-1 min-w-0">
+    <div class="glass-card">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">
+          <i class="fas fa-list-check mr-1.5 text-primary"></i>权限条目
+        </h3>
+        <div class="flex gap-2">
+          <button onclick="doCreate()"
+            class="px-4 py-1.5 rounded-lg text-xs font-medium bg-primary text-white hover:bg-primary-hover transition-colors">
+            <i class="fas fa-save mr-1"></i>创建权限组
+          </button>
+          <a href="/users/permissions"
+            class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-500 text-white hover:bg-gray-600 transition-colors">
+            <i class="fas fa-arrow-left mr-1"></i>返回
+          </a>
+        </div>
+      </div>
+      <div id="perm-table" class="p-4 min-h-[200px]"></div>
+    </div>
+  </div>
+</div>
 
-    entryDiv
-      .querySelector(".remove-permission")
-      .addEventListener("click", function () {
-        container.removeChild(entryDiv);
-      });
+{% endblock %}
+{% block scripts %}
+<script>
+  // Presets
+  var PRESETS = {
+    admin:     { "admin.*":"true", "command.*":"true", "chat.*":"true" },
+    moderator: { "chat.*":"true", "command.ban":"true" },
+    user:      { "chat.send":"true", "chat.*":"false" },
+    blacklist: { "chat.*":"false", "command.*":"false" },
+  };
+
+  var presetData = "";
+  PermEditor.init({
+    containerId: "perm-table",
+    tagsContainerId: "perm-tags",
+    dataStr: presetData,
+    saveUrl: "",
+    onSaved: function () { window.location.href = "/users/permissions"; },
+  });
+
+  // Override save for create (needs group_name)
+  function doCreate() {
+    var name = document.getElementById("group_name").value.trim();
+    if (!name) { Swal.fire("error", "请输入权限组名称", "error"); return; }
+    PermEditor._saveUrl = "/api/users/permissions/perm_group/" + encodeURIComponent(name);
+    PermEditor.save();
   }
 
-  document.addEventListener("DOMContentLoaded", function () {
-    document
-      .getElementById("add-permission")
-      .addEventListener("click", function () {
-        addPermissionEntry();
-      });
-
-    document
-      .getElementById("create-perm-group-form")
-      .addEventListener("submit", function (e) {
-        e.preventDefault();
-
-        const groupName = document.getElementById("group_name").value.trim();
-        if (!groupName) {
-          Swal.fire("错误", "请输入权限组名称", "error");
-          return;
-        }
-
-        let permissions = "";
-        const entries = document.querySelectorAll(".permission-entry");
-
-        entries.forEach(function (entry) {
-          const keyInput = entry.querySelector(".permission-key");
-          const valueSelect = entry.querySelector(".permission-value");
-
-          const key = keyInput.value.trim();
-          const value = valueSelect.value;
-
-          if (key) {
-            permissions += `${key} ${value}\n`;
-          }
-        });
-
-        document.getElementById("permissions-data").value = permissions;
-
-        const formData = new FormData(this);
-
-        fetch(`/api/users/permissions/perm_group/${groupName}`, {
-          method: "POST",
-          body: formData,
-        })
-          .then((response) => response.json())
-          .then((data) => {
-            if (data.success) {
-              Swal.fire("成功", data.message, "success").then(() => {
-                window.location.href = "/users/permissions";
-              });
-            } else {
-              Swal.fire("错误", data.message, "error");
-            }
-          })
-          .catch((error) => {
-            Swal.fire("错误", "创建失败: " + error.message, "error");
-          });
-      });
+  document.getElementById("preset-select").addEventListener("change", function () {
+    var p = this.value;
+    if (!p) return;
+    var entries = PRESETS[p] || {};
+    var lines = [];
+    Object.keys(entries).forEach(function (k) { lines.push(k + " " + entries[k]); });
+    PermEditor.init({
+      containerId: "perm-table",
+      tagsContainerId: "perm-tags",
+      dataStr: lines.join("\n"),
+      saveUrl: "",
+      onSaved: function () { window.location.href = "/users/permissions"; },
+    });
   });
 </script>
-<!-- Tailwind: styles migrated to dist.css -->
 {% endblock %}

@@ -1,0 +1,35 @@
+/* ── CSS variables (legacy template compatibility) ── */
+@layer base {
+  :root {
+    --primary-color: theme('colors.primary.DEFAULT');
+    --secondary-color: theme('colors.primary.hover');
+    --accent-color: theme('colors.accent.DEFAULT');
+    --text-color: #333;
+    --text-light: #fff;
+    --bg-color: #f8f9fa;
+    --sidebar-bg: theme('colors.sidebar.DEFAULT');
+    --sidebar-hover: theme('colors.sidebar.hover');
+    --header-height: 60px;
+    --transition-speed: 0.3s;
+    --card-bg: #ffffff;
+    --border-color: #e0d6ff;
+    --input-bg: rgba(255, 255, 255, 0.8);
+    --hover-bg: rgba(240, 240, 240, 0.5);
+
+    --dark-bg-color: theme('colors.dark.bg');
+    --dark-text-color: #f0f0f0;
+    --dark-sidebar-bg: theme('colors.sidebar.dark');
+    --dark-sidebar-hover: theme('colors.sidebar.dark-hover');
+    --dark-header-bg: theme('colors.dark.header');
+    --dark-card-bg: theme('colors.dark.card');
+    --dark-button-bg: #3b424b;
+    --dark-border-color: theme('colors.dark.border');
+    --dark-input-bg: rgba(37, 37, 37, 0.8);
+    --dark-code-bg: #1e1e1e;
+
+    --blur-intensity: 10px;
+    --glass-opacity: 0.75;
+    --glass-opacity-light: 0.7;
+    --glass-opacity-mobile: 0.2;
+  }
+}

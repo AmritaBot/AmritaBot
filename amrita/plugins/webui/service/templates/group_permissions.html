@@ -1,166 +1,73 @@
-{% extends "base.html" %} {% block title %} 群组权限 - Amrita Dashboard{%
-endblock %} {% block topbar_title %}群组权限详情{% endblock %} {% block content
-%}
-<div class="card">
-  <div class="card-header">
-    <h2 class="card-title">群组权限详情</h2>
+{% extends "base.html" %}
+{% import "macros.html" as m %}
+{% block title %}群组权限 - Amrita Dashboard{% endblock %}
+{% block topbar_title %}群组权限详情{% endblock %}
+{% block content %}
+
+<!-- Group Info -->
+<div class="glass-card p-4 mb-5">
+  <div class="flex flex-wrap items-center gap-3">
+    <span class="text-sm text-gray-500 dark:text-gray-400">群组ID:</span>
+    <span class="text-base font-mono font-semibold text-gray-800 dark:text-gray-200">{{ group_id }}</span>
+    {% if group_data.permission_groups %}
+    <span class="text-xs text-gray-400 dark:text-gray-500">|</span>
+    <span class="text-xs text-gray-500 dark:text-gray-400">所属权限组:</span>
+    {% for group in group_data.permission_groups %}
+    <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-light border border-primary/20">{{ group }}</span>
+    {% endfor %}
+    {% endif %}
   </div>
-  <div class="card-body">
-    <div class="mb-3">
-      <h4>群组ID: {{ group_id }}</h4>
-    </div>
-    <div class="card">
-      <div class="card-header">
-        <h3 class="card-title">权限组</h3>
-      </div>
-      <div class="card-body">
-        {% if group_data.permission_groups %}
-        <ul>
-          {% for group in group_data.permission_groups %}
-          <li>{{ group }}</li>
-          {% endfor %}
-        </ul>
-        {% else %}
-        <p>该群组未分配权限组</p>
-        {% endif %}
-      </div>
-    </div>
-    <div class="card mt-4">
-      <div
-        class="card-header d-flex justify-content-between align-items-center"
-      >
-        <h3 class="card-title">群组权限</h3>
-        <button type="button" class="btn btn-success" id="add-permission">
-          <i class="fas fa-plus"></i> 添加权限
+</div>
+
+<!-- Two-column layout -->
+<div class="flex flex-col lg:flex-row gap-5">
+  <!-- Left: Tag panel -->
+  <div class="lg:w-64 flex-shrink-0">
+    <div class="glass-card p-4 sticky top-[76px]">
+      <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-3">
+        <i class="fas fa-tags mr-1.5 text-primary"></i>快速权限
+      </h4>
+      <div id="perm-tags" class="flex flex-wrap gap-2"></div>
+      <div class="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+        <button onclick="PermEditor.showAddDialog()"
+          class="w-full px-3 py-2 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+          <i class="fas fa-plus mr-1"></i> 手动添加
         </button>
       </div>
-      <div class="card-body">
-        <form id="group-permissions-form">
-          <div class="form-group">
-            <div id="permissions-container" class="mb-3"></div>
-            <input
-              type="hidden"
-              id="permissions-data"
-              name="permissions"
-              value=""
-            />
-            <div class="d-flex gap-2">
-              <button type="submit" class="btn btn-primary">
-                <i class="fas fa-save"></i> 保存权限
-              </button>
-              <a href="/users/permissions" class="btn btn-secondary">
-                <button type="button">
-                  <i class="fas fa-arrow-left"></i> 返回
-                </button>
-              </a>
-            </div>
-          </div>
-        </form>
+    </div>
+  </div>
+
+  <!-- Right: Editor -->
+  <div class="flex-1 min-w-0">
+    <div class="glass-card">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">
+          <i class="fas fa-list-check mr-1.5 text-primary"></i>权限条目
+        </h3>
+        <div class="flex gap-2">
+          <button onclick="PermEditor.save()"
+            class="px-4 py-1.5 rounded-lg text-xs font-medium bg-primary text-white hover:bg-primary-hover transition-colors">
+            <i class="fas fa-save mr-1"></i>保存
+          </button>
+          <a href="/users/permissions"
+            class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-500 text-white hover:bg-gray-600 transition-colors">
+            <i class="fas fa-arrow-left mr-1"></i>返回
+          </a>
+        </div>
       </div>
+      <div id="perm-table" class="p-4 min-h-[200px]"></div>
     </div>
   </div>
 </div>
+
+{% endblock %}
+{% block scripts %}
 <script>
-  const permissionsDataStr = `{{ group_data.permissions }}`;
-
-  function addPermissionEntry(key = "", value = "true") {
-    const container = document.getElementById("permissions-container");
-    const entryId = "perm-" + Date.now();
-
-    const entryDiv = document.createElement("div");
-    entryDiv.className = "row g-2 align-items-center mb-2 permission-entry";
-    entryDiv.id = entryId;
-
-    entryDiv.innerHTML = `
-      <div class="col-md-5">
-        <input type="text" class="form-control permission-key" placeholder="权限节点（如 a.*）" value="${key}">
-        <select class="form-select permission-value">
-          <option value="true" ${
-            value === "true" ? "selected" : ""
-          }>持有</option>
-          <option value="false" ${
-            value === "false" ? "selected" : ""
-          }>不持有</option>
-        </select>
-        <button type="button" class="btn btn-danger remove-permission w-100">
-          <i class="fas fa-trash"></i> 删除
-        </button>
-      </div>
-    `;
-
-    container.appendChild(entryDiv);
-
-    entryDiv
-      .querySelector(".remove-permission")
-      .addEventListener("click", function () {
-        container.removeChild(entryDiv);
-      });
-  }
-
-  document.addEventListener("DOMContentLoaded", function () {
-    const permissionsLines = permissionsDataStr.split("\n");
-    for (const line of permissionsLines) {
-      if (line.trim() !== "") {
-        const parts = line.trim().split(" ");
-        if (parts.length >= 2) {
-          const key = parts.slice(0, -1).join(" ");
-          const value = parts[parts.length - 1];
-          addPermissionEntry(key, value);
-        }
-      }
-    }
-
-    if (permissionsLines.length <= 1 && permissionsLines[0].trim() === "") {
-      addPermissionEntry();
-    }
-
-    document
-      .getElementById("add-permission")
-      .addEventListener("click", function () {
-        addPermissionEntry();
-      });
-
-    document
-      .getElementById("group-permissions-form")
-      .addEventListener("submit", function (e) {
-        e.preventDefault();
-
-        let permissions = "";
-        const entries = document.querySelectorAll(".permission-entry");
-
-        entries.forEach(function (entry) {
-          const keyInput = entry.querySelector(".permission-key");
-          const valueSelect = entry.querySelector(".permission-value");
-
-          const key = keyInput.value.trim();
-          const value = valueSelect.value;
-
-          if (key) {
-            permissions += `${key} ${value}\n`;
-          }
-        });
-
-        document.getElementById("permissions-data").value = permissions;
-
-        const formData = new FormData(this);
-
-        fetch(`/api/users/permissions/group/{{ group_id }}`, {
-          method: "POST",
-          body: formData,
-        })
-          .then((response) => response.json())
-          .then((data) => {
-            if (data.success) {
-              Swal.fire("成功", data.message, "success");
-            } else {
-              Swal.fire("错误", data.message, "error");
-            }
-          })
-          .catch((error) => {
-            Swal.fire("错误", "保存失败: " + error.message, "error");
-          });
-      });
+  PermEditor.init({
+    containerId: "perm-table",
+    tagsContainerId: "perm-tags",
+    dataStr: `{{ group_data.permissions }}`,
+    saveUrl: "/api/users/permissions/group/{{ group_id }}",
   });
 </script>
-<!-- Tailwind: styles migrated to dist.css -->
 {% endblock %}

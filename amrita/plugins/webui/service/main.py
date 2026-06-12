@@ -6,7 +6,7 @@ from pathlib import Path
 
 import nonebot
 from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from nonebot import logger
@@ -14,6 +14,7 @@ from pytz import utc
 from typing_extensions import Self
 
 from .authlib import TOKEN_KEY, AuthManager, TokenManager
+from .response import fail
 
 TEMPLATES_PATH = Path(__file__).resolve().parent / "templates"
 
@@ -86,14 +87,7 @@ async def handle_http_exc(request: Request, exc: HTTPException):
         logger.warning("401!" + str(request))
         return RedirectResponse(url="/", status_code=303)
     if request.url.path.startswith("/api"):
-        return JSONResponse(
-            {
-                "code": exc.status_code,
-                "message": str(exc.detail),
-                "success": False,
-            },
-            status_code=exc.status_code,
-        )
+        return fail(exc.status_code, str(exc.detail))
     return TemplatesManager().TemplateResponse(
         request,
         "error.html",

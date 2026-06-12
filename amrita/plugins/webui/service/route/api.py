@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from amrita.plugins.manager.blacklist.black import BL_Manager
 from amrita.plugins.manager.models import get_usage
 from amrita.plugins.webui.service.authlib import TOKEN_KEY, TokenManager
+from amrita.plugins.webui.service.response import fail, ok
 from amrita.utils.system_health import calculate_system_usage
 
 from ..main import app, try_get_bot
@@ -71,8 +72,8 @@ async def add_blacklist_item(data: RequestDataSchema):
         )
         await func(data.id, data.reason)
     except Exception as e:
-        return JSONResponse({"code": 500, "error": str(e)}, status_code=500)
-    return JSONResponse({"code": 200, "error": None}, 200)
+        return fail(500, str(e))
+    return ok("已添加到黑名单")
 
 
 @app.get("/api/chart/messages")
@@ -136,7 +137,7 @@ async def remove_blacklist_batch(data: BlacklistRemoveSchema, type: str):
             await BL_Manager.private_remove(id)
         elif type == "group":
             await BL_Manager.group_remove(id)
-    return JSONResponse({"code": 200, "error": None}, 200)
+    return ok("已批量移除")
 
 
 @app.post("/api/blacklist/remove/{type}/{id}")
@@ -152,7 +153,7 @@ async def remove_blacklist_item(request: Request, type: str, id: str):
     """
     func = BL_Manager.private_remove if type == "user" else BL_Manager.group_remove
     await func(id)
-    return JSONResponse({"code": 200, "error": None}, 200)
+    return ok("已移除")
 
 
 @app.get("/api/plugins/list")

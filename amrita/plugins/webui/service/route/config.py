@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import glob
+import logging
 import os
 from pathlib import Path
 
@@ -12,6 +13,8 @@ from amrita.plugins.webui.service.response import fail, ok
 
 from ..main import TemplatesManager, app
 from ..sidebar import SideBarManager
+
+logger = logging.getLogger(__name__)
 
 # 获取项目根目录
 PROJECT_ROOT = Path(os.getcwd())
@@ -81,8 +84,9 @@ async def update_config(request: Request):
         async with aiofiles.open(env_file_path, "w", encoding="utf-8") as f:
             await f.write(content)
         return ok(f"配置文件 {filename} 更新成功")
-    except Exception as e:
-        return fail(500, "配置文件更新失败", data=str(e))
+    except Exception:
+        logger.exception("Failed to update config file")
+        return fail(500, "配置文件更新失败")
 
 
 @app.get("/api/bot/config/{filename}")
@@ -99,5 +103,6 @@ async def get_config(filename: str):
         async with aiofiles.open(env_file_path, encoding="utf-8") as f:
             content = await f.read()
         return ok("success", data={"content": content})
-    except Exception as e:
-        return fail(500, "读取文件失败", data=str(e))
+    except Exception:
+        logger.exception("Failed to read config file")
+        return fail(500, "读取文件失败")

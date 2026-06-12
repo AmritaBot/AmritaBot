@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from importlib import metadata
 from typing import Literal
@@ -23,6 +24,8 @@ from amrita.utils.system_health import calculate_system_usage
 
 from ..main import app, try_get_bot
 from ..sidebar import SideBarManager
+
+logger = logging.getLogger(__name__)
 
 
 class RequestDataSchema(BaseModel):
@@ -71,8 +74,9 @@ async def add_blacklist_item(data: RequestDataSchema):
             else BL_Manager.group_append
         )
         await func(data.id, data.reason)
-    except Exception as e:
-        return fail(500, str(e))
+    except Exception:
+        logger.exception("Failed to add blacklist item")
+        return fail(500, "添加黑名单失败")
     return ok("已添加到黑名单")
 
 
@@ -93,8 +97,9 @@ async def get_messages_chart_data():
         return {"labels": labels, "data": data}
     except ValueError:
         raise HTTPException(status_code=500, detail="Bot未连接")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Failed to get messages chart data")
+        raise HTTPException(status_code=500, detail="内部错误")
 
 
 @app.get("/api/chart/today-usage")

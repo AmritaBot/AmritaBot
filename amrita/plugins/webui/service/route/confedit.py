@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from ast import literal_eval
 from typing import Any, Literal, get_args, get_origin
 
@@ -12,6 +13,8 @@ from amrita.config_manager import UniConfigManager
 from amrita.plugins.webui.API import PageContext, PageResponse, on_page
 from amrita.plugins.webui.service.response import fail, ok
 from amrita.plugins.webui.service.sidebar import SideBarCategory, SideBarManager
+
+logger = logging.getLogger(__name__)
 
 
 def flatten_config_fields(
@@ -352,8 +355,9 @@ async def get_plugin_config(owner_name: str):
         config_hash = calculate_config_hash(config_data)
 
         return ok("success", data={"config": config_data, "hash": config_hash})
-    except Exception as e:
-        return fail(500, f"获取配置失败: {e!s}")
+    except Exception:
+        logger.exception("Failed to get plugin config")
+        return fail(500, "获取配置失败")
 
 
 @app.post("/api/confedit/{owner_name}")
@@ -413,5 +417,6 @@ async def save_plugin_config(owner_name: str, request: Request):
 
         return ok("配置保存成功", data={"hash": new_hash})
 
-    except Exception as e:
-        return fail(500, f"保存配置失败: {e!s}")
+    except Exception:
+        logger.exception("Failed to save plugin config")
+        return fail(500, "保存配置失败")

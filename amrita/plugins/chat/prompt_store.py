@@ -47,7 +47,7 @@ class PromptStore:
 
     async def load(self, *, cache: bool = False, load_only: bool = False) -> Prompts:
         """加载提示词文件"""
-        if cache and self.prompts:
+        if cache and (self.prompts.group or self.prompts.private):
             return self.prompts
         self.prompts = Prompts()
         for file in self.private_dir.glob("*.txt"):
@@ -67,35 +67,19 @@ class PromptStore:
             self.prompts.save_group(self.group_dir)
         return self.prompts
 
+    @staticmethod
+    def _pick(prompts: list[Prompt], character: str, label: str) -> dict[str, Any]:
+        for prompt in prompts:
+            if prompt.name == character:
+                return {"role": "system", "content": prompt.text}
+        logger.warning(f"没有找到名称为 {character} 的{label}提示词，将使用default.txt!")
+        fallback = next((p for p in prompts if p.name == "default"), None)
+        return {"role": "system", "content": fallback.text if fallback else ""}
+
     def apply(self, group_character: str, private_character: str) -> None:
         """按预设名匹配当前提示词"""
-        for prompt in self.prompts.group:
-            if prompt.name == group_character:
-                self._group_train = {"role": "system", "content": prompt.text}
-                break
-        else:
-            self._group_train = {
-                "role": "system",
-                "content": next(
-                    i for i in self.prompts.group if i.name == "default"
-                ).text,
-            }
-            logger.warning(f"没有找到名称为 {group_character} 的群组提示词，将使用default.txt!")
-
-        for prompt in self.prompts.private:
-            if prompt.name == private_character:
-                self._private_train = {"role": "system", "content": prompt.text}
-                break
-        else:
-            logger.warning(
-                f"没有找到名称为 {private_character} 的私聊提示词，将使用default.txt！"
-            )
-            self._private_train = {
-                "role": "system",
-                "content": next(
-                    i for i in self.prompts.private if i.name == "default"
-                ).text,
-            }
+        self._group_train = self._pick(self.prompts.group, group_character, "群组")
+        self._private_train = self._pick(self.prompts.private, private_character, "私聊")
 
     @property
     def private_train(self) -> dict[str, str]:

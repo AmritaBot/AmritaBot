@@ -3,7 +3,7 @@ import random
 import sys
 import traceback
 
-from amrita_core import UniResponse, call_completion
+from amrita_core import UniResponse, UniResponseUsage, call_completion
 from amrita_core.types import Message as CoreMessage
 from nonebot import logger
 from nonebot.adapters.onebot.v11 import Bot, MessageSegment
@@ -20,7 +20,7 @@ from ..utils.functions import (
     get_friend_name,
     split_message_into_chats,
 )
-from ..utils.libchat import get_tokens, usage_enough
+from ..utils.libchat import add_usage, get_tokens, usage_enough
 from ..utils.lock import get_group_lock, get_private_lock
 from ..utils.sql import InsightsModel
 
@@ -36,7 +36,6 @@ async def poke_event(event: PokeNotifyEvent, bot: Bot, matcher: Matcher):
     if event.target_id != event.self_id:  # 如果目标不是机器人本身，直接返回
         return
     repo = CachedUserDataRepository()
-    data = await repo.get_memory(event.user_id, False)
 
     try:
         fake_event = FakeEvent(
@@ -50,10 +49,10 @@ async def poke_event(event: PokeNotifyEvent, bot: Bot, matcher: Matcher):
 
         if event.group_id is not None:  # 判断是群聊还是私聊
             async with get_group_lock(event.group_id):
-                await handle_group_poke(event, bot, matcher, repo, data)
+                await handle_group_poke(event, bot, matcher, repo)
         else:
             async with get_private_lock(event.user_id):
-                await handle_private_poke(event, bot, matcher, repo, data)
+                await handle_private_poke(event, bot, matcher, repo)
     except NoneBotException:
         raise
     except Exception:
@@ -65,7 +64,6 @@ async def handle_group_poke(
     bot: Bot,
     matcher: Matcher,
     repo: CachedUserDataRepository,
-    data,
 ):
     """处理群聊中的戳一戳事件"""
     assert event.group_id is not None
@@ -99,7 +97,7 @@ async def handle_group_poke(
             content=f"<戳一戳消息>{user_name} (QQ:{event.user_id}) 戳了戳你",
         ),
     ]
-    response = await process_poke_event(event, send_messages, repo, data)
+    response = await process_poke_event(event, send_messages, repo)
     message = (
         MessageSegment.at(user_id=event.user_id)
         + MessageSegment.text(" ")
@@ -118,16 +116,19 @@ async def handle_private_poke(
     bot: Bot,
     matcher: Matcher,
     repo: CachedUserDataRepository,
-    data,
 ):
     """处理私聊中的戳一戳事件"""
     # 检查使用限制
     if (
         config_manager.config.usage_limit.enable_usage_limit
         and config_manager.config.usage_limit.user_daily_limit != -1
-        and data.usage >= config_manager.config.usage_limit.user_daily_limit
     ):
-        await matcher.finish()
+        user_meta = await repo.get_metadata(event.user_id, False)
+        if (
+            user_meta.called_count
+            >= config_manager.config.usage_limit.user_daily_limit
+        ):
+            await matcher.finish()
 
     name = await get_friend_name(event.user_id, bot)  # 获取好友信息
     send_messages = [
@@ -139,7 +140,7 @@ async def handle_private_poke(
     ]
 
     # 处理戳一戳事件并获取回复
-    response = await process_poke_event(event, send_messages, repo, data)
+    response = await process_poke_event(event, send_messages, repo)
     if not config_manager.config.function.nature_chat_style:
         await matcher.send(MessageSegment.text(response))
     else:
@@ -147,7 +148,9 @@ async def handle_private_poke(
 
 
 async def process_poke_event(
-    event: PokeNotifyEvent, send_messages: list, repo: CachedUserDataRepository, data
+    event: PokeNotifyEvent,
+    send_messages: list,
+    repo: CachedUserDataRepository,
 ) -> str:
     """处理戳一戳事件的核心逻辑"""
     # 直接调用completion API来处理消息
@@ -170,20 +173,17 @@ async def process_poke_event(
     output_tokens = (
         tokens.completion_tokens if hasattr(tokens, "completion_tokens") else 0
     )
+    usage = UniResponseUsage(
+        prompt_tokens=input_tokens,
+        completion_tokens=output_tokens,
+        total_tokens=input_tokens + output_tokens,
+    )
+
     insights = await InsightsModel.get()
+    add_usage(insights, usage)
 
-    insights.usage_count += 1
-    insights.token_output += output_tokens
-    insights.token_input += input_tokens
-
-    # 更新用户数据使用情况
     user_meta = await repo.get_metadata(event.user_id, False)
-    user_meta.called_count += 1
-    user_meta.tokens_input += input_tokens
-    user_meta.tokens_output += output_tokens
-    user_meta.total_called_count += 1
-    user_meta.total_input_token += input_tokens
-    user_meta.total_output_token += output_tokens
+    add_usage(user_meta, usage)
     await repo.update_metadata(user_meta)
 
     # 保存insights

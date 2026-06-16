@@ -246,9 +246,9 @@ class DirtyAwareModel(BaseModel):
         return value
 
     def _mark_dirty(self, name: str):
-        exclue: tuple[str, ...] | None
-        if exclue := getattr(self, "dirty_excluede__", None):
-            if name in exclue:
+        exclude: tuple[str, ...] | None
+        if exclude := getattr(self, "dirty_exclude__", None):
+            if name in exclude:
                 return
         dirty_vars: set[str] | None = getattr(self, "dirtyvars__", None)
         if dirty_vars is None:

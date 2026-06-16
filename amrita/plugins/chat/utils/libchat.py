@@ -1,4 +1,4 @@
-from amrita_core import call_completion
+from amrita_core import UniResponseUsage, call_completion
 from amrita_core.libchat import (
     _call_with_reflection,
     _validate_msg_list,
@@ -15,6 +15,25 @@ from amrita.plugins.chat.utils.sql import InsightsModel
 from amrita.plugins.perm.API.rules import any_has_permission
 
 is_bot_admin = None
+
+
+def add_usage(
+    ins: InsightsModel | UserMetadataSchema, usage: UniResponseUsage[int] | None
+) -> None:
+    """累加 token 用量"""
+    if isinstance(ins, InsightsModel):
+        if usage:
+            ins.token_output += usage.completion_tokens
+            ins.token_input += usage.prompt_tokens
+        ins.usage_count += 1
+    else:
+        if usage:
+            ins.tokens_input += usage.prompt_tokens
+            ins.tokens_output += usage.completion_tokens
+            ins.total_input_token += usage.prompt_tokens
+            ins.total_output_token += usage.completion_tokens
+        ins.called_count += 1
+        ins.total_called_count += 1
 
 
 async def usage_enough(event: Event) -> bool:
@@ -91,6 +110,7 @@ async def usage_enough(event: Event) -> bool:
 __all__ = [
     "_call_with_reflection",
     "_validate_msg_list",
+    "add_usage",
     "call_completion",
     "get_last_response",
     "get_tokens",

@@ -12,31 +12,39 @@ from collections import defaultdict
 from typing import TypedDict
 
 from amrita_core.chatmanager import ChatManager
+from amrita_core.chatmanager import ChatObject as CoreChatObject
 from nonebot.adapters.onebot.v11 import Bot
 from nonebot.adapters.onebot.v11.event import MessageEvent
 from nonebot.matcher import Matcher
 
 from amrita.plugins.chat.config import Config
-from amrita.plugins.chat.utils.app import (
-    AwaredMemory,
-    MemorySchema,
-)
+from amrita.plugins.chat.utils.app import MemorySchema
+
+# hook_kwargs 中存放上下文的键
+AMRITA_CTX_KEY = "amrita"
 
 
 class AmritaBotContext(TypedDict):
-    """
-    通过 ChatObject._hook_kwargs["amrita"] 传递的上下文。
-
-    handler 在创建 ChatObject 时填充此字典，
-    chatobj.py 等管理模块通过 _hook_kwargs 读取。
-    """
+    """跨 handler 共享的上下文，消息体走 memory.memory_json"""
 
     matcher: Matcher
-    data: AwaredMemory
     memory: MemorySchema
     bot: Bot
     event: MessageEvent
     bot_config: Config
+
+
+def try_get_amrita_ctx(obj: CoreChatObject) -> AmritaBotContext | None:
+    """读取上下文，没有则 None"""
+    return obj._hook_kwargs.get(AMRITA_CTX_KEY)
+
+
+def get_amrita_ctx(obj: CoreChatObject) -> AmritaBotContext:
+    """读取上下文，没有则报错"""
+    ctx = try_get_amrita_ctx(obj)
+    if ctx is None:
+        raise RuntimeError("缺少 AmritaBotContext")
+    return ctx
 
 
 bot_chat_manager = ChatManager()

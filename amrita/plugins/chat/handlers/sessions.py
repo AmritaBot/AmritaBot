@@ -71,7 +71,8 @@ async def sessions(
             raise e
         except (ValueError, IndexError):
             await matcher.finish("请输入正确的编号")
-        except Exception:
+        except Exception as e:
+            logger.opt(exception=e, colors=True).exception("覆盖记忆文件失败。")
             await matcher.finish("覆盖记忆文件失败，这个对话可能损坏了。")
 
     async def delete_session(
@@ -95,7 +96,6 @@ async def sessions(
                 async with get_session() as session:
                     async with UserDataExecutor(uni_user_id, session) as executor:
                         await executor.remove_session(removed_session.id)
-                        await session.commit()
 
                 await matcher.send("已删除对应的会话。")
             else:
@@ -104,13 +104,14 @@ async def sessions(
             raise e
         except (ValueError, IndexError):
             await matcher.finish("请输入正确的编号")
-        except Exception:
+        except Exception as e:
+            logger.opt(exception=e, colors=True).exception("删除指定编号会话失败。")
             await matcher.finish("删除指定编号会话失败。")
 
     async def archive_session() -> None:
         """归档当前会话"""
         try:
-            # 获取当前用户内存数据
+            # 获取当前用户记忆数据
             memory_data = await repo.get_memory(
                 event.user_id, hasattr(event, "group_id")
             )
@@ -128,9 +129,7 @@ async def sessions(
                 async with get_session() as session:
                     async with UserDataExecutor(uni_user_id, session) as executor:
                         await executor.add_session(new_session_data)
-                        await session.commit()
-
-                # 清空当前内存中的消息
+                # 清空当前记忆中的消息
                 memory_data.memory_json.messages = []
                 await repo.update_memory_data(memory_data)
 
@@ -139,7 +138,8 @@ async def sessions(
                 await matcher.finish("当前对话为空！")
         except NoneBotException as e:
             raise e
-        except Exception:
+        except Exception as e:
+            logger.opt(exception=e, colors=True).exception("归档当前会话失败。")
             await matcher.finish("归档当前会话失败。")
 
     async def clear_sessions() -> None:
@@ -158,7 +158,6 @@ async def sessions(
                 async with get_session() as session:
                     async with UserDataExecutor(uni_user_id, session) as executor:
                         await executor.remove_session(*session_ids)
-                        await session.commit()
 
             await matcher.finish("会话已清空。")
         except NoneBotException as e:

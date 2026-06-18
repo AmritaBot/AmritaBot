@@ -7,8 +7,6 @@ from datetime import datetime
 
 from amrita_core import (
     PresetManager,
-    SessionsManager,
-    SuspendEnum,
     TextContent,
     UniResponse,
     UniResponseUsage,
@@ -53,7 +51,7 @@ from amrita.plugins.chat.runtime import (
     AmritaBotContext,
     bot_chat_manager,
     get_amrita_ctx,
-    pending_tasks,
+    pending_chatobj,
 )
 from amrita.plugins.chat.runtime_session import SessionManager
 from amrita.plugins.chat.utils.app import (
@@ -246,7 +244,11 @@ def synthesize_message_to_msg(
     """
     is_multimodal: bool = (
         any(
-            (PresetManager().get_preset(preset)).config.multimodal
+            (
+                (PresetManager().get_preset(preset)).config.multimodal
+                if preset != "default"
+                else ConfigManager().config.default_preset.config.multimodal
+            )
             for preset in [
                 config_manager.config.preset,
                 *config_manager.config.preset_extension.backup_preset_list,
@@ -442,7 +444,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         context=memory.memory_json,
         session_id=session_id,
         auto_create_session=False,
-        preset=PresetManager().get_preset(config.preset),
+        preset=await ConfigManager().get_preset(config.preset),
         hook_args=(event, matcher, bot),
         hook_kwargs={AMRITA_CTX_KEY: ctx},
         exception_ignored=(ProcessException, MatcherException),
@@ -511,35 +513,25 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
                 await matcher.finish("聊天任务正在处理中，请稍后再试")
 
     try:
-        async with chat.begin():  # 上下文，自动管理生命周期
-            debug_log("开始运行...\n等待断点挂起。")
-            await asyncio.wait_for(
-                chat.io_stream.wait_to_suspend(SuspendEnum.ENTRY_POINT), 5
-            )
-            debug_log("已挂起")
-            task = chat._task
-            pending_tasks[session_id].append(task)
-            try:
-                async with lock:
-                    pending_tasks[session_id].remove(task)
-                    chat.io_stream.resume()
-                    debug_log("继续运行...")
+        pending_chatobj[session_id].append(chat)
+        try:
+            async with lock:
+                pending_chatobj[session_id].remove(chat)
+                debug_log("继续运行...")
 
-                    await chat  # 等待工作流完成
-                    memory.memory_json = (
-                        chat.data
-                        if isinstance(chat.data, AwaredMemory)
-                        else AwaredMemory.model_validate(
-                            chat.data, from_attributes=True
-                        )
-                    )
-                    await cudr.update_memory_data(memory)
-                    if can_send_message:
-                        await send_response(chat, chat.response.content)
-            finally:
-                # 兜底：异常时清理 pending
-                if task in pending_tasks[session_id]:
-                    pending_tasks[session_id].remove(task)
+                await chat.begin()
+                memory.memory_json = (
+                    chat.data
+                    if isinstance(chat.data, AwaredMemory)
+                    else AwaredMemory.model_validate(chat.data, from_attributes=True)
+                )
+                await cudr.update_memory_data(memory)
+                if can_send_message:
+                    await send_response(chat, chat.response.content)
+        finally:
+            # 兜底：异常时清理 pending
+            if chat in pending_chatobj[session_id]:
+                pending_chatobj[session_id].remove(chat)
 
     except BaseException as e:
         if isinstance(e, (NoneBotException, ChatException)):
@@ -574,4 +566,3 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
                 d.called_count
                 add_usage(d, usage)
                 await cudr.update_metadata(d)
-        SessionsManager().drop_session(session_id)

@@ -13,7 +13,7 @@ from pytz import timezone, utc
 
 from amrita.plugins.chat.runtime import (
     bot_chat_manager,
-    pending_tasks,
+    pending_chatobj,
     try_get_amrita_ctx,
 )
 from amrita.plugins.chat.utils.sql import get_uni_user_id
@@ -39,10 +39,14 @@ def get_chat_objects_status(event: MessageEvent) -> dict[str, list[ChatObject]]:
     all_objects = bot_chat_manager.get_objs(uni_id)
 
     # pending：仍在 waiting_tasks 且未完成的 ChatObject
-    pending_task_ids = {id(t) for t in pending_tasks.get(uni_id, []) if not t.done()}
+    pending_task_ids: set[int] = {
+        id(t)
+        for t in pending_chatobj.get(uni_id, [])
+        if (not t.is_running() and t.is_done())
+    }
     remaining: list[ChatObject] = []
     for obj in all_objects:
-        if hasattr(obj, "_task") and id(obj._task) in pending_task_ids:
+        if id(obj) in pending_task_ids:
             pending_objects.append(obj)
         else:
             remaining.append(obj)
@@ -76,8 +80,10 @@ def format_chat_object_info(obj: ChatObject) -> str:
     instance_id = get_uni_user_id(event)
 
     # 检查是否在隐式锁队列中 pending
-    in_pending = hasattr(obj, "_task") and id(obj._task) in {
-        id(t) for t in pending_tasks.get(instance_id, []) if not t.done()
+    in_pending = id(obj) in {
+        id(t)
+        for t in pending_chatobj.get(instance_id, [])
+        if (not t.is_running() and t.is_done())
     }
 
     if in_pending:

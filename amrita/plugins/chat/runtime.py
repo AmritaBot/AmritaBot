@@ -7,7 +7,6 @@ Runtime 基础设施
 
 from __future__ import annotations
 
-import asyncio
 from collections import defaultdict
 from typing import TypedDict
 

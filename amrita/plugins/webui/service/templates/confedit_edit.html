@@ -102,9 +102,9 @@ endblock %} {% block extra_head %}
                   replace('.', '_DOT_') }}"
                   name="{{ field.name
                   }}"
-                  data-original-value="{{ field.current_value | string }}"
+                  data-original-value="{{ field.current_value | string | lower }}"
                   onchange="markFieldAsModified()"
-                  {% if field.current_value == "true" %}
+                  {% if field.current_value == true %}
                   checked
                   {% endif %}
                 />
@@ -121,13 +121,13 @@ endblock %} {% block extra_head %}
             class="field-input-select"
             id="{{ field.name | replace('.', '_DOT_') }}"
             name="{{ field.name }}"
-            data-original-value="{{ field.current_value | string }}"
+            data-original-value="{{ field.current_value | string | lower }}"
             onchange="markFieldAsModified()"
           >
             {% for value in field.literal_values %}
             <option
               value="{{ value }}"
-              {% if field.current_value == value or (field.current_value == "true" and value == "true") or (field.current_value == "false" and value == "false") %}selected{% endif %}
+              {% if field.current_value == value or (field.current_value is sameas true and value is sameas true) or (field.current_value is sameas false and value is sameas false) %}selected{% endif %}
             >
               {{ value }}
             </option>
@@ -209,9 +209,9 @@ endblock %} {% block extra_head %}
                       replace('.', '_DOT_') }}"
                       name="{{ field.name
                       }}"
-                      data-original-value="{{ field.current_value | string }}"
+                      data-original-value="{{ field.current_value | string | lower }}"
                       onchange="markFieldAsModified()"
-                      {% if field.current_value == "true" %}checked{% endif %}
+                      {% if field.current_value == true %}checked{% endif %}
                     />
                     <span class="bool-slider"></span>
                   </div>
@@ -226,13 +226,13 @@ endblock %} {% block extra_head %}
                 class="field-input-select"
                 id="{{ field.name | replace('.', '_DOT_') }}"
                 name="{{ field.name }}"
-                data-original-value="{{ field.current_value | string }}"
+                data-original-value="{{ field.current_value | string | lower }}"
                 onchange="markFieldAsModified()"
               >
                 {% for value in field.literal_values %}
                 <option
                   value="{{ value }}"
-                  {% if field.current_value == value or (field.current_value == "true" and value == "true") or (field.current_value == "false" and value == "false") %}selected{% endif %}
+                  {% if field.current_value == value or (field.current_value is sameas true and value is sameas true) or (field.current_value is sameas false and value is sameas false) %}selected{% endif %}
                 >
                   {{ value }}
                 </option>
@@ -483,8 +483,7 @@ endblock %} {% block extra_head %}
         } catch (e) {}
         input.value = originalValue;
       } else if (input.type === "checkbox") {
-        // Handle boolean switches
-        const isChecked = originalValue === "True";
+        const isChecked = originalValue === "true";
         input.checked = isChecked;
         // Update text label next to switch
         const textElement = document.getElementById(`${input.id}_text`);
@@ -516,13 +515,27 @@ endblock %} {% block extra_head %}
 
       inputs.forEach((input) => {
         const fieldName = input.name;
+        const originalValue = input.getAttribute("data-original-value");
+        let currentValue;
         if (input.type === "checkbox") {
-          // Handle boolean switches
-          configData[fieldName] = input.checked.toString();
+          currentValue = input.checked.toString();
         } else {
-          configData[fieldName] = input.value;
+          currentValue = input.value;
+        }
+        if (currentValue !== originalValue) {
+          if (input.type === "checkbox") {
+            configData[fieldName] = input.checked.toString();
+          } else {
+            configData[fieldName] = input.value;
+          }
         }
       });
+
+      if (Object.keys(configData).length === 0) {
+        hideLoading();
+        Swal.fire({icon: "info", title: "没有修改", text: "未检测到配置更改。"});
+        return;
+      }
 
       const response = await fetch(`/api/confedit/{{ plugin_name }}`, {
         method: "POST",

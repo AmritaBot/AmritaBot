@@ -177,6 +177,19 @@ def unflatten_config_fields(flat_dict: dict, sep: str = ".") -> dict:
     return result
 
 
+def deep_merge(base: dict, overlay: dict) -> dict:
+    """
+    深度合并两个嵌套字典。overlay 中的值覆盖 base，嵌套字典递归合并。
+    """
+    merged = dict(base)
+    for key, val in overlay.items():
+        if key in merged and isinstance(merged[key], dict) and isinstance(val, dict):
+            merged[key] = deep_merge(merged[key], val)
+        else:
+            merged[key] = val
+    return merged
+
+
 SideBarManager().add_sidebar_category(
     SideBarCategory(name="系统管理", icon="fa fa-cog")
 )
@@ -403,8 +416,12 @@ async def save_plugin_config(owner_name: str, request: Request):
 
         config_class = config_manager.get_config_class_by_name(owner_name)
         assert config_class is not None
+
+        # 将部分更新的数据合并到当前配置（增量保存）
+        merged_config = deep_merge(current_config_data, nested_config_data)
+
         # 验证并创建新的配置实例
-        new_config_instance = config_class.model_validate(nested_config_data)
+        new_config_instance = config_class.model_validate(merged_config)
 
         # 保存配置实例
         await config_manager.loads_config(new_config_instance, owner_name)
@@ -412,8 +429,9 @@ async def save_plugin_config(owner_name: str, request: Request):
         # 保存到文件
         await config_manager.save_config(owner_name)
 
-        # 计算新的哈希值
-        new_hash = calculate_config_hash(new_config_data)
+        # 计算新的哈希值（基于完整合并后的展平配置）
+        merged_flat = flatten_config_fields(merged_config)
+        new_hash = calculate_config_hash(merged_flat)
 
         return ok("配置保存成功", data={"hash": new_hash})
 

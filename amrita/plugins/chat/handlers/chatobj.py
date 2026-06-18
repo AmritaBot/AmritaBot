@@ -42,7 +42,7 @@ def get_chat_objects_status(event: MessageEvent) -> dict[str, list[ChatObject]]:
     pending_task_ids: set[int] = {
         id(t)
         for t in pending_chatobj.get(uni_id, [])
-        if (not t.is_running() and t.is_done())
+        if (not t.is_running() and not t.is_done())
     }
     remaining: list[ChatObject] = []
     for obj in all_objects:
@@ -83,7 +83,7 @@ def format_chat_object_info(obj: ChatObject) -> str:
     in_pending = id(obj) in {
         id(t)
         for t in pending_chatobj.get(instance_id, [])
-        if (not t.is_running() and t.is_done())
+        if (not t.is_running() and not t.is_done())
     }
 
     if in_pending:

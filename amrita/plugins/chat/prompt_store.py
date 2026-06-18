@@ -72,14 +72,18 @@ class PromptStore:
         for prompt in prompts:
             if prompt.name == character:
                 return {"role": "system", "content": prompt.text}
-        logger.warning(f"没有找到名称为 {character} 的{label}提示词，将使用default.txt!")
+        logger.warning(
+            f"没有找到名称为 {character} 的{label}提示词，将使用default.txt!"
+        )
         fallback = next((p for p in prompts if p.name == "default"), None)
         return {"role": "system", "content": fallback.text if fallback else ""}
 
     def apply(self, group_character: str, private_character: str) -> None:
         """按预设名匹配当前提示词"""
         self._group_train = self._pick(self.prompts.group, group_character, "群组")
-        self._private_train = self._pick(self.prompts.private, private_character, "私聊")
+        self._private_train = self._pick(
+            self.prompts.private, private_character, "私聊"
+        )
 
     @property
     def private_train(self) -> dict[str, str]:

@@ -35,7 +35,7 @@ class PresetStore:
                 self._by_name[model_data.name] = LoadedPreset(
                     model_data, path.stem, path
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: PERF203
                 logger.opt(colors=True).error(
                     f"Failed to validate preset '{path!s}' because '{e!s}'"
                 )

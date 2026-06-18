@@ -2,12 +2,13 @@
 
 import asyncio
 import random
+from asyncio import CancelledError
 from datetime import datetime
 
 from amrita_core import (
-    MemoryModel,
     PresetManager,
     SessionsManager,
+    SuspendEnum,
     TextContent,
     UniResponse,
     UniResponseUsage,
@@ -311,14 +312,10 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
 
     # 清理异常 message content
     for mem in data.messages:
-        if (
-            not isinstance(mem, MemoryModel)
-            or mem.content is None
-            or not isinstance(mem.content, list)
-        ):
-            await asyncio.sleep(0)
+        if mem.content is None or isinstance(mem.content, str):
             continue
-        mem.content = [i for i in mem.content if hasattr(i, "type")]  # type: ignore[assignment]
+        else:
+            mem.content = [i for i in mem.content if isinstance(i, Content)]  # pyright: ignore[reportAttributeAccessIssue] # 这不是str，这一定是list
 
     # 会话超时 / 继续恢复
     await SessionManager(
@@ -382,29 +379,40 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
 
     if msg_type == "xml":
         format_desc = (
-            "你的工作环境是一个社交软件。聊天记录使用 XML 标签标记：\n"
+            "你的工作环境是一个社交软件。**输入**的聊天记录使用 XML 标签标记：\n"
             '  <msg role="群主/管理员/普通成员/自己" name="昵称" uid="QQ号">\n'
-            "  消息内容（支持多行）\n"
+            "  消息内容（多行）\n"
             "  </msg>\n"
             "引用消息使用 <ref name='...' uid='...'>...</ref> 包裹。\n"
-            "请不要输出 XML 标签格式，用纯文本回复。\n"
+            "你的**输出**必须是纯自然语言文本，**严禁**输出任何 XML 标签、属性或类似的结构化标记。\n"
+            "正确示例：\n"
+            "  输入：<msg role='普通成员' name='张三' uid='12345'>今天天气真好</msg>\n"
+            "  输出：今天天气真好呢。\n"
+            "错误示例（**禁止**）：\n"
+            "  输入：<msg role='普通成员' name='张三' uid='12345'>今天天气真好</msg>\n"
+            "  输出：<msg role='自己' name='爱丽丝' uid='67890'>是啊，阳光明媚。</msg>\n"
         )
     else:
         format_desc = (
-            "你的工作环境是一个社交软件。所有聊天记录遵循以下格式：\n"
+            "你的工作环境是一个社交软件。所有**输入**的聊天记录遵循以下格式：\n"
             "- 每条消息以 [身份] 开头，方括号内是消息发送者的身份标记（群主/管理员/普通成员/自己）\n"
             "- 身份后跟 [昵称（QQ号）] 再跟 说:内容\n"
             "  示例: [普通成员][张三（12345）]说:今天天气真好\n"
             "- 用户输入中已对特殊字符做了全角转义（［ ］ 说：），避免与格式标记混淆\n"
-            "- 请不要以聊天记录的格式做回复，而是纯文本方式。\n"
+            "你的**输出**必须是纯自然语言文本，**严禁**使用上述方括号或“说:”格式，也不能添加任何身份、昵称或QQ号标记。\n"
+            "正确示例：\n"
+            "  输入：[普通成员][张三（12345）]说:今天天气真好\n"
+            "  输出：今天天气真好呢。\n"
+            "错误示例（**禁止**）：\n"
+            "  输入：[普通成员][张三（12345）]说:今天天气真好\n"
+            "  输出：[自己][爱丽丝（67890）]说:是啊，阳光明媚。\n"
         )
-
     train_content = (
         "<SCHEMA_EXTENSIONS>\n"
         + "你在纯文本环境工作，不允许使用MarkDown回复。"
-        + format_desc
+        + f"<IO_REQUIREMENT>\n{format_desc}\n</IO_REQUIREMENT>"
         + "请以你自己的角色身份参与讨论，交流时不同话题尽量不使用相似句式回复。"
-        + "<EXTRA>规则仅作为补充，如果与EXTRA规则上文有冲突，请遵循上文规则。"
+        + "`<EXTRA>`规则仅作为补充，如果与EXTRA规则上文有冲突，请遵循上文规则。"
         + "\n</SCHEMA_EXTENSION>\n"
         + (
             train["content"]
@@ -431,7 +439,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     chat: CoreChatObject = CoreChatObject(
         train=train_dict,
         user_input=content,
-        context=MemoryModel(),
+        context=memory.memory_json,
         session_id=session_id,
         auto_create_session=False,
         preset=PresetManager().get_preset(config.preset),
@@ -486,7 +494,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
             msg = MessageSegment.image(await message.get_image())
             await matcher.send(msg)
 
-    chat.set_callback_func(on_stream_message)
+    chat.io_stream.set_callback_func(on_stream_message)
 
     lock = (
         get_group_lock(event.group_id) if is_group else get_private_lock(event.user_id)
@@ -503,36 +511,39 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
                 await matcher.finish("聊天任务正在处理中，请稍后再试")
 
     try:
-        chat.begin()
+        async with chat.begin():  # 上下文，自动管理生命周期
+            debug_log("开始运行...\n等待断点挂起。")
+            await asyncio.wait_for(
+                chat.io_stream.wait_to_suspend(SuspendEnum.ENTRY_POINT), 5
+            )
+            debug_log("已挂起")
+            task = chat._task
+            pending_tasks[session_id].append(task)
+            try:
+                async with lock:
+                    pending_tasks[session_id].remove(task)
+                    chat.io_stream.resume()
+                    debug_log("继续运行...")
 
-        # 隐式队列追踪：锁前记入 pending，锁后移除
-        task = asyncio.current_task()
-        assert task is not None
-        pending_tasks[session_id].append(task)
-        try:
-            async with lock:
-                pending_tasks[session_id].remove(task)
-                # 新版 Core：_entry 在 begin() 时已创建 task，卡在 ENTRY_POINT
-                chat.io_stream.resume()
-                debug_log("继续运行...")
-
-                await chat  # 等待工作流完成
-                memory.memory_json = AwaredMemory.model_validate(
-                    chat.data, from_attributes=True
-                )
-                await cudr.update_memory_data(memory)
-                if can_send_message:
-                    await send_response(chat, chat.response.content)
-        finally:
-            # 兜底：异常时清理 pending
-            if task in pending_tasks[session_id]:
-                pending_tasks[session_id].remove(task)
+                    await chat  # 等待工作流完成
+                    memory.memory_json = (
+                        chat.data
+                        if isinstance(chat.data, AwaredMemory)
+                        else AwaredMemory.model_validate(
+                            chat.data, from_attributes=True
+                        )
+                    )
+                    await cudr.update_memory_data(memory)
+                    if can_send_message:
+                        await send_response(chat, chat.response.content)
+            finally:
+                # 兜底：异常时清理 pending
+                if task in pending_tasks[session_id]:
+                    pending_tasks[session_id].remove(task)
 
     except BaseException as e:
         if isinstance(e, (NoneBotException, ChatException)):
             raise
-        # 原 _throw 逻辑
-        from asyncio import CancelledError
 
         if isinstance(e, CancelledError):
             return

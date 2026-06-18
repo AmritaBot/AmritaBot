@@ -1,6 +1,6 @@
 [project]
 name = "amrita"
-version = "1.2.1"
+version = "1.2.2"
 description = "A powerful Agent bot powered by NoneBot2"
 readme = "README.md"
 license = "GPL-3.0-or-later"
@@ -22,7 +22,7 @@ dependencies = [
     "tomlkit>=0.13.3",
     "nb-cli==1.6.0",
     "watchfiles>=1.1.1",
-    "amrita-core[jieba]>=0.9.1, <1.0.0",
+    "amrita-core[jieba]>=0.9.2, <1.0.0",
     "aiologic>=0.16.0",
     "amrita-sense>=0.3.1",
 ]

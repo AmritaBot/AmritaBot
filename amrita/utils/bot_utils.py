@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 import nonebot
 import nonebot.log
 from amrita_sense import logging as amlog
+from amrita_sense.logging import default_filter
+from amrita_sense.logging import default_format as CUSTOM_FORMAT
 from nonebot.log import default_format
 
 from amrita.config import get_amrita_config
@@ -34,23 +36,6 @@ class EventRecorder:
         logging_data = LoggingData._get_data_sync()
         logging_data.data.append(data)
         logging_data._save_sync()
-
-
-CUSTOM_FORMAT = (
-    "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-    "<level>{level: <7}</level> | "
-    "<magenta>{name}:{function}:{line}</magenta> | "
-    "<level>{message}</level>"
-)
-
-
-def default_filter(record: "Record"):
-    """默认的日志过滤器，根据 `config.log_level` 配置改变日志等级。"""
-    log_level = record["extra"].get("nonebot_log_level", "INFO")
-    levelno = (
-        nonebot.logger.level(log_level).no if isinstance(log_level, str) else log_level
-    )
-    return record["level"].no >= levelno
 
 
 def init():

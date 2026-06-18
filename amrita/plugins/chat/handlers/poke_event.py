@@ -124,10 +124,7 @@ async def handle_private_poke(
         and config_manager.config.usage_limit.user_daily_limit != -1
     ):
         user_meta = await repo.get_metadata(event.user_id, False)
-        if (
-            user_meta.called_count
-            >= config_manager.config.usage_limit.user_daily_limit
-        ):
+        if user_meta.called_count >= config_manager.config.usage_limit.user_daily_limit:
             await matcher.finish()
 
     name = await get_friend_name(event.user_id, bot)  # 获取好友信息

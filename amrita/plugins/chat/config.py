@@ -410,7 +410,7 @@ class ConfigManager(EnvfulConfigManager[Config]):
         await UniConfigManager().add_directory("models", lambda *_: models_callback())
         self.validate_presets()
         ps = await self.get_all_presets(cache=False)
-        logger.info(f"加载了{len(ps)}个模型")
+        logger.info(f"加载了{len(ps)}个模型 (包含默认)")
         p = await self.get_prompts(cache=False)
         logger.info(f"加载了{len(p.group) + len(p.private)}个提示词")
         await self.load_prompt()
@@ -463,7 +463,10 @@ class ConfigManager(EnvfulConfigManager[Config]):
 
     async def get_all_presets(self, cache: bool = False) -> list[ModelPreset]:
         """获取模型列表"""
-        return await self.preset_store.load_all(cache=cache)
+        return [
+            self.config.default_preset,
+            *(await self.preset_store.load_all(cache=cache)),
+        ]
 
     async def get_preset(
         self, preset: str, fix: bool = False, cache: bool = False

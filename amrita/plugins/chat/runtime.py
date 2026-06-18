@@ -7,10 +7,10 @@ Runtime 基础设施
 
 from __future__ import annotations
 
-import asyncio
 from collections import defaultdict
 from typing import TypedDict
 
+from amrita_core import ChatObject
 from amrita_core.chatmanager import ChatManager
 from amrita_core.chatmanager import ChatObject as CoreChatObject
 from nonebot.adapters.onebot.v11 import Bot
@@ -49,6 +49,4 @@ def get_amrita_ctx(obj: CoreChatObject) -> AmritaBotContext:
 
 bot_chat_manager = ChatManager()
 
-# 使用隐式锁队列追踪 pending 状态
-# key = session_id (get_uni_user_id), value = 正在等待锁的 asyncio.Task 列表
-pending_tasks: defaultdict[str, list[asyncio.Task]] = defaultdict(list)
+pending_chatobj: defaultdict[str, list[ChatObject]] = defaultdict(list)

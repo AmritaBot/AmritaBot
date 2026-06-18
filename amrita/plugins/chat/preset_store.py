@@ -57,6 +57,7 @@ class PresetStore:
             self._by_name[model_preset.name] = lp
             self._loaded.append(lp)
             PresetManager().add_preset(model_preset)
+
         return [lp.preset for lp in self._loaded]
 
     async def find(self, name: str, *, cache: bool = False) -> ModelPreset | None:

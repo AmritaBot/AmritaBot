@@ -12,9 +12,9 @@ from nonebot.params import CommandArg
 from pytz import timezone, utc
 
 from amrita.plugins.chat.runtime import (
-    AmritaBotContext,
     bot_chat_manager,
     pending_tasks,
+    try_get_amrita_ctx,
 )
 from amrita.plugins.chat.utils.sql import get_uni_user_id
 from amrita.utils.send import send_forward_msg
@@ -66,9 +66,9 @@ def get_chat_objects_status(event: MessageEvent) -> dict[str, list[ChatObject]]:
 def format_chat_object_info(obj: ChatObject) -> str:
     """格式化单个ChatObject的信息。
 
-    通过 _hook_kwargs["amrita"] 读取 event 上下文。
+    通过 try_get_amrita_ctx 读取 event 上下文。
     """
-    ctx: AmritaBotContext | None = obj._hook_kwargs.get("amrita")
+    ctx = try_get_amrita_ctx(obj)
     if ctx is None:
         return f"\n🆔 ID: {obj.stream_id[:8]}...\n> 无上下文信息\n"
     event = ctx["event"]

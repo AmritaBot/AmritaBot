@@ -48,8 +48,10 @@ from pytz import utc
 from amrita.plugins.chat.config import ConfigManager, config_manager
 from amrita.plugins.chat.matcher import ChatException
 from amrita.plugins.chat.runtime import (
+    AMRITA_CTX_KEY,
     AmritaBotContext,
     bot_chat_manager,
+    get_amrita_ctx,
     pending_tasks,
 )
 from amrita.plugins.chat.runtime_session import SessionManager
@@ -57,13 +59,13 @@ from amrita.plugins.chat.utils.app import (
     AwaredMemory,
     CachedUserDataRepository,
     MemorySchema,
-    UserMetadataSchema,
 )
 from amrita.plugins.chat.utils.functions import (
     get_friend_name,
     split_message_into_chats,
     synthesize_message,
 )
+from amrita.plugins.chat.utils.libchat import add_usage
 from amrita.plugins.chat.utils.lock import get_group_lock, get_private_lock
 from amrita.plugins.chat.utils.sql import (
     InsightsModel,
@@ -109,24 +111,6 @@ def format_msg_xml(role: str, name: str, uid: str, content: str) -> str:
     safe_name = escape_xml(name)
     attrs = f' role="{role}"' if role else ""
     return f'<msg{attrs} name="{safe_name}" uid="{uid}">\n{safe_content}\n</msg>'
-
-
-def add_usage(
-    ins: InsightsModel | UserMetadataSchema, usage: UniResponseUsage[int] | None
-):
-    if isinstance(ins, InsightsModel):
-        if usage:
-            ins.token_output += usage.completion_tokens
-            ins.token_input += usage.prompt_tokens
-        ins.usage_count += 1
-    else:
-        if usage:
-            ins.tokens_input += usage.prompt_tokens
-            ins.tokens_output += usage.completion_tokens
-            ins.total_input_token += usage.prompt_tokens
-            ins.total_output_token += usage.completion_tokens
-        ins.called_count += 1
-        ins.total_called_count += 1
 
 
 async def handle_reply(
@@ -217,7 +201,7 @@ async def get_user_role(bot: Bot, group_id: int, user_id: int) -> str:
 
 async def send_response(chat: CoreChatObject, response: str):
     """发送聊天模型的回复，根据配置选择不同的发送方式。"""
-    ctx: AmritaBotContext = chat._hook_kwargs["amrita"]
+    ctx = get_amrita_ctx(chat)
     matcher = ctx["matcher"]
     bot_config = ctx["bot_config"]
     event = ctx["event"]
@@ -439,7 +423,6 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     # ── 阶段 4：创建 ChatObject ─────────────────────────────────────
     ctx: AmritaBotContext = {
         "matcher": matcher,
-        "data": data,
         "memory": memory,
         "bot": bot,
         "event": event,
@@ -453,14 +436,14 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         auto_create_session=False,
         preset=PresetManager().get_preset(config.preset),
         hook_args=(event, matcher, bot),
-        hook_kwargs={"amrita": ctx},
+        hook_kwargs={AMRITA_CTX_KEY: ctx},
         exception_ignored=(ProcessException, MatcherException),
         agent_strategy=strategy,
         chat_man=bot_chat_manager,
     )
 
     # ── 阶段 5：设置回调并启动 ─────────────────────────────────────
-    async def filter(message: COMPLETION_RETURNING):
+    async def on_stream_message(message: COMPLETION_RETURNING):
         nonlocal can_send_message
         if isinstance(message, str):
             return
@@ -503,7 +486,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
             msg = MessageSegment.image(await message.get_image())
             await matcher.send(msg)
 
-    chat.set_callback_func(filter)
+    chat.set_callback_func(on_stream_message)
 
     lock = (
         get_group_lock(event.group_id) if is_group else get_private_lock(event.user_id)

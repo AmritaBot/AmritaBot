@@ -1,17 +1,15 @@
 import json
 import os
 import re
-from copy import deepcopy
-from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, ClassVar, Literal
 
-import aiofiles
 import nonebot_plugin_localstore as store
 import tomli
 import tomli_w
 from amrita_core import ModelPreset as ModelPreset
-from amrita_core import PresetManager, set_config
+from amrita_core import set_config
 from amrita_core.config import (
     AmritaConfig as AmritaCoreConfig,
 )
@@ -19,24 +17,25 @@ from amrita_core.config import (
     LLMConfig as CoreLLMConfig,
 )
 from nonebot import get_driver, logger
-from nonebot_plugin_uniconf import EnvfulConfigManager
-from nonebot_plugin_uniconf.manager import replace_env_vars
+from nonebot_plugin_uniconf import EnvfulConfigManager, UniConfigManager
 from pydantic import BaseModel, Field, model_validator
 from typing_extensions import final, override
 
-from amrita.config_manager import UniConfigManager
+from .preset_store import PresetStore
+from .prompt_store import Prompt as Prompt
+from .prompt_store import Prompts, PromptStore
 
 __kernel_version__ = "unknown"
-
-# 保留为其他插件提供的引用
 
 # 配置目录
 CONFIG_DIR: Path = store.get_plugin_config_dir()
 driver = get_driver()
 nb_config = driver.config
-# 缓存的正则表达式
-_re_hash: int = 0
-_cached_pattern: re.Pattern[str] | None = None
+
+
+@lru_cache(maxsize=8)
+def _compile_pattern(pattern: str) -> re.Pattern[str]:
+    return re.compile(pattern)
 
 
 class ToolsConfig(BaseModel):
@@ -128,12 +127,7 @@ class FunctionConfig(BaseModel):
         """
         获取分句的正则表达式
         """
-        global _cached_pattern, _re_hash
-        pattern_hash = hash(self.nature_chat_cut_pattern)
-        if pattern_hash != _re_hash or _cached_pattern is None:
-            _cached_pattern = re.compile(self.nature_chat_cut_pattern)
-            _re_hash = pattern_hash
-        return _cached_pattern
+        return _compile_pattern(self.nature_chat_cut_pattern)
 
 
 class PresetSwitch(BaseModel):
@@ -373,49 +367,15 @@ class Config(BaseModel):
         return super().model_dump(**kwargs)
 
 
-@dataclass
-class Prompt:
-    text: str = ""
-    name: str = "default"
-
-
-@dataclass
-class Prompts:
-    group: list[Prompt] = field(default_factory=list)
-    private: list[Prompt] = field(default_factory=list)
-
-    def save_group(self, path: Path):
-        """保存群组提示词"""
-        for prompt in self.group:
-            with (path / f"{prompt.name}.txt").open(
-                "w",
-                encoding="u8",
-            ) as f:
-                f.write(prompt.text)
-
-    def save_private(self, path: Path):
-        """保存私聊提示词"""
-        for prompt in self.private:
-            with (path / f"{prompt.name}.txt").open(
-                "w",
-                encoding="u8",
-            ) as f:
-                f.write(prompt.text)
-
-
 @final
 class ConfigManager(EnvfulConfigManager[Config]):
     config_dir: Path = CONFIG_DIR
     private_prompts: Path = config_dir / "private_prompts"
     group_prompts: Path = config_dir / "group_prompts"
     custom_models_dir: Path = config_dir / "models"
-    _private_train: ClassVar[dict[str, Any]] = {}
-    _group_train: ClassVar[dict[str, Any]] = {}
-    _model_name2file: ClassVar[dict[str, Path]] = {}
-    models: ClassVar[list[tuple[ModelPreset, str]]] = []
-    prompts: Prompts = Prompts()
+    prompt_store: ClassVar[PromptStore] = PromptStore(private_prompts, group_prompts)
+    preset_store: ClassVar[PresetStore] = PresetStore(custom_models_dir)
     config: Config
-    _owner_name = store._try_get_caller_plugin().name
     __lateinit__ = True
 
     @override
@@ -471,37 +431,39 @@ class ConfigManager(EnvfulConfigManager[Config]):
             ),
         )
 
-    def validate_presets(self):
-        def validate_preset(path: Path):
-            try:
-                model_data = ModelPreset.load(path)
-                model_data.save(path)
-                self._model_name2file[model_data.name] = path
-            except Exception as e:
-                logger.opt(colors=True).error(
-                    f"Failed to validate preset '{file!s}' because '{e!s}'"
-                )
+    @property
+    def prompts(self) -> Prompts:
+        return self.prompt_store.prompts
 
-        for file in self.custom_models_dir.glob("*.json"):
-            validate_preset(file)
+    async def get_prompts(
+        self, cache: bool = False, load_only: bool = False
+    ) -> Prompts:
+        """获取提示词"""
+        return await self.prompt_store.load(cache=cache, load_only=load_only)
+
+    async def load_prompt(self):
+        """加载提示词，匹配预设"""
+        self.prompt_store.apply(
+            self.ins_config.group_prompt_character,
+            self.ins_config.private_prompt_character,
+        )
+
+    @property
+    def private_train(self) -> dict[str, str]:
+        """获取私聊提示词"""
+        return self.prompt_store.private_train
+
+    @property
+    def group_train(self) -> dict[str, str]:
+        """获取群聊提示词"""
+        return self.prompt_store.group_train
+
+    def validate_presets(self):
+        self.preset_store.validate()
 
     async def get_all_presets(self, cache: bool = False) -> list[ModelPreset]:
         """获取模型列表"""
-        if cache and self.models:
-            return [model for model, _ in self.models]
-        self.models.clear()  # 清空模型列表
-        PresetManager()._presets.clear()
-        for file in self.custom_models_dir.glob("*.json"):
-            model_data = ModelPreset.load(file).model_dump()
-            preset_data = replace_env_vars(model_data)
-            if not isinstance(preset_data, dict):
-                raise TypeError("Expected replace_env_vars to return a dict")
-            model_preset = ModelPreset.model_validate(preset_data)
-            self._model_name2file[model_preset.name] = file
-            self.models.append((model_preset, file.stem))
-            PresetManager().add_preset(model_preset)
-
-        return [model for model, _ in self.models]
+        return await self.preset_store.load_all(cache=cache)
 
     async def get_preset(
         self, preset: str, fix: bool = False, cache: bool = False
@@ -518,84 +480,20 @@ class ConfigManager(EnvfulConfigManager[Config]):
         """
         if preset == "default":
             return self.config.default_preset
-        for model in await self.get_all_presets(cache=cache):
-            if model.name == preset:
-                return model
+        if (model := await self.preset_store.find(preset, cache=cache)) is not None:
+            return model
         if fix:
             self.ins_config.preset = "default"
             await self.save_config()
         return await self.get_preset("default", fix, cache)
 
-    async def get_prompts(
-        self, cache: bool = False, load_only: bool = False
-    ) -> Prompts:
-        """获取提示词"""
-        if cache and self.prompts:
-            return self.prompts
-        self.prompts = Prompts()
-        for file in self.private_prompts.glob("*.txt"):
-            async with aiofiles.open(file, encoding="utf-8") as f:
-                prompt = await f.read()
-            self.prompts.private.append(Prompt(prompt, file.stem))
-        for file in self.group_prompts.glob("*.txt"):
-            async with aiofiles.open(file, encoding="utf-8") as f:
-                prompt = await f.read()
-            self.prompts.group.append(Prompt(prompt, file.stem))
-        if not self.prompts.private:
-            self.prompts.private.append(Prompt("", "default"))
-        if not self.prompts.group:
-            self.prompts.group.append(Prompt("", "default"))
+    def get_preset_path(self, name: str) -> Path:
+        """预设名对应的文件路径"""
+        return self.preset_store.path_of(name)
 
-        if not load_only:
-            self.prompts.save_private(self.private_prompts)
-            self.prompts.save_group(self.group_prompts)
-
-        return self.prompts
-
-    @property
-    def private_train(self) -> dict[str, str]:
-        """获取私聊提示词"""
-        return deepcopy(self._private_train)
-
-    @property
-    def group_train(self) -> dict[str, str]:
-        """获取群聊提示词"""
-        return deepcopy(self._group_train)
-
-    async def load_prompt(self):
-        """加载提示词，匹配预设"""
-        for prompt in self.prompts.group:
-            if prompt.name == self.ins_config.group_prompt_character:
-                self.__class__._group_train = {"role": "system", "content": prompt.text}
-                break
-        else:
-            self.__class__._group_train = {
-                "role": "system",
-                "content": next(
-                    i for i in self.prompts.group if i.name == "default"
-                ).text,
-            }
-            logger.warning(
-                f"没有找到名称为 {self.ins_config.group_prompt_character} 的群组提示词，将使用default.txt!"
-            )
-
-        for prompt in self.prompts.private:
-            if prompt.name == self.ins_config.private_prompt_character:
-                self.__class__._private_train = {
-                    "role": "system",
-                    "content": prompt.text,
-                }
-                break
-        else:
-            logger.warning(
-                f"没有找到名称为 {self.ins_config.private_prompt_character} 的私聊提示词，将使用default.txt！"
-            )
-            self.__class__._private_train = {
-                "role": "system",
-                "content": next(
-                    i for i in self.prompts.private if i.name == "default"
-                ).text,
-            }
+    def forget_preset(self, name: str) -> None:
+        """移除预设名到路径的记录"""
+        self.preset_store.forget(name)
 
     async def save_config(self):
         """保存配置"""
@@ -628,14 +526,14 @@ class ConfigManager(EnvfulConfigManager[Config]):
         self.ins_config.extra.setdefault(key, default_value)
         await self.save_config()
 
-    def reg_config(self, key: str, default_value=None):
+    async def reg_config(self, key: str, default_value=None):
         """
         注册配置项
 
         :param key: 配置项的名称
 
         """
-        return self.register_config(key, default_value)
+        return await self.register_config(key, default_value)
 
     def reg_model_config(self, key: str, default_value=None):
         """
@@ -648,9 +546,7 @@ class ConfigManager(EnvfulConfigManager[Config]):
             default_value = "null"
         if key not in self.ins_config.default_preset.extra:
             self.ins_config.default_preset.extra.setdefault(key, default_value)
-        for model, name in self.models:
-            model.extra.setdefault(key, default_value)
-            model.save(self.custom_models_dir / f"{name}.json")
+        self.preset_store.register_extra(key, default_value)
 
 
 config_manager = ConfigManager()

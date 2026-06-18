@@ -113,7 +113,7 @@ async def update_model(request: Request, name: str):
                 setattr(preset, key, value)
 
         # 保存模型预设到文件
-        preset_path = config_manager._model_name2file[name]
+        preset_path = config_manager.get_preset_path(name)
 
         preset.save(preset_path)
 
@@ -134,7 +134,7 @@ async def update_model(request: Request, name: str):
 @router.delete("/api/chat/models/{name}")
 async def delete_model(name: str):
     try:
-        preset_path = config_manager._model_name2file[name]
+        preset_path = config_manager.get_preset_path(name)
 
         if not preset_path.exists():
             return JSONResponse(
@@ -145,7 +145,7 @@ async def delete_model(name: str):
 
         # 重新加载模型列表
         await config_manager.get_all_presets(cache=False)
-        del config_manager._model_name2file[name]
+        config_manager.forget_preset(name)
 
         return JSONResponse(
             {"success": True, "message": f"模型预设 {name} 删除成功"}, status_code=200

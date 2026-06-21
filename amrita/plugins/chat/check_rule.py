@@ -3,7 +3,7 @@ import random
 import time
 
 import nonebot
-from amrita_core.types import Message
+from amrita_core.types import Message, TextContent
 from nonebot import get_driver, logger
 from nonebot.adapters.onebot.v11 import Bot
 from nonebot.adapters.onebot.v11.event import (
@@ -16,7 +16,6 @@ from typing_extensions import override
 from amrita.plugins.chat.utils.app import CachedUserDataRepository, MemorySchema
 from amrita.plugins.chat.utils.libchat import usage_enough
 from amrita.plugins.chat.utils.lock import get_group_lock, get_private_lock
-from amrita.plugins.chat.utils.sql import TextContent
 from amrita.plugins.perm.API.admin import is_lp_admin
 
 from .config import config_manager

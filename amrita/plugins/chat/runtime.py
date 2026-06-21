@@ -18,7 +18,6 @@ from nonebot.adapters.onebot.v11.event import MessageEvent
 from nonebot.matcher import Matcher
 
 from amrita.plugins.chat.config import Config
-from amrita.plugins.chat.utils.app import MemorySchema
 
 # hook_kwargs 中存放上下文的键
 AMRITA_CTX_KEY = "amrita"
@@ -28,7 +27,6 @@ class AmritaBotContext(TypedDict):
     """跨 handler 共享的上下文，消息体走 memory.memory_json"""
 
     matcher: Matcher
-    memory: MemorySchema
     bot: Bot
     event: MessageEvent
     bot_config: Config

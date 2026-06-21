@@ -6,34 +6,12 @@ from asyncio import Protocol
 from collections.abc import Sequence
 from contextlib import nullcontext
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
 
 from aiologic import Lock
 from amrita_core.types import (
-    _T,
-    CT_MAP,
-    T_INT,
-    T_TOOL,
     BaseModel,
-    Content,
-    Function,
-    ImageContent,
-    ImageUrl,
     MemoryModel,
-    Message,
-    SendMessageWrap,
-    T,
-    TextContent,
-    ToolCall,
-    ToolResult,
-    UniResponse,
-    UniResponseUsage,
-)
-from amrita_core.types import (
-    CONTENT_LIST_TYPE as SEND_MESSAGES,
-)
-from amrita_core.types import (
-    CONTENT_LIST_TYPE_ITEM as SEND_MESSAGES_ITEM,
 )
 from nonebot.adapters.onebot.v11 import Event
 from nonebot_plugin_orm import AsyncSession, Model, get_session
@@ -63,9 +41,6 @@ from typing_extensions import Self
 from ..config import config_manager
 from .lock import database_lock
 
-if TYPE_CHECKING:
-    from amrita.plugins.chat.utils.app import AwaredMemory
-
 
 def get_uni_user_id(event: Event) -> str:
     if uid := getattr(event, "group_id", None):
@@ -82,10 +57,27 @@ def get_any_id(event: Event) -> tuple[int, bool]:
 
 
 VALIDATE_PATTERN = re.compile(r"^(user|group)_[0-9]+$")
+UNWRAP_PATTERN = re.compile(r"^(user|group)_[0-9]+$")
 
 
 def validate_uni_user_id(user_id: str) -> bool:
     return bool(VALIDATE_PATTERN.match(user_id))
+
+
+def validate_and_ret(uid: str) -> str:
+    if validate_uni_user_id(uid):
+        return uid
+    raise ValueError(f"Invalid uni_user_id: {uid}")
+
+
+def unwrap_uni_user_id(user_id: str) -> tuple[Literal["user", "group"], int]:
+    match = UNWRAP_PATTERN.match(user_id)
+    if not match:
+        raise ValueError(f"Invalid uni_user_id: {user_id}")
+    if TYPE_CHECKING:
+        return cast(Literal["user", "group"], match.group(1)), int(match.group(2))
+    else:
+        return match.group(1), int(match.group(2))
 
 
 class InsightsModel(BaseModel):
@@ -469,7 +461,7 @@ class UserDataExecutor:
         ]
         await self.session.execute(stmt)
 
-    async def add_session(self, data: AwaredMemory):
+    async def add_session(self, data: MemoryModel):
         stmt = insert(MemorySessions).values(
             user_id=self.user_id, data=data.model_dump()
         )
@@ -509,27 +501,3 @@ class UserDataExecutor:
             result = await session.execute(stmt)
             users = result.scalars().all()
             return users
-
-
-__all__ = [
-    "CT_MAP",
-    "SEND_MESSAGES",
-    "SEND_MESSAGES_ITEM",
-    "T_INT",
-    "T_TOOL",
-    "_T",
-    "BaseModel",
-    "Content",
-    "Function",
-    "ImageContent",
-    "ImageUrl",
-    "MemoryModel",
-    "Message",
-    "SendMessageWrap",
-    "T",
-    "TextContent",
-    "ToolCall",
-    "ToolResult",
-    "UniResponse",
-    "UniResponseUsage",
-]

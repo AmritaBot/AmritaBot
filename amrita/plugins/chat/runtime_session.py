@@ -13,7 +13,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from amrita_core.logging import debug_log
+from amrita_core import MemoryModel
+from amrita_sense.logging import debug_log
 from nonebot.adapters.onebot.v11 import Bot
 from nonebot.adapters.onebot.v11.event import GroupMessageEvent, MessageEvent
 from nonebot.matcher import Matcher
@@ -21,7 +22,6 @@ from pydantic import BaseModel, Field
 
 from amrita.plugins.chat.config import Config
 from amrita.plugins.chat.utils.app import (
-    AwaredMemory,
     CachedUserDataRepository,
     MemorySchema,
 )
@@ -85,7 +85,7 @@ class SessionManager:
         self,
         *,
         event: MessageEvent,
-        data: AwaredMemory,
+        data: MemoryModel,
         memory: MemorySchema,
         matcher: Matcher,
         bot: Bot,

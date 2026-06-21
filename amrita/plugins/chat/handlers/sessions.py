@@ -11,7 +11,8 @@ from nonebot_plugin_orm import get_session
 
 from ..check_rule import is_group_admin_if_is_in_group
 from ..config import config_manager
-from ..utils.app import AwaredMemory, CachedUserDataRepository, MemorySessionsSchema
+from ..utils.app import CachedUserDataRepository, MemorySessionsSchema
+from ..utils.app import Memory as AwaredMemory
 from ..utils.sql import UserDataExecutor, get_uni_user_id
 
 

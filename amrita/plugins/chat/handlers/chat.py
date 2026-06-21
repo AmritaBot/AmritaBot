@@ -7,12 +7,14 @@ from datetime import datetime
 
 from amrita_core import (
     PresetManager,
+    StateContext,
     TextContent,
     UniResponse,
     UniResponseUsage,
     debug_log,
     logger,
 )
+from amrita_core.base.adapter import COMPLETION_RETURNING
 from amrita_core.builtins.agent import (
     HybridReActAgentStrategy,
     NoActionAgentStrategy,
@@ -22,8 +24,8 @@ from amrita_core.builtins.agent import (
 from amrita_core.chatmanager import (
     ChatObject as CoreChatObject,
 )
-from amrita_core.protocol import (
-    COMPLETION_RETURNING,
+from amrita_core.chatmanager.chat_object import DatabackendOptions
+from amrita_core.contents import (
     ImageMessage,
     MessageWithMetadata,
     StringMessageContent,
@@ -55,7 +57,6 @@ from amrita.plugins.chat.runtime import (
 )
 from amrita.plugins.chat.runtime_session import SessionManager
 from amrita.plugins.chat.utils.app import (
-    AwaredMemory,
     CachedUserDataRepository,
     MemorySchema,
 )
@@ -306,11 +307,11 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     can_send_message: bool = True
     cudr = CachedUserDataRepository()
 
-    # ── 阶段 1：加载 memory 与会话管理 ──────────────────────────────
+    #  阶段 1：加载 memory 与会话管理
     is_group = isinstance(event, GroupMessageEvent)
     any_id, _ = get_any_id(event)
     memory: MemorySchema = await cudr.get_memory(any_id, is_group)
-    data: AwaredMemory = memory.memory_json
+    data = memory.memory_json
 
     # 清理异常 message content
     for mem in data.messages:
@@ -330,7 +331,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     ).manage()
     # manage() 内部可能调用 matcher.finish() 抛出 FinishedException
 
-    # ── 阶段 2：合成消息 ────────────────────────────────────────────
+    #  阶段 2：合成消息
     content: USER_INPUT = await synthesize_message(event.get_message(), bot)
     debug_log(f"合成消息完成: {content}")
 
@@ -365,7 +366,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     if isinstance(content, list):
         content.extend(reply_pics)
 
-    # ── 阶段 3：构建策略与 prompt ──────────────────────────────────
+    #  阶段 3：构建策略与 prompt
     match config.llm.agent_strategy:
         case "react":
             strategy = ReActAgentStrategy
@@ -430,29 +431,35 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     )
     train_dict = {"role": "system", "content": train_content}
 
-    # ── 阶段 4：创建 ChatObject ─────────────────────────────────────
+    #  阶段 4：创建 ChatObject
     ctx: AmritaBotContext = {
         "matcher": matcher,
-        "memory": memory,
         "bot": bot,
         "event": event,
         "bot_config": ConfigManager().config,
     }
+    core_ctx = StateContext(session_id, memory=memory.memory_json)
     chat: CoreChatObject = CoreChatObject(
         train=train_dict,
         user_input=content,
-        context=memory.memory_json,
+        context=core_ctx,
         session_id=session_id,
-        auto_create_session=False,
         preset=await ConfigManager().get_preset(config.preset),
         hook_args=(event, matcher, bot),
         hook_kwargs={AMRITA_CTX_KEY: ctx},
         exception_ignored=(ProcessException, MatcherException),
         agent_strategy=strategy,
         chat_man=bot_chat_manager,
+        backend_options=DatabackendOptions(
+            skip_memory_fetch=True,
+            skip_memory_commit=True,
+            skip_mcp_fetch=True,
+            skip_tools_fetch=True,
+            skip_presets_fetch=True,
+        ),
     )
 
-    # ── 阶段 5：设置回调并启动 ─────────────────────────────────────
+    #  阶段 5：设置回调并启动
     async def on_stream_message(message: COMPLETION_RETURNING):
         nonlocal can_send_message
         if isinstance(message, str):
@@ -520,11 +527,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
                 debug_log("继续运行...")
 
                 await chat.begin()
-                memory.memory_json = (
-                    chat.data
-                    if isinstance(chat.data, AwaredMemory)
-                    else AwaredMemory.model_validate(chat.data, from_attributes=True)
-                )
+                memory.memory_json = chat.data
                 await cudr.update_memory_data(memory)
                 if can_send_message:
                     await send_response(chat, chat.response.content)

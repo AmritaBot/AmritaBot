@@ -111,7 +111,7 @@ async def reload(matcher: Matcher):
     if not config_manager.config.core.function_config.agent_mcp_client_enable:
         return
     try:
-        await ClientManager().reinitalize_all()
+        await ClientManager().reinitialize_all()
         await matcher.send("重载成功")
     except Exception as e:
         logger.opt(exception=e, colors=True).exception(e)

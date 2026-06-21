@@ -48,6 +48,9 @@ class AmritaConfig(BaseModel):
 
     usage_check_time: float = 400  # 添加usage的时间间隔(ms)
 
+    # 是否禁用 /amrita 信息输出
+    no_amrita_flag: bool = False
+
     @model_validator(mode="after")
     def _vali(self):
         if 10000 > self.admin_group > 0:

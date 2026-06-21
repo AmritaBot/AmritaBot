@@ -1,19 +1,19 @@
 # Pydantic Models
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from datetime import datetime
 
 from aiologic import Lock
 from amrita_core import MemoryModel as Memory
+from amrita_core.dirty import DirtyAwareModel as BaseModel
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ConfigDict as PydConf
-from pydantic import Field, model_validator
+from pydantic import Field
 from typing_extensions import final
 
 from amrita.cache import LRUCache, WeakValueLRUCache
-from amrita.dirty import DirtyAwareModel as BaseModel
 from amrita.plugins.chat.utils.sql import UserMetadata
 
-from .sql import UserDataExecutor
+from .sql import UserDataExecutor, validate_and_ret
 
 
 class BaseSchema(BaseModel):
@@ -30,34 +30,6 @@ class BaseSchema(BaseModel):
     model_config = PydConf(from_attributes=True, strict=False)
 
 
-class AwaredMemory(Memory, BaseModel):
-    """带有脏标记的Memory"""
-
-    @model_validator(mode="before")
-    @classmethod
-    def validate_messages_content(cls, data):
-        if isinstance(data, dict) and "messages" in data:
-            messages = data["messages"]
-            if isinstance(messages, list):
-                # 过滤掉content内的异常消息
-                filtered_messages = []
-                for msg in messages:
-                    if isinstance(msg, dict):
-                        if (content := msg.get("content")) is not None:
-                            # 检查content是否为序列（如列表、元组等）
-                            if isinstance(content, Sequence) and not isinstance(
-                                content, (str, bytes, Mapping)
-                            ):
-                                msg["content"] = [
-                                    i
-                                    for i in content
-                                    if not (isinstance(i, dict) and len(i) in (1, 0))
-                                ]
-                    filtered_messages.append(msg)
-                data["messages"] = filtered_messages
-        return data
-
-
 class UserMetadataSchema(BaseSchema):
     last_active: datetime = Field(
         default_factory=lambda: datetime.now(), description="最后活跃时间"
@@ -71,8 +43,8 @@ class UserMetadataSchema(BaseSchema):
 
 
 class MemorySchema(BaseSchema):
-    memory_json: AwaredMemory = Field(
-        default_factory=AwaredMemory, description="记忆数据的JSON格式"
+    memory_json: Memory = Field(
+        default_factory=Memory, description="记忆数据的JSON格式"
     )
     extra_prompt: str = Field(default="", description="额外提示")
 
@@ -82,9 +54,7 @@ class MemorySessionsSchema(PydanticBaseModel):  # 无脏追踪
     user_id: str = Field(default=..., description="统一用户ID")
     model_config = PydConf(from_attributes=True, strict=False)
     created_at: float = Field(default=0.0, description="创建时间戳")
-    data: AwaredMemory = Field(
-        default_factory=AwaredMemory, description="会话数据的JSON格式"
-    )
+    data: Memory = Field(default_factory=Memory, description="会话数据的JSON格式")
 
 
 class GroupConfigSchema(BaseSchema):
@@ -135,8 +105,10 @@ class CachedUserDataRepository:
             self._cached_group_config[uni_id] = data
             return data
 
-    async def get_memory(self, any_id: int, is_group: bool) -> MemorySchema:
-        uni_id = self.make_uni_id(any_id, is_group)
+    async def get_memory(
+        self, any_id: int, is_group: bool, uid: str | None = None
+    ) -> MemorySchema:
+        uni_id = validate_and_ret(uid) if uid else self.make_uni_id(any_id, is_group)
         if data := self._cached_memory.get(uni_id):
             return data
         async with self.make_lock(uni_id):

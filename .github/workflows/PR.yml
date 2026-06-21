@@ -45,17 +45,6 @@ jobs:
         with:
           python-path: ${{ env.PYTHON_BIN }}
           pylance-version: latest-release
-      - name: Setup database
-        run: |
-          source ./.venv/bin/activate
-          echo "DATABASE_URL=aiosqlite+:///db.sqlite3" > .env
-          uv run amrita orm upgrade
-      - name: Run Load Test
-        run: |
-          echo "ADMIN_GROUP=1" >> .env
-          echo "LOG_LEVEL=DEBUG" >> .env
-          source ./.venv/bin/activate
-          uv run amrita test
 
       - name: Check code format
         uses: astral-sh/ruff-action@v3

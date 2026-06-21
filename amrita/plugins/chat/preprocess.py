@@ -1,4 +1,4 @@
-from amrita_core import ToolsManager, init, load_amrita, set_config
+from amrita_core import ToolsManager, load_amrita, set_config
 from nonebot import get_driver, logger
 
 from .config import config_manager
@@ -15,7 +15,6 @@ async def onEnable():
     await run_hooks()
     logger.debug("正在加载AmritaCore...")
     core_config = config.core
-    init()
     set_config(core_config)
     await load_amrita()
     ToolsManager().disable_tool(

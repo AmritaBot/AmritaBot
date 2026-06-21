@@ -3,8 +3,8 @@ from datetime import datetime
 from typing import Any
 
 import pytz
-from amrita_core.logging import debug_log
 from amrita_core.utils import remove_think_tag
+from amrita_sense.logging import debug_log
 from nonebot import logger
 from nonebot.adapters.onebot.v11 import (
     Bot,

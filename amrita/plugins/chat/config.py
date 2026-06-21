@@ -39,7 +39,7 @@ def _compile_pattern(pattern: str) -> re.Pattern[str]:
 
 
 class ToolsConfig(BaseModel):
-    # ── Chat 插件独有（Core 已覆盖的字段移到 core.builtin / core.function_config）──
+    #  Chat 插件独有（Core 已覆盖的字段移到 core.builtin / core.function_config）
     enable_report: bool = Field(default=True, description="是否启用内容审查系统")
     report_exclude_system_prompt: bool = Field(
         default=False,
@@ -189,7 +189,7 @@ class UsageLimitConfig(BaseModel):
 
 
 class LLM_Config(BaseModel):
-    # ── Chat 插件独有（Core 已覆盖的字段如 memory_length_limit 等已移至 core.llm）──
+    #  Chat 插件独有（Core 已覆盖的字段如 memory_length_limit 等已移至 core.llm）
     tools: ToolsConfig = Field(default=ToolsConfig(), description="工具调用子系统")
     stream: bool = Field(default=False, description="是否启用流式响应（逐字输出）")
     block_msg: list[str] = Field(
@@ -203,13 +203,13 @@ class LLM_Config(BaseModel):
 
 
 class Config(BaseModel):
-    # ── 直接嵌入 Core 配置 ──
+    #  直接嵌入 Core 配置
     core: AmritaCoreConfig = Field(
         default_factory=AmritaCoreConfig,
         description="Amrita Core 原生配置（与 chat 插件共享）。写入时自动同步到 Core 全局单例。",
     )
 
-    # ── Chat 插件独有字段 ──
+    #  Chat 插件独有字段
     preset_extension: PresetSwitch = Field(
         default=PresetSwitch(), description="预设模型扩展配置"
     )

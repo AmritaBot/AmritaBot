@@ -36,7 +36,7 @@ def load_plugins():
     apply_alias()
     nonebot.logger.info("Loading built-in plugins...")
     nonebot.logger.info("Loading plugins......")
-    from amrita.cmds.main import PyprojectFile
+    from amrita.models.pyproject import PyprojectFile
 
     meta = PyprojectFile.model_validate(toml.load("pyproject.toml"))
     for plugin in meta.tool.nonebot.plugins:

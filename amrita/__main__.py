@@ -1,13 +1,19 @@
-from .cli import main as cli_main
-from .cmds import main as cmd_main
-from .cmds import plugin
+"""Amrita 废弃入口提示
+
+该命令已废弃，请使用 amctl 代替。
+"""
+
+import sys
 
 
-def main(*args):
-    cli_main(*args)
+def main():
+    """输出废弃提示并退出"""
+    print(
+        "This command `amrita` is no longer used, use `amctl` instead.\n"
+        "See repo at 'https://github.com/AmritaBot/Amctl' for more help."
+    )
+    sys.exit(0)
 
 
 if __name__ == "__main__":
     main()
-
-__all__ = ["cmd_main", "plugin"]

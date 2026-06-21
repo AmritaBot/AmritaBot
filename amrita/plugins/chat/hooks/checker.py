@@ -4,14 +4,17 @@ import typing
 from typing import Any
 
 from amrita_core import (
-    ChatObject,
     PreCompletionEvent,
-    ToolContext,
     on_precompletion,
-    on_tools,
 )
 from amrita_core.builtins import agent
-from amrita_core.protocol import StringMessageContent
+from amrita_core.types import (
+    CONTENT_LIST_TYPE as SEND_MESSAGES,
+)
+from amrita_core.types import (
+    ToolCall,
+    UniResponse,
+)
 from nonebot import get_bot
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent
 from nonebot.log import logger
@@ -19,9 +22,6 @@ from nonebot.matcher import Matcher
 
 from amrita.plugins.chat.utils.app import CachedUserDataRepository
 from amrita.plugins.chat.utils.sql import (
-    SEND_MESSAGES,
-    ToolCall,
-    UniResponse,
     get_any_id,
 )
 from amrita.utils.admin import send_to_admin
@@ -31,7 +31,6 @@ from ..utils.libchat import (
     tools_caller,
 )
 from ..utils.llm_tools.builtin_tools import (
-    PROCESS_MESSAGE_TOOL,
     REPORT_TOOL_HIGH,
     REPORT_TOOL_LOW,
     REPORT_TOOL_MEDIUM,
@@ -41,19 +40,6 @@ from ..utils.llm_tools.builtin_tools import (
 checkhook = on_precompletion(1, False)
 
 agent.BUILTIN_TOOLS_NAME.add(REPORT_TOOL_MEDIUM.function.name)
-
-
-@on_tools(
-    data=PROCESS_MESSAGE_TOOL,
-    custom_run=True,
-    enable_if=lambda: config_manager.config.core.function_config.agent_middle_message,
-)
-async def _(ctx: ToolContext) -> str | None:
-    msg: str = ctx.data["content"]
-    logger.debug(f"[LLM-ProcessMessage] {msg}")
-    chatobj: ChatObject = ctx.ctx.chat_object
-    await chatobj.yield_response(StringMessageContent(msg))
-    return f"Sent a message to user:\n\n```text\n{msg}\n```\n"
 
 
 @checkhook.handle()

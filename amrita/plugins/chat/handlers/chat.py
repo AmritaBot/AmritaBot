@@ -443,7 +443,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         train=train_dict,
         user_input=content,
         context=core_ctx,
-        session_id=session_id,
+        session_id=None,
         preset=await ConfigManager().get_preset(config.preset),
         hook_args=(event, matcher, bot),
         hook_kwargs={AMRITA_CTX_KEY: ctx},

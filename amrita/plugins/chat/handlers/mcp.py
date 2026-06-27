@@ -28,7 +28,7 @@ async def mcp_command(
                 "   stats [-d|--details]\n"
                 "   add <server_script>\n"
                 "   del <server_script>\n"
-                "   reload"
+                "   reload\n"
                 "   deep-reload"
             )
         case 1 | 2:
@@ -154,6 +154,6 @@ async def deep_reload(matcher: Matcher):
             raise BaseExceptionGroup("部分MCP Server初始化失败", excs)
 
         await matcher.send("完全重载成功")
-    except Exception as e:
+    except BaseException as e:
         logger.opt(exception=e, colors=True).exception(e)
         await matcher.send("完全重载失败")

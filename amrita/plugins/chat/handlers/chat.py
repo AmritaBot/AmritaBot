@@ -471,6 +471,9 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
                 case "reasoning":
                     if not config.core.builtin.agent_reasoning_hide:
                         await matcher.send(message.content)
+                case "tool_prediction":
+                    if config.core.builtin.agent_tool_call_notice == "notify":
+                        await matcher.send("⏩ 已决定工具调用")
                 case "function_call":
                     if (
                         message.metadata["is_done"]  # type: ignore[typeddict-unknown-key]
@@ -486,6 +489,12 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
                             )
                         else:
                             await matcher.send(f"调用了工具：{function_name}")
+                case "text":
+                    if (
+                        message.metadata["extra_type"] == "structured_reasoning_step"
+                        and not config.core.builtin.agent_reasoning_hide
+                    ):
+                        await matcher.send(message.content)
                 case "error":
                     if message.metadata.get("extra_type") == "cookie":
                         can_send_message = False

@@ -4,12 +4,12 @@ from typing import Any
 
 import aiofiles
 from amrita_core import ModelPreset
+from amrita_core.tools.mcp import ClientManager
 from amrita_core.types import ModelConfig, ThinkingConfig
 from fastapi import Query
 from nonebot import logger
 
 from amrita.plugins.chat.config import config_manager
-from amrita.plugins.chat.utils.llm_tools.mcp_client import ClientManager
 from amrita.plugins.chat.utils.sql import InsightsModel
 from amrita.plugins.webui.API import (
     JSONResponse,

@@ -1,3 +1,7 @@
+import asyncio
+
+from amrita_core.tools.mcp import ClientManager
+from exceptiongroup import BaseExceptionGroup
 from nonebot import logger
 from nonebot.adapters.onebot.v11 import (
     Bot,
@@ -12,8 +16,6 @@ from nonebot.params import CommandArg
 from amrita.plugins.chat.config import config_manager
 from amrita.utils.send import send_forward_msg
 
-from ..utils.llm_tools.mcp_client import ClientManager
-
 
 async def mcp_command(
     bot: Bot, matcher: Matcher, event: MessageEvent, arg: Message = CommandArg()
@@ -22,13 +24,20 @@ async def mcp_command(
     match len(arg_list):
         case 0:
             await matcher.finish(
-                "❌ 缺少参数！\n可用：stats [-d|--details];add <server_script>;del <server_script>;reload"
+                "❌ 缺少参数！\n可用：\n\n"
+                "   stats [-d|--details]\n"
+                "   add <server_script>\n"
+                "   del <server_script>\n"
+                "   reload"
+                "   deep-reload"
             )
         case 1 | 2:
             if arg_list[0] == "stats":
                 return await mcp_status(bot, matcher, event, arg_list[1:])
             elif arg_list[0] == "reload":
                 return await reload(matcher)
+            elif arg_list[0].replace("_", "-") == "deep-reload":
+                return await deep_reload(matcher)
             elif len(arg_list) == 2:
                 if arg_list[0] in ("add", "添加"):
                     return await add_mcp_server(matcher, bot, event, arg_list[1])
@@ -111,8 +120,40 @@ async def reload(matcher: Matcher):
     if not config_manager.config.core.function_config.agent_mcp_client_enable:
         return
     try:
-        await ClientManager().reinitialize_all()
+        client_manager = ClientManager()
+        for cl in (client_manager.clients).copy():
+            await client_manager.unregister_client(cl.server_script)
+            await cl.close_no_wait()  # 虽然热重载，但是为了避免竞态，这里先把会话掐了
+            cl.tools.clear()
+            cl.openai_tools.clear()
+            await cl.bound_to(client_manager)
         await matcher.send("重载成功")
     except Exception as e:
         logger.opt(exception=e, colors=True).exception(e)
         await matcher.send("重载失败")
+
+
+async def deep_reload(matcher: Matcher):
+    if not config_manager.config.core.function_config.agent_mcp_client_enable:
+        return
+    try:
+        client_manager = ClientManager()
+        for cl in (client_manager.clients).copy():
+            await client_manager.unregister_client(cl.server_script)
+            await cl.close_no_wait()  # 虽然热重载，但是为了避免竞态，这里先把会话掐了
+            cl.tools.clear()
+            cl.openai_tools.clear()
+        rst = await asyncio.gather(
+            *[
+                client_manager.initialize_this(scr)
+                for scr in config_manager.config.core.function_config.agent_mcp_server_scripts
+            ],
+            return_exceptions=True,
+        )
+        if excs := [r for r in rst if isinstance(r, BaseException)]:
+            raise BaseExceptionGroup("部分MCP Server初始化失败", excs)
+
+        await matcher.send("完全重载成功")
+    except Exception as e:
+        logger.opt(exception=e, colors=True).exception(e)
+        await matcher.send("完全重载失败")

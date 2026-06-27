@@ -1,4 +1,4 @@
-from amrita_core import ToolsManager, load_amrita, set_config
+from amrita_core import load_amrita, set_config
 from nonebot import get_driver, logger
 
 from .config import config_manager
@@ -17,7 +17,4 @@ async def onEnable():
     core_config = config.core
     set_config(core_config)
     await load_amrita()
-    ToolsManager().disable_tool(
-        "processing_message"
-    )  # This tool will be replaced by Amrita
     logger.debug("成功启动！")

@@ -1,6 +1,12 @@
 from copy import deepcopy
 
 from amrita_core import PreCompletionEvent
+from amrita_core.tools.models import (
+    FunctionDefinitionSchema,
+    FunctionParametersSchema,
+    FunctionPropertySchema,
+    ToolFunctionSchema,
+)
 from amrita_core.types import Content
 from nonebot import logger
 from nonebot.adapters.onebot.v11 import (
@@ -10,13 +16,6 @@ from nonebot.adapters.onebot.v11 import (
 )
 
 from amrita.utils.admin import send_to_admin
-
-from .models import (
-    FunctionDefinitionSchema,
-    FunctionParametersSchema,
-    FunctionPropertySchema,
-    ToolFunctionSchema,
-)
 
 
 async def report(
@@ -130,19 +129,4 @@ REPORT_TOOL_LOW = ToolFunctionSchema(
         ),
     ),
     strict=True,
-)
-
-PROCESS_MESSAGE_TOOL = FunctionDefinitionSchema(
-    name="amrita_processing",
-    description="Describe what the agent is currently doing and express the agent's internal thoughts to the user. Use this when you need to communicate your current actions or internal reasoning to the user, not for general completion.",
-    parameters=FunctionParametersSchema(
-        type="object",
-        properties={
-            "content": FunctionPropertySchema(
-                description="Message content, describe in the tone of system instructions what you are doing or interacting with the user.",
-                type="string",
-            ),
-        },
-        required=["content"],
-    ),
 )

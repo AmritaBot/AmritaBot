@@ -1,8 +1,8 @@
 import shutil
 
 from nonebot import get_driver, logger
+from nonebot_plugin_uniconf import UniConfigManager
 
-from amrita.config_manager import UniConfigManager
 from amrita.plugins.perm.config import Config, search_perm
 from amrita.plugins.perm.config import DataManager as DT
 

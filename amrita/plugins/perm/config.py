@@ -1,7 +1,8 @@
 from typing import Any
 
-from nonebot_plugin_uniconf import BaseDataManager
 from pydantic import BaseModel, Field
+
+from amrita.config_manager import BaseDataManager
 
 
 def search_perm(data: dict[str, Any], parent_key="", result=None) -> dict[str, Any]:

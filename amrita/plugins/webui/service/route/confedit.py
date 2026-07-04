@@ -7,9 +7,9 @@ from ast import literal_eval
 from typing import Any, Literal, get_args, get_origin
 
 from fastapi import HTTPException, Request
-from nonebot_plugin_uniconf import UniConfigManager
 from pydantic import BaseModel
 
+from amrita.config_manager import UniConfigManager
 from amrita.plugins.webui.API import PageContext, PageResponse, on_page
 from amrita.plugins.webui.service.response import fail, ok
 from amrita.plugins.webui.service.sidebar import SideBarCategory, SideBarManager

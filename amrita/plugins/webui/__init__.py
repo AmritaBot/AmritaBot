@@ -1,6 +1,8 @@
 import nonebot
 from nonebot.plugin import PluginMetadata, require
 
+require("nonebot_plugin_uniconf")
+
 from .service.route import confedit
 
 require("amrita.plugins.manager")

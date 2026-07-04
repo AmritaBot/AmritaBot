@@ -31,7 +31,6 @@ from amrita_core.contents import (
     StringMessageContent,
 )
 from amrita_core.types import USER_INPUT, Content, ImageContent, ImageUrl
-from amrita_sense.hook.exception import MatcherException as ChatException
 from beartype.typing import Sequence
 from nonebot import get_driver
 from nonebot.adapters.onebot.v11 import (
@@ -48,6 +47,7 @@ from nonebot.matcher import Matcher
 from pytz import utc
 
 from amrita.plugins.chat.config import ConfigManager, config_manager
+from amrita.plugins.chat.matcher import ChatException
 from amrita.plugins.chat.runtime import (
     AMRITA_CTX_KEY,
     AmritaBotContext,

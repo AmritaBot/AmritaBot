@@ -269,7 +269,7 @@ requires-dist = [
     { name = "aiomysql", specifier = ">=0.3.2" },
     { name = "aiosqlite", specifier = ">=0.21.0" },
     { name = "alembic", specifier = ">=1.16.4" },
-    { name = "amrita-core", extras = ["jieba"], specifier = ">=0.10.2,<0.11.0" },
+    { name = "amrita-core", extras = ["jieba"], specifier = ">=0.11.0,<0.12.0" },
     { name = "amrita-sense", specifier = ">=0.3.2" },
     { name = "async-lru", specifier = ">=2.0.5" },
     { name = "bcrypt", specifier = ">=4.3.0" },
@@ -308,7 +308,7 @@ dev = [
 
 [[package]]
 name = "amrita-core"
-version = "0.10.2"
+version = "0.11.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -324,9 +324,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "pytz" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fb/17/f3fb82ae2bbbe9c86617480750ad086235289ea128a0c96d3cd9b376470f/amrita_core-0.10.2.tar.gz", hash = "sha256:bfc239a4df36380d993bf6ccac53ddf4fa4bb099a19bcaece12e8d1a2cf54fbc", size = 119410, upload-time = "2026-06-27T06:07:26.657Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a7/5c/d085efcc7d08973a62c317295b8fde336d16239d4e95732129ba921b1a4a/amrita_core-0.11.0.tar.gz", hash = "sha256:90828916c87f70c9d7afcf338c0cac57383e4905ca4b48cc6625d6fdf5cb0735", size = 122033, upload-time = "2026-07-04T04:15:00.668Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/79/48/968726565ed7d867bb81a519e251c06a309a9559556a883ada7d44171e60/amrita_core-0.10.2-py3-none-any.whl", hash = "sha256:a7877c84b8fc6ff789538440fbcd622e9fe58fb0e9389185a0db09ccf8795b5d", size = 100884, upload-time = "2026-06-27T06:07:25.507Z" },
+    { url = "https://files.pythonhosted.org/packages/54/1d/03c4a96c106029223ffe6cc769484feb0c7c3fbbd8756d608bfcc9f296a5/amrita_core-0.11.0-py3-none-any.whl", hash = "sha256:bbb97eaa73ab65e10ad976b44e876caed5a67b4a4efd479e98506fb67c5851d0", size = 103507, upload-time = "2026-07-04T04:14:59.519Z" },
 ]
 
 [package.optional-dependencies]

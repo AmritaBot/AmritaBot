@@ -10,7 +10,7 @@ from ..config import config_manager
 async def recall(bot: Bot, event: GroupRecallNoticeEvent, matcher: Matcher):
     """处理消息撤回事件"""
     # 随机决定是否响应，降低触发频率
-    if random.randint(0, 1) != 1:
+    if random.randint(0, 5) > 3:
         return
     # 检查是否允许在删除自身消息后回复，不允许则返回
     if not config_manager.config.extended.say_after_self_msg_be_deleted:

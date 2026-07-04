@@ -145,7 +145,7 @@ class ExtendConfig(BaseModel):
         default=False, description="消息被撤回后是否自动回复"
     )
     group_added_msg: str = Field(
-        default="你好，我是Suggar，欢迎使用SuggarAI聊天机器人...",
+        default="你好，我是Amria，有关使用手册见https://bot.amritabot.com",
         description="入群欢迎消息",
     )
     send_msg_after_be_invited: bool = Field(
@@ -376,6 +376,7 @@ class ConfigManager(EnvfulConfigManager[Config]):
     prompt_store: ClassVar[PromptStore] = PromptStore(private_prompts, group_prompts)
     preset_store: ClassVar[PresetStore] = PresetStore(custom_models_dir)
     config: Config
+    _owner_name: str = "chat"
     __lateinit__ = True
 
     @override

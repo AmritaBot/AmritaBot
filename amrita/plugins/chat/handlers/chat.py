@@ -1,6 +1,7 @@
 """聊天处理器模块"""
 
 import asyncio
+import contextlib
 import random
 from asyncio import CancelledError
 from datetime import datetime
@@ -147,8 +148,11 @@ async def handle_reply(
     if msg_type == "xml":
         safe_content = escape_xml(reply_content)
         safe_name = escape_xml(safe_name)
+        # 用户消息内容也需要转义，因为 downstream format_msg_xml
+        # 在检测到已有 <ref> 后会跳过二次转义
+        safe_user_content = escape_xml(content)
         result = (
-            f"{content}\n"
+            f"{safe_user_content}\n"
             f'<ref name="{safe_name}" uid="{reply.sender.user_id}">\n'
             f"  <time>{formatted_time} {weekday}</time>\n"
             f"  <content>{safe_content}</content>\n"
@@ -259,12 +263,18 @@ def synthesize_message_to_msg(
     )
 
     if config_manager.config.parse_segments:
-        formatter = (
-            format_msg_xml
-            if config_manager.config.function.message_type == "xml"
-            else format_msg_legacy
-        )
-        body = formatter(role, str(user_name), str(user_id), content)
+        if config_manager.config.function.message_type == "xml":
+            # handle_reply 在 XML 模式下已对 content 做了 escape_xml，
+            # 且 content 中可能包含 <ref> 标签（已转义好的引用内容），
+            # 因此不能再次经过 format_msg_xml → escape_xml 导致双重转义
+            if "\n<ref" in content:
+                safe_name = escape_xml(str(user_name))
+                attrs = f' role="{role}"' if role else ""
+                body = f'<msg{attrs} name="{safe_name}" uid="{user_id}">\n{content}\n</msg>'
+            else:
+                body = format_msg_xml(role, str(user_name), str(user_id), content)
+        else:
+            body = format_msg_legacy(role, str(user_name), str(user_id), content)
         text: Sequence[Content] | str = (
             [TextContent(text=body)]
             + [
@@ -498,8 +508,9 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
                 case "error":
                     if message.metadata.get("extra_type") == "cookie":
                         can_send_message = False
+                        assert chat._di_resp.response
                         await send_to_admin(
-                            f"安全警告：用户请求导致了可能的Prompt泄露。已在response检测到cookie泄露，请检查！\n用户请求：\n{chat.user_input!s}\n模型模型输出：\n{chat.response.content!s}"
+                            f"安全警告：用户请求导致了可能的Prompt泄露。已在response检测到cookie泄露，请检查！\n用户请求：\n{chat.user_input!s}\n模型模型输出：\n{chat._di_resp.response.content!s}"
                         )
                         return await matcher.send(random.choice(config.llm.block_msg))
                     error = message.metadata["error"]  # type: ignore[typeddict-unknown-key]
@@ -535,11 +546,38 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
                 pending_chatobj[session_id].remove(chat)
                 debug_log("继续运行...")
 
-                await chat.begin()
+                #  私聊模式后台超时监控：若 Agent 工作时间超过阈值仍未返回，
+                #  发送提示告知用户如何终止任务
+                response_received = False
+                notify_sec = config.session.session_long_running_notify_seconds
+                if not is_group and notify_sec > 0:
+
+                    async def _notify_long_running() -> None:
+                        await asyncio.sleep(notify_sec)
+                        if not response_received:
+                            await matcher.send(
+                                "💡Agent已工作了一会儿，但还是没有给出答案，"
+                                "使用/chatobj kill终止当前任务。"
+                            )
+
+                    monitor_task = asyncio.create_task(_notify_long_running())
+                else:
+                    monitor_task = None
+
+                try:
+                    await chat.begin()
+                finally:
+                    if monitor_task and not monitor_task.done():
+                        monitor_task.cancel()
+                        with contextlib.suppress(CancelledError):
+                            await monitor_task
+
+                response_received = True
                 memory.memory_json = chat.data
                 await cudr.update_memory_data(memory)
                 if can_send_message:
-                    await send_response(chat, chat.response.content)
+                    assert chat._di_resp.response is not None
+                    await send_response(chat, chat._di_resp.response.content)
         finally:
             # 兜底：异常时清理 pending
             if chat in pending_chatobj[session_id]:
@@ -561,7 +599,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
             usg = response.usage or UniResponseUsage(
                 prompt_tokens=0, completion_tokens=0, total_tokens=0
             )
-            usage = gather_usage(usg, chat.extra_usage)
+            usage = gather_usage(usg, chat._di_resp.extra_usage)
             add_usage(insights, usage)
             await insights.save()
             debug_log(f"更新全局统计完成，使用计数: {insights.usage_count}")

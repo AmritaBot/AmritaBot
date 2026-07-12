@@ -33,6 +33,16 @@ from amrita.plugins.chat.utils.sql import (
 )
 
 
+def _is_continue_command(text: str) -> bool:
+    """检测用户输入是否意图恢复超时会话。
+
+    支持 "继续"、"继续吧"、"继续聊天"、"接着聊" 等变体，
+    使用前缀匹配 + 常见变体关键词列表，排除误匹配。
+    """
+    text = text.strip()
+    return text.startswith("继续") or text.startswith("接着") or text == "续聊"
+
+
 class SessionTemp(BaseModel):
     """超时会话的临时记录：提示消息ID + 时间戳"""
 
@@ -139,7 +149,7 @@ class SessionManager:
             pending = session_clear_map.get(session_id)
             if pending is not None:
                 debug_log(f"找到会话清除记录: {session_id}")
-                if "继续" not in event.message.extract_plain_text():
+                if not _is_continue_command(event.message.extract_plain_text()):
                     debug_log("消息中不包含'继续'，清除会话记录")
                     del session_clear_map[session_id]
                     return
@@ -177,7 +187,9 @@ class SessionManager:
                     await matcher.finish()
 
             pending: SessionTemp | None = session_clear_map.get(session_id)
-            if pending is not None and "继续" in event.message.extract_plain_text():
+            if pending is not None and _is_continue_command(
+                event.message.extract_plain_text()
+            ):
                 debug_log("检测到'继续'消息，恢复上下文..")
 
                 with contextlib.suppress(Exception):

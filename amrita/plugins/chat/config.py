@@ -70,6 +70,10 @@ class SessionConfig(BaseModel):
     session_control_history: int = Field(
         default=10, description="会话历史记录最大保存条数"
     )
+    session_long_running_notify_seconds: int = Field(
+        default=180,
+        description="私聊Agent超时提示阈值（单位：秒），超过此时间未返回则提示用户可终止任务。设为0禁用",
+    )
 
 
 class AutoReplyConfig(BaseModel):

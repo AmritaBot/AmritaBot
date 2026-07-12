@@ -41,3 +41,4 @@ class Config(BaseModel):
 class DataManager(BaseDataManager[Config]):
     config: Config
     config_class: type[Config]
+    _owner_name: str = "perm"

@@ -11,11 +11,14 @@ from nonebot.adapters.onebot.v11.event import (
     GroupMessageEvent,
     MessageEvent,
 )
+from nonebot_plugin_amrita.memory import CachedUserDataRepository as CURD
+from nonebot_plugin_amrita.memory import MemorySchema
 from typing_extensions import override
 
-from amrita.plugins.chat.utils.app import CachedUserDataRepository, MemorySchema
+from amrita.plugins.chat.utils.app import CachedGroupDataRepository as CGDR
 from amrita.plugins.chat.utils.libchat import usage_enough
 from amrita.plugins.chat.utils.lock import get_group_lock, get_private_lock
+from amrita.plugins.chat.utils.sql import make_uni_id
 from amrita.plugins.perm.API.admin import is_lp_admin
 
 from .config import config_manager
@@ -51,7 +54,7 @@ async def is_bot_enabled(event: Event) -> bool:
         if event.get_user_id() in bots:
             return False
     if gid is not None:
-        data = await CachedUserDataRepository().get_group_config(
+        data = await CGDR().get_group_config(
             gid,
         )
         return data.enable
@@ -95,7 +98,8 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
         if isinstance(event, GroupMessageEvent)
         else get_private_lock(event.user_id)
     )
-    dm = CachedUserDataRepository()
+    dm = CURD()
+    gm = CGDR()
     async with lock:
         message = event.get_message()
         message_text = message.extract_plain_text().strip()
@@ -128,8 +132,10 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
             # 获取记忆数据
             is_group = bool(getattr(event, "group_id", None))
             ins_id: int = getattr(event, "group_id", event.user_id)
-            memory_data: MemorySchema = await dm.get_memory(ins_id, is_group)
-            fk = (await dm.get_group_config(ins_id)).autoreply
+            memory_data: MemorySchema = await dm.get_memory(
+                make_uni_id(ins_id, is_group)
+            )
+            fk = (await gm.get_group_config(ins_id)).autoreply
 
             if rand <= rate and (config_manager.config.autoreply.global_enable or fk):
                 memory_data.memory_json.time = time.time()

@@ -2,18 +2,19 @@ from collections.abc import Sequence
 from copy import deepcopy
 from datetime import datetime
 
+from amrita_core.types import MemoryModel as AwaredMemory
 from nonebot import logger
 from nonebot.adapters.onebot.v11 import Bot, Message, MessageEvent
 from nonebot.exception import NoneBotException
 from nonebot.matcher import Matcher
 from nonebot.params import CommandArg
+from nonebot_plugin_amrita.database import UserDataExecutor
+from nonebot_plugin_amrita.memory import CachedUserDataRepository, MemorySessionsSchema
 from nonebot_plugin_orm import get_session
 
 from ..check_rule import is_group_admin_if_is_in_group
 from ..config import config_manager
-from ..utils.app import CachedUserDataRepository, MemorySessionsSchema
-from ..utils.app import Memory as AwaredMemory
-from ..utils.sql import UserDataExecutor, get_uni_user_id
+from ..utils.sql import get_uni_user_id
 
 
 async def sessions(
@@ -44,9 +45,7 @@ async def sessions(
         try:
             if len(arg_list) >= 2:
                 # 获取用户的所有会话数据
-                user_sessions = await repo.get_sesssions(
-                    event.user_id, hasattr(event, "group_id")
-                )
+                user_sessions = await repo.get_sesssions(get_uni_user_id(event))
 
                 session_index = int(arg_list[1])
                 if session_index < 0 or session_index >= len(user_sessions):
@@ -56,9 +55,7 @@ async def sessions(
                 target_session = user_sessions[session_index]
 
                 # 获取当前用户的memory数据并更新
-                memory_data = await repo.get_memory(
-                    event.user_id, hasattr(event, "group_id")
-                )
+                memory_data = await repo.get_memory(get_uni_user_id(event))
                 memory_data.memory_json.messages = deepcopy(
                     target_session.data.messages
                 )
@@ -85,9 +82,7 @@ async def sessions(
                 session_index = int(arg_list[1])
 
                 # 获取用户的所有会话数据
-                user_sessions = await repo.get_sesssions(
-                    event.user_id, hasattr(event, "group_id")
-                )
+                user_sessions = await repo.get_sesssions(get_uni_user_id(event))
 
                 if session_index < 0 or session_index >= len(user_sessions):
                     await matcher.finish("请输入正确的编号")
@@ -113,9 +108,7 @@ async def sessions(
         """归档当前会话"""
         try:
             # 获取当前用户记忆数据
-            memory_data = await repo.get_memory(
-                event.user_id, hasattr(event, "group_id")
-            )
+            memory_data = await repo.get_memory(get_uni_user_id(event))
 
             if memory_data.memory_json.messages:
                 # 获取当前会话数据
@@ -147,9 +140,7 @@ async def sessions(
         """清空所有会话"""
         try:
             # 获取用户的所有会话
-            user_sessions = await repo.get_sesssions(
-                event.user_id, hasattr(event, "group_id")
-            )
+            user_sessions = await repo.get_sesssions(get_uni_user_id(event))
 
             if len(user_sessions) > 0:
                 # 获取会话ID列表
@@ -175,9 +166,7 @@ async def sessions(
 
     # 如果没有参数，显示历史会话
     if not arg_list:
-        user_sessions = await repo.get_sesssions(
-            event.user_id, hasattr(event, "group_id")
-        )
+        user_sessions = await repo.get_sesssions(get_uni_user_id(event))
         await display_sessions(user_sessions)
 
     # 根据命令执行对应操作
@@ -199,9 +188,7 @@ async def sessions(
                 "Sessions指令帮助：\nset：覆盖当前会话为指定编号的会话\ndel：删除指定编号的会话\narchive：归档当前会话\nclear：清空所有会话\n"
             )
         case "list":
-            user_sessions = await repo.get_sesssions(
-                event.user_id, hasattr(event, "group_id")
-            )
+            user_sessions = await repo.get_sesssions(get_uni_user_id(event))
             await display_sessions(user_sessions)
         case _:
             await matcher.finish("未知命令，请输入/help查看帮助。")

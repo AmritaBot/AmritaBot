@@ -108,17 +108,17 @@ class GroupConfigExecutor:
 
     def __init__(
         self,
-        user_id: str,
+        group_id: str,
         session: AsyncSession | None = None,
         /,
         with_for_update: bool = False,
     ):
-        if not validate_uni_user_id(user_id):
-            raise ValueError(f"Invalid uni_user_id format: {user_id}")
-        self.user_id = user_id
+        if not validate_uni_user_id(group_id):
+            raise ValueError(f"Invalid uni_user_id format: {group_id}")
+        self.group_id = group_id
         self._arg_session = session
         self.session = session or get_session()
-        self._lock = database_lock(user_id)
+        self._lock = database_lock(group_id)
         self.__for_update = with_for_update
 
     async def __aenter__(self) -> Self:
@@ -144,12 +144,12 @@ class GroupConfigExecutor:
             await self._lock.__aexit__(exc_type, exc_value, traceback)
 
     async def _get_or_create_any(self, model: type[SqlModel_T], **kwargs) -> SqlModel_T:
-        stmt = select(model).where(model.user_id == self.user_id)
+        stmt = select(model).where(model.user_id == self.group_id)
         stmt = stmt if not self.__for_update else stmt.with_for_update()
         result = await self.session.execute(stmt)
         obj = result.scalar_one_or_none()
         if obj is None:
-            obj = model(user_id=self.user_id, **kwargs)
+            obj = model(user_id=self.group_id, **kwargs)
             self.session.add(obj)
             await (
                 self.session.flush()
@@ -159,7 +159,7 @@ class GroupConfigExecutor:
         return obj
 
     async def get_or_create_group_config(self) -> GroupConfig:
-        if not self.user_id.startswith("group_"):
+        if not self.group_id.startswith("group_"):
             raise ValueError("Group config can only be accessed for group users")
         if self._group_config_temp is not None:
             return self._group_config_temp

@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 from nonebot.adapters.onebot.v11 import (
     GroupMessageEvent,
     Message,
@@ -6,20 +8,21 @@ from nonebot.adapters.onebot.v11 import (
 )
 from nonebot.matcher import Matcher
 from nonebot.params import CommandArg
+from nonebot_plugin_amrita import CachedUserDataRepository
+from nonebot_plugin_amrita.database import InsightsModel, UserDataExecutor, UserMetadata
 
-from amrita.plugins.chat.utils.app import CachedUserDataRepository
 from amrita.plugins.perm.API.rules import any_has_permission
 
 from ..check_rule import is_bot_admin
 from ..config import config_manager
-from ..utils.sql import InsightsModel, UserDataExecutor, get_any_id
+from ..utils.sql import get_uni_user_id
 
 
 async def insights(event: MessageEvent, matcher: Matcher, args: Message = CommandArg()):
     msg = "未知参数。"
     config = config_manager.config
     if not (arg := args.extract_plain_text().strip()):
-        data = await CachedUserDataRepository().get_metadata(event.user_id, False)
+        data = await CachedUserDataRepository().get_metadata(get_uni_user_id(event))
         user_limit = config.usage_limit.user_daily_limit
         user_token_limit = config.usage_limit.user_daily_token_limit
         group_limit = config.usage_limit.group_daily_limit
@@ -35,7 +38,7 @@ async def insights(event: MessageEvent, matcher: Matcher, args: Message = Comman
             + f"(输入：{data.tokens_input},输出：{data.tokens_output})"
         )
         if isinstance(event, GroupMessageEvent):
-            data = await CachedUserDataRepository().get_metadata(*get_any_id(event))
+            data = await CachedUserDataRepository().get_metadata(get_uni_user_id(event))
             msg = (
                 f"群组使用次数为：{data.called_count}/{group_limit if (group_limit != -1 and enable_limit) else '♾'}次"
                 + f"\n群组使用token为：{data.tokens_input + data.tokens_output}/{group_token_limit if (group_token_limit != -1 and enable_limit) else '♾'}tokens"
@@ -57,46 +60,47 @@ async def insights(event: MessageEvent, matcher: Matcher, args: Message = Comman
     elif arg.startswith("top10"):
         if not await is_bot_admin(event):
             await matcher.finish("你没有权限查看排名数据")
-        parts = arg.split()
-        if len(parts) == 1:
-            top_type = "all"
-        elif len(parts) == 2:
-            if parts[1] == "--group":
-                top_type = "group"
-            elif parts[1] == "--private":
-                top_type = "private"
-            elif parts[1] == "--all":
-                top_type = "all"
-            else:
-                await matcher.finish(
-                    "无效的参数。支持的参数：--group, --private, --all"
-                )
-        else:
-            await matcher.finish(
-                "参数格式错误。使用方法：top10 [--group|--private|--all]"
-            )
 
         # 获取top10数据
-        top_users = await UserDataExecutor.get_top10_users(top_type=top_type, limit=10)
+        top_users: Sequence[UserMetadata] = await UserDataExecutor.get_top_users(
+            limit=20
+        )
 
         if not top_users:
             msg = "暂无使用数据。"
         else:
-            # 构建排名消息
-            type_names = {"group": "群组", "private": "私聊", "all": "全部"}
-            msg = f"今日{type_names[top_type]}使用量Top10：\n"
+            # 按group/private分类
+            group_users: Sequence[UserMetadata] = []
+            private_users: Sequence[UserMetadata] = []
+            for user in top_users:
+                if user.user_id.startswith("group_"):
+                    group_users.append(user)
+                else:
+                    private_users.append(user)
 
-            for i, user in enumerate(top_users, 1):
-                # 提取用户ID（去掉前缀）
-                user_id = (
-                    user.user_id.split("_", 1)[1]
-                    if "_" in user.user_id
-                    else user.user_id
-                )
-                user_type = "群" if user.user_id.startswith("group_") else "用户"
+            msg = "今日使用量Top10：\n"
 
-                total_tokens = user.tokens_input + user.tokens_output
-                msg += f"{i}. {user_type}{user_id}: {user.called_count}次, {total_tokens}tokens\n"
+            if group_users:
+                msg += "\n📢 群组排名：\n"
+                for i, user in enumerate(group_users[:10], 1):
+                    user_id = (
+                        user.user_id.split("_", 1)[1]
+                        if "_" in user.user_id
+                        else user.user_id
+                    )
+                    total_tokens = user.tokens_input + user.tokens_output
+                    msg += f"{i}. 群{user_id}: {user.called_count}次, {total_tokens}tokens\n"
+
+            if private_users:
+                msg += "\n💬 私聊排名：\n"
+                for i, user in enumerate(private_users[:10], 1):
+                    user_id = (
+                        user.user_id.split("_", 1)[1]
+                        if "_" in user.user_id
+                        else user.user_id
+                    )
+                    total_tokens = user.tokens_input + user.tokens_output
+                    msg += f"{i}. 用户{user_id}: {user.called_count}次, {total_tokens}tokens\n"
 
     await matcher.finish(
         MessageSegment.at(event.user_id) + MessageSegment.text(f"\n{msg}")

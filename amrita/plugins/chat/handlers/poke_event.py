@@ -10,19 +10,21 @@ from nonebot.adapters.onebot.v11 import Bot, MessageSegment
 from nonebot.adapters.onebot.v11.event import PokeNotifyEvent
 from nonebot.exception import NoneBotException
 from nonebot.matcher import Matcher
+from nonebot_plugin_amrita import CachedUserDataRepository
+from nonebot_plugin_amrita.database import InsightsModel
 
+from amrita.plugins.chat.utils.sql import get_uni_user_id
 from amrita.utils.admin import send_to_admin
 
 from ..check_rule import FakeEvent
 from ..config import config_manager
-from ..utils.app import CachedUserDataRepository
+from ..utils.app import CachedGroupDataRepository as CGDR
 from ..utils.functions import (
     get_friend_name,
     split_message_into_chats,
 )
 from ..utils.libchat import add_usage, get_tokens, usage_enough
 from ..utils.lock import get_group_lock, get_private_lock
-from ..utils.sql import InsightsModel
 
 
 async def poke_event(event: PokeNotifyEvent, bot: Bot, matcher: Matcher):
@@ -67,18 +69,18 @@ async def handle_group_poke(
 ):
     """处理群聊中的戳一戳事件"""
     assert event.group_id is not None
-    group_config = await repo.get_group_config(event.group_id)
+    group_config = await CGDR().get_group_config(event.group_id)
     if not group_config.enable:
         return
     if config_manager.config.usage_limit.enable_usage_limit:
-        group_meta = await repo.get_metadata(event.group_id, True)
+        group_meta = await repo.get_metadata(get_uni_user_id(event))
         if (
             group_meta.called_count
             >= config_manager.config.usage_limit.group_daily_limit
             and config_manager.config.usage_limit.group_daily_limit != -1
         ):
             await matcher.finish()
-        user_meta = await repo.get_metadata(event.user_id, False)
+        user_meta = await repo.get_metadata(get_uni_user_id(event))
 
         if (
             user_meta.called_count >= config_manager.config.usage_limit.user_daily_limit
@@ -123,7 +125,7 @@ async def handle_private_poke(
         config_manager.config.usage_limit.enable_usage_limit
         and config_manager.config.usage_limit.user_daily_limit != -1
     ):
-        user_meta = await repo.get_metadata(event.user_id, False)
+        user_meta = await repo.get_metadata(get_uni_user_id(event))
         if user_meta.called_count >= config_manager.config.usage_limit.user_daily_limit:
             await matcher.finish()
 
@@ -179,7 +181,7 @@ async def process_poke_event(
     insights = await InsightsModel.get()
     add_usage(insights, usage)
 
-    user_meta = await repo.get_metadata(event.user_id, False)
+    user_meta = await repo.get_metadata(get_uni_user_id(event))
     add_usage(user_meta, usage)
     await repo.update_metadata(user_meta)
 

@@ -2,14 +2,14 @@ from nonebot.adapters.onebot.v11 import GroupMessageEvent, Message
 from nonebot.matcher import Matcher
 from nonebot.params import CommandArg
 
-from ..utils.app import CachedUserDataRepository
+from ..utils.app import CachedGroupDataRepository
 
 
 async def switch(
     event: GroupMessageEvent, matcher: Matcher, args: Message = CommandArg()
 ):
     arg = args.extract_plain_text().strip()
-    dm = CachedUserDataRepository()
+    dm = CachedGroupDataRepository()
     data = await dm.get_group_config(event.group_id)
     if arg in ("开启", "on", "启用", "enable"):
         if not data.autoreply:

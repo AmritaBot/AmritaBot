@@ -108,12 +108,10 @@ def upgrade(name: str = "") -> None:
             sa.UniqueConstraint("user_id", name="uq_amrita_user_metadata_user_id"),
             info={"bind_key": "chat"},
         )
-        with op.batch_alter_table("amritabot_user_metadata", schema=None) as batch_op:
-            batch_op.create_index(
-                "idx_amrita_user_id_last_active",
-                ["user_id", "last_active"],
-                unique=False,
-            )
+        op.execute(
+            "CREATE INDEX IF NOT EXISTS idx_amrita_user_id_last_active "
+            "ON amritabot_user_metadata (user_id, last_active)"
+        )
 
     if not table_exists("amrita_group_config"):
         op.create_table(
@@ -133,10 +131,10 @@ def upgrade(name: str = "") -> None:
             sa.UniqueConstraint("user_id", name="uq_amrita_group_config_user_id"),
             info={"bind_key": "chat"},
         )
-        with op.batch_alter_table("amrita_group_config", schema=None) as batch_op:
-            batch_op.create_index(
-                "idx_amrita_group_config_user_id", ["user_id"], unique=False
-            )
+        op.execute(
+            "CREATE INDEX IF NOT EXISTS idx_amrita_group_config_user_id "
+            "ON amrita_group_config (user_id)"
+        )
 
     if not table_exists("amritabot_memory_data"):
         op.create_table(
@@ -178,11 +176,14 @@ def upgrade(name: str = "") -> None:
             sa.PrimaryKeyConstraint("id", name=op.f("pk_amritabot_memory_sessions")),
             info={"bind_key": "chat"},
         )
-        with op.batch_alter_table("amritabot_memory_sessions", schema=None) as batch_op:
-            batch_op.create_index(
-                "idx_sessions_created_at_time", ["created_at"], unique=False
-            )
-            batch_op.create_index("idx_sessions_user_id", ["user_id"], unique=False)
+        op.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sessions_created_at_time "
+            "ON amritabot_memory_sessions (created_at)"
+        )
+        op.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sessions_user_id "
+            "ON amritabot_memory_sessions (user_id)"
+        )
 
     # 处理旧表，只有当它们存在时才删除
     if table_exists("suggarchat_memory_sessions"):

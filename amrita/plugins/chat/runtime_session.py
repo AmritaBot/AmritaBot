@@ -18,17 +18,19 @@ from amrita_sense.logging import debug_log
 from nonebot.adapters.onebot.v11 import Bot
 from nonebot.adapters.onebot.v11.event import GroupMessageEvent, MessageEvent
 from nonebot.matcher import Matcher
-from pydantic import BaseModel, Field
-
-from amrita.plugins.chat.config import Config
-from amrita.plugins.chat.utils.app import (
+from nonebot_plugin_amrita.database import (
+    MemorySessions,
+    UserDataExecutor,
+)
+from nonebot_plugin_amrita.memory import (
     CachedUserDataRepository,
     MemorySchema,
 )
+from nonebot_plugin_orm import get_session
+from pydantic import BaseModel, Field
+
+from amrita.plugins.chat.config import Config
 from amrita.plugins.chat.utils.sql import (
-    MemorySessions,
-    UserDataExecutor,
-    get_any_id,
     get_uni_user_id,
 )
 
@@ -158,12 +160,14 @@ class SessionManager:
             debug_log(f"检查会话超时，当前时间: {time_now}, 数据时间戳: {data.time}")
             if (time_now - data.time) >= timeout_sec:
                 debug_log("会话超时，开始创建新会话..")
+                async with get_session() as db_session:
+                    async with UserDataExecutor(uni_id, db_session) as executor:
+                        await executor.add_session(data)
 
-                async with UserDataExecutor(uni_id) as executor:
-                    await executor.add_session(data)
-
-                await MemorySessions._expire(uni_id, cfg.session_control_history)
-
+                    await MemorySessions._expire(
+                        db_session, uni_id, cfg.session_control_history
+                    )
+                    await db_session.commit()
                 data.messages = []
                 timestamp = data.time
                 data.time = time_now
@@ -200,7 +204,7 @@ class SessionManager:
 
                 session_clear_map.pop(session_id, None)
 
-                sessions = await self._repo.get_sesssions(*get_any_id(event))
+                sessions = await self._repo.get_sesssions(get_uni_user_id(event))
                 data.messages = sessions[-1].data.messages
                 last_session = sessions[-1]
 

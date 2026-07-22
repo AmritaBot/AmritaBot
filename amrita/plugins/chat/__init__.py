@@ -5,6 +5,7 @@ require("amrita.plugins.menu")
 require("amrita.plugins.webui")
 require("nonebot_plugin_orm")
 require("nonebot_plugin_localstore")
+require("nonebot_plugin_amrita")
 
 from . import (
     config,

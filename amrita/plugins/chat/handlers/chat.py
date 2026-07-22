@@ -10,7 +10,6 @@ from amrita_core import (
     PresetManager,
     StateContext,
     TextContent,
-    UniResponse,
     UniResponseUsage,
     debug_log,
     logger,
@@ -46,6 +45,10 @@ from nonebot.adapters.onebot.v11.event import (
 )
 from nonebot.exception import MatcherException, NoneBotException, ProcessException
 from nonebot.matcher import Matcher
+from nonebot_plugin_amrita.database import (
+    InsightsModel,
+)
+from nonebot_plugin_amrita.memory import CachedUserDataRepository, MemorySchema
 from pytz import utc
 
 from amrita.plugins.chat.config import ConfigManager, config_manager
@@ -57,10 +60,6 @@ from amrita.plugins.chat.runtime import (
     pending_chatobj,
 )
 from amrita.plugins.chat.runtime_session import SessionManager
-from amrita.plugins.chat.utils.app import (
-    CachedUserDataRepository,
-    MemorySchema,
-)
 from amrita.plugins.chat.utils.functions import (
     get_friend_name,
     split_message_into_chats,
@@ -69,8 +68,6 @@ from amrita.plugins.chat.utils.functions import (
 from amrita.plugins.chat.utils.libchat import add_usage
 from amrita.plugins.chat.utils.lock import get_group_lock, get_private_lock
 from amrita.plugins.chat.utils.sql import (
-    InsightsModel,
-    get_any_id,
     get_uni_user_id,
 )
 from amrita.utils.admin import send_to_admin
@@ -318,9 +315,10 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     cudr = CachedUserDataRepository()
 
     #  阶段 1：加载 memory 与会话管理
-    is_group = isinstance(event, GroupMessageEvent)
-    any_id, _ = get_any_id(event)
-    memory: MemorySchema = await cudr.get_memory(any_id, is_group)
+    is_group: bool = isinstance(event, GroupMessageEvent)
+    memory: MemorySchema = await cudr.get_memory(
+        get_uni_user_id(event),
+    )
     data = memory.memory_json
 
     # 清理异常 message content
@@ -477,13 +475,20 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         elif isinstance(message, MessageWithMetadata):
             match message.metadata.get("type", ""):
                 case "system":
-                    await matcher.send(message.content)
+                    if message.metadata["extra_type"] == "tool_call_limit":
+                        await matcher.send(
+                            "⚠️ 已超出工具调用限制，请调整你的prompt以继续。"
+                        )
+                    else:
+                        await matcher.send(message.content)
                 case "reasoning":
                     if not config.core.builtin.agent_reasoning_hide:
                         await matcher.send(message.content)
                 case "tool_prediction":
                     if config.core.builtin.agent_tool_call_notice == "notify":
                         await matcher.send("⏩ 已决定工具调用")
+                case "middle_message":
+                    await matcher.send(f"💬 {message.content}")
                 case "function_call":
                     if (
                         message.metadata["is_done"]  # type: ignore[typeddict-unknown-key]
@@ -565,7 +570,8 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
                     monitor_task = None
 
                 try:
-                    await chat.begin()
+                    async with chat.begin():
+                        await chat
                 finally:
                     if monitor_task and not monitor_task.done():
                         monitor_task.cancel()
@@ -592,11 +598,11 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         await matcher.send("出错了稍后试试吧（错误已反馈）")
         logger.opt(exception=e, colors=True).exception("程序发生了未捕获的异常")
     finally:
-        response: UniResponse[str, None] | None
-        if (response := getattr(chat, "response", None)) is not None:
+        if (getattr(chat, "response", None)) is not None:
             insights = await InsightsModel.get()
             debug_log(f"获取洞察数据完成，使用计数: {insights.usage_count}")
-            usg = response.usage or UniResponseUsage(
+            assert chat._di_resp.response is not None
+            usg = chat._di_resp.response.usage or UniResponseUsage(
                 prompt_tokens=0, completion_tokens=0, total_tokens=0
             )
             usage = gather_usage(usg, chat._di_resp.extra_usage)
@@ -604,11 +610,11 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
             await insights.save()
             debug_log(f"更新全局统计完成，使用计数: {insights.usage_count}")
 
-            ins = await cudr.get_metadata(*get_any_id(event))
+            ins = await cudr.get_metadata(get_uni_user_id(event))
             for d in (
                 (
                     ins,
-                    await cudr.get_metadata(event.user_id, False),
+                    await cudr.get_metadata(f"user_{event.user_id}"),
                 )
                 if hasattr(event, "group_id")
                 else (ins,)

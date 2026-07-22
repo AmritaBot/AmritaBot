@@ -19,10 +19,10 @@ from nonebot import get_bot
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent
 from nonebot.log import logger
 from nonebot.matcher import Matcher
+from nonebot_plugin_amrita import CachedUserDataRepository
 
-from amrita.plugins.chat.utils.app import CachedUserDataRepository
 from amrita.plugins.chat.utils.sql import (
-    get_any_id,
+    get_uni_user_id,
 )
 from amrita.utils.admin import send_to_admin
 
@@ -94,7 +94,7 @@ async def text_check(
                     typing.cast(Bot, bot),
                 )
                 if config_manager.config.llm.tools.report_then_block:
-                    data = await dm.get_memory(*get_any_id(nonebot_event))
+                    data = await dm.get_memory(get_uni_user_id(nonebot_event))
                     data.memory_json.messages = []
                     await dm.update_memory_data(data)
                     await bot.send(

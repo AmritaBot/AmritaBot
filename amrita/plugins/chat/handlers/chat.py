@@ -606,16 +606,13 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
             assert chat._di_working.context_wrap is not None
             if (usg := chat._di_resp.response.usage) is None:
                 resp: str = chat._di_resp.response.content
-                usg_prompt = 0
-                async for t in (
-                    await asyncio.to_thread(
+                usg_prompt: int = 0
+                for i in text_generator(
+                    chat._di_working.context_wrap.unwrap(), full_message=True
+                ):
+                    usg_prompt += await asyncio.to_thread(
                         hybrid_token_count, i, tokenizer_type="jieba"
                     )
-                    for i in text_generator(
-                        chat._di_working.context_wrap.unwrap(), full_message=True
-                    )
-                ):
-                    usg_prompt += t
                 usg_gen = await asyncio.to_thread(
                     hybrid_token_count, resp, tokenizer_type="jieba"
                 )

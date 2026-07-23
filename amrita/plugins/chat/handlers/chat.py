@@ -13,6 +13,7 @@ from amrita_core import (
     UniResponseUsage,
     debug_log,
     logger,
+    text_generator,
 )
 from amrita_core.base.adapter import COMPLETION_RETURNING
 from amrita_core.builtins.agent import (
@@ -30,6 +31,7 @@ from amrita_core.contents import (
     MessageWithMetadata,
     StringMessageContent,
 )
+from amrita_core.tokenizer import hybrid_token_count
 from amrita_core.types import USER_INPUT, Content, ImageContent, ImageUrl
 from amrita_sense.hook.exception import MatcherException as ChatException
 from beartype.typing import Sequence
@@ -598,13 +600,28 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         await matcher.send("出错了稍后试试吧（错误已反馈）")
         logger.opt(exception=e, colors=True).exception("程序发生了未捕获的异常")
     finally:
-        if (getattr(chat, "response", None)) is not None:
+        if chat._di_resp.response is not None:
             insights = await InsightsModel.get()
             debug_log(f"获取洞察数据完成，使用计数: {insights.usage_count}")
-            assert chat._di_resp.response is not None
-            usg = chat._di_resp.response.usage or UniResponseUsage(
-                prompt_tokens=0, completion_tokens=0, total_tokens=0
-            )
+            assert chat._di_working.context_wrap is not None
+            if (usg := chat._di_resp.response.usage) is None:
+                resp: str = chat._di_resp.response.content
+                usg_prompt: int = 0
+                for i in text_generator(
+                    chat._di_working.context_wrap.unwrap(), full_message=True
+                ):
+                    usg_prompt += await asyncio.to_thread(
+                        hybrid_token_count, i, tokenizer_type="jieba"
+                    )
+                usg_gen = await asyncio.to_thread(
+                    hybrid_token_count, resp, tokenizer_type="jieba"
+                )
+                usg = UniResponseUsage(
+                    prompt_tokens=usg_prompt,
+                    completion_tokens=usg_gen,
+                    total_tokens=usg_prompt + usg_gen,
+                )
+
             usage = gather_usage(usg, chat._di_resp.extra_usage)
             add_usage(insights, usage)
             await insights.save()

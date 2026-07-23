@@ -3,9 +3,11 @@
 迁移 ID: a727d1697fba
 父迁移: 072361e8936f
 创建时间: 2026-07-21 19:52:57.319068
+修复时间: 2026-07-23 10:10:39.149909
 
 将 amritabot_* 旧表数据迁移到 amrita_* 新表。
 group_config 通过新建替换实现 FK 无缝切换。
+*补充：修复了索引问题
 """
 
 from __future__ import annotations
@@ -131,31 +133,35 @@ def _copy_table(src_name: str, dst_name: str, col_names: list[str]) -> None:
     op.execute(dst.insert().from_select(col_names, sel))
 
 
+def _ensure_indexes() -> None:
+    """确保关键索引存在（幂等），覆盖 clean-start 和完整迁移两种路径。"""
+    _INDICES: list[tuple[str, str, list[str]]] = [
+        (
+            "idx_amrita_user_id_last_active",
+            "amrita_user_metadata",
+            ["user_id", "last_active"],
+        ),
+        ("idx_am_sessions_user_id", "amrita_memory_sessions", ["user_id"]),
+        (
+            "idx_am_sessions_created_at_time",
+            "amrita_memory_sessions",
+            ["created_at"],
+        ),
+    ]
+    for idx_name, table_name, cols in _INDICES:
+        insp = _inspector()
+        if not insp.has_table(table_name):
+            continue
+        existing = {i["name"] for i in insp.get_indexes(table_name)}
+        if idx_name not in existing:
+            op.create_index(idx_name, table_name, cols)
+
+
 #  upgrade
 def upgrade(name: str = "") -> None:
-    if name:
-        return
 
     if not _old_tables_exist():
-        # clean start：只需补索引
-        for idx_name, table_name, cols in [
-            (
-                "idx_amrita_user_id_last_active",
-                "amrita_user_metadata",
-                ["user_id", "last_active"],
-            ),
-            ("idx_am_sessions_user_id", "amrita_memory_sessions", ["user_id"]),
-            (
-                "idx_am_sessions_created_at_time",
-                "amrita_memory_sessions",
-                ["created_at"],
-            ),
-        ]:
-            insp = _inspector()
-            if not insp.has_table(table_name):
-                continue
-            if idx_name not in {i["name"] for i in insp.get_indexes(table_name)}:
-                op.create_index(idx_name, table_name, cols)
+        _ensure_indexes()
         return
 
     # ── 有旧表 ──
@@ -279,11 +285,12 @@ def upgrade(name: str = "") -> None:
     # 7. 移除临时表
     op.drop_table(_TMP)
 
+    # 8. 兜底：确保索引存在（覆盖表已有但索引缺失的边缘情况）
+    _ensure_indexes()
+
 
 #  downgrade
 def downgrade(name: str = "") -> None:
-    if name:
-        return
 
     insp = _inspector()
 

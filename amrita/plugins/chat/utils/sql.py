@@ -128,6 +128,12 @@ class GroupConfigExecutor:
         if self._arg_session is None:
             await self.session.__aenter__()
         await self._transaction.__aenter__()
+        # Ensure UserMetadata row exists to satisfy FK constraint
+        stmt = select(UserMetadata.id).where(UserMetadata.user_id == self.group_id)
+        result = await self.session.execute(stmt)
+        if result.scalar_one_or_none() is None:
+            self.session.add(UserMetadata(user_id=self.group_id))
+            await self.session.flush()
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback) -> None:

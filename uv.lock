@@ -247,7 +247,7 @@ wheels = [
 
 [[package]]
 name = "amrita"
-version = "1.4.0"
+version = "1.4.1"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
@@ -1871,7 +1871,7 @@ wheels = [
 
 [[package]]
 name = "nonebot-plugin-amrita"
-version = "0.2.2"
+version = "0.2.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiologic" },
@@ -1880,9 +1880,9 @@ dependencies = [
     { name = "nonebot-plugin-orm" },
     { name = "nonebot2" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fd/db/622231d3e702628356f5b574428bb7262e24a85526d4df6378c3dd547179/nonebot_plugin_amrita-0.2.2.tar.gz", hash = "sha256:9320291c3848c3bde49ebc985cbac8ed7e5a74fbf75426e5688adb6ac9358cb3", size = 35842, upload-time = "2026-07-21T13:36:41.08Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a3/3d/bb2287ba78e0215372f974b20e9e6726bbd213678b7face965747c66a9f8/nonebot_plugin_amrita-0.2.3.tar.gz", hash = "sha256:b97f7bca37a56b34f244230a60192c71854e0f5cfede3502216644fa23d2dd45", size = 35861, upload-time = "2026-07-25T14:51:45.04Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/02/8c/ed57127cea70985ef53389fbcc8eaba1e3e540ff01f5a08fb454418eeecf/nonebot_plugin_amrita-0.2.2-py3-none-any.whl", hash = "sha256:ba02c1fd9ddb7f607244f45f523cd7c65597a0b7588c6407ede1440cac6d0337", size = 33215, upload-time = "2026-07-21T13:36:40.051Z" },
+    { url = "https://files.pythonhosted.org/packages/af/80/2e74aed52a72c11f5b7e1172579ea09f47a8508a39b65307c8e9106dfbde/nonebot_plugin_amrita-0.2.3-py3-none-any.whl", hash = "sha256:f1a1b2337b0ea40f2bef18057e40ac140e7df2556726a4a151c9d107ef43fa43", size = 33250, upload-time = "2026-07-25T14:51:44.082Z" },
 ]
 
 [[package]]

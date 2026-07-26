@@ -63,7 +63,7 @@ async def load():
                             file.stem, "group", g
                         )
                     except Exception as e:
-                        logger.opt(colors=True, exception=e).error(e)
+                        logger.opt(colors=True, exception=e, raw=True).error(e)
         logger.info("Migrating user data to database...")
         for file in dm.user_data_path.iterdir():
             count += 1
@@ -86,7 +86,7 @@ async def load():
                             file.stem, "user", g
                         )
                     except Exception as e:
-                        logger.opt(colors=True, exception=e).error(e)
+                        logger.opt(colors=True, exception=e, raw=True).error(e)
         logger.info(f"更新权限成功，共{count}条数据完成迁移。")
         shutil.rmtree(dm.plugin_data_dir)
         conf: Config = await UniConfigManager().get_config()

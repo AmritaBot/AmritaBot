@@ -36,7 +36,7 @@ class PresetStore:
                     model_data, path.stem, path
                 )
             except Exception as e:  # noqa: PERF203
-                logger.opt(colors=True).error(
+                logger.opt(colors=True, raw=True).error(
                     f"Failed to validate preset '{path!s}' because '{e!s}'"
                 )
 

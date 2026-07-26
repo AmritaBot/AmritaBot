@@ -76,7 +76,7 @@ class TemplatesManager:
 async def _(request: Request, exc: Exception):
     if not isinstance(exc, HTTPException):
         exc = HTTPException(500, exc)
-        logger.opt(exception=exc, colors=True).exception(
+        logger.opt(exception=exc, colors=True, raw=True).exception(
             "An Exception occurred in Amrita WebUI"
         )
     return await handle_http_exc(request, exc)

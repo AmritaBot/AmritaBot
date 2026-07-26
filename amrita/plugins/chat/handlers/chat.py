@@ -498,7 +498,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
                     ):
                         function_name = message.metadata["function_name"]  # type: ignore[typeddict-unknown-key]
                         if (err := message.metadata.get("err")) is not None:
-                            logger.opt(exception=err, colors=True).exception(
+                            logger.opt(exception=err, colors=True, raw=True).exception(
                                 f"Tool {function_name} execution failed: {err}"
                             )
                             await matcher.send(
@@ -521,7 +521,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
                         )
                         return await matcher.send(random.choice(config.llm.block_msg))
                     error = message.metadata["error"]  # type: ignore[typeddict-unknown-key]
-                    logger.opt(exception=error, colors=True).exception(
+                    logger.opt(exception=error, colors=True, raw=True).exception(
                         f"有错误发生:{error}"
                     )
         elif isinstance(message, StringMessageContent):
@@ -598,7 +598,9 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         if isinstance(e, CancelledError):
             return
         await matcher.send("出错了稍后试试吧（错误已反馈）")
-        logger.opt(exception=e, colors=True).exception("程序发生了未捕获的异常")
+        logger.opt(exception=e, colors=True, raw=True).exception(
+            "程序发生了未捕获的异常"
+        )
     finally:
         if chat._di_resp.response is not None:
             insights = await InsightsModel.get()

@@ -130,7 +130,9 @@ async def synthesize_forward_message(forward_msg: dict, bot: Bot) -> str:
                         case "forward":
                             result += f"\\（合并转发:{await synthesize_forward_message(await bot.get_forward_msg(id=segments['data']['id']), bot)}）\\"
         except Exception as e:
-            logger.opt(colors=True, exception=e).warning(f"解析消息时出错：{e!s}'")
+            logger.opt(colors=True, exception=e, raw=True).warning(
+                f"解析消息时出错：{e!s}'"
+            )
             result += f"\n<!--该消息段无法被解析--><origin>{segment!s}</origin>"
         result += "\n"
     return result

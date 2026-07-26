@@ -1871,7 +1871,7 @@ wheels = [
 
 [[package]]
 name = "nonebot-plugin-amrita"
-version = "0.2.3"
+version = "0.2.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiologic" },
@@ -1880,9 +1880,9 @@ dependencies = [
     { name = "nonebot-plugin-orm" },
     { name = "nonebot2" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a3/3d/bb2287ba78e0215372f974b20e9e6726bbd213678b7face965747c66a9f8/nonebot_plugin_amrita-0.2.3.tar.gz", hash = "sha256:b97f7bca37a56b34f244230a60192c71854e0f5cfede3502216644fa23d2dd45", size = 35861, upload-time = "2026-07-25T14:51:45.04Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ea/82/019b0cbbc90753e042c69c48dee2838e78356c479635830073adb2255de3/nonebot_plugin_amrita-0.2.3.1.tar.gz", hash = "sha256:4c040725472e6696e59d28a20af76fbe79f03d2581212c4c1c2c41bf91375b81", size = 35927, upload-time = "2026-07-26T01:26:59.524Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/af/80/2e74aed52a72c11f5b7e1172579ea09f47a8508a39b65307c8e9106dfbde/nonebot_plugin_amrita-0.2.3-py3-none-any.whl", hash = "sha256:f1a1b2337b0ea40f2bef18057e40ac140e7df2556726a4a151c9d107ef43fa43", size = 33250, upload-time = "2026-07-25T14:51:44.082Z" },
+    { url = "https://files.pythonhosted.org/packages/12/aa/e77198a4a853bc9adcff8ebfaadda139ad4dc772cb81c89b22c848cc2234/nonebot_plugin_amrita-0.2.3.1-py3-none-any.whl", hash = "sha256:dcb095f196733ea4e08e83204448720392f75b6615388fcd4e3485298c4ca63f", size = 33354, upload-time = "2026-07-26T01:26:58.368Z" },
 ]
 
 [[package]]
@@ -2566,11 +2566,11 @@ wheels = [
 
 [[package]]
 name = "pytz"
-version = "2026.3"
+version = "2026.3.post1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/96/24/b0c591d81fdb795a3bf65a05ac6dd2a138b80dd0711b3fd84ee630f1fee4/pytz-2026.3.tar.gz", hash = "sha256:3a30feb7a1a04cf0fa0be1624415930843b02f012eb800380f36f906a723e4ae", size = 319698, upload-time = "2026-07-25T11:09:31.453Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/fb/48/fb042503b6ca6cd271261dc559fd6432f7d8c713153e9ec5c591af4dfc1c/pytz-2026.3.post1.tar.gz", hash = "sha256:2211d3fcf9a797d3405cac96ac7f61d80e6a644f72a3309607282fe8a2010c5d", size = 319745, upload-time = "2026-07-25T15:12:07.385Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c4/f5/6d4e606d0a64730dfb99e2096bfc443792716d630385863f9ec38d56338a/pytz-2026.3-py2.py3-none-any.whl", hash = "sha256:f2c90c10a28a593365fe42a654c5a4dc20bc48ad13451735db1c9adb94e039be", size = 508203, upload-time = "2026-07-25T11:09:29.677Z" },
+    { url = "https://files.pythonhosted.org/packages/0f/7b/39c34ca613b0b198cb866466651b26b045e2009864c5183c979a3b83f383/pytz-2026.3.post1-py2.py3-none-any.whl", hash = "sha256:dd95840dd199baea12d9cc096a1d452caa6596a1c1e4b5f3dbd1541855d5e815", size = 508283, upload-time = "2026-07-25T15:12:05.782Z" },
 ]
 
 [[package]]

@@ -48,7 +48,7 @@ def _load_plugin(self, name: str) -> Plugin | None:
                 f"Module {module.__name__} is not loaded as a plugin! "
                 f"Make sure not to import it before loading."
             )
-        logger.opt(colors=True).success(
+        logger.opt(colors=True, raw=True).success(
             f'Succeeded to load plugin "<y>{escape_tag(plugin.id_)}</y>"'
             + (
                 f' from "<m>{escape_tag(plugin.module_name)}</m>"'
@@ -58,7 +58,7 @@ def _load_plugin(self, name: str) -> Plugin | None:
         )
         return plugin
     except Exception as e:
-        logger.opt(colors=True, exception=e).error(
+        logger.opt(colors=True, exception=e, raw=True).error(
             f'<r><bg #f8bbd0>Failed to import "{escape_tag(name)}"</bg #f8bbd0></r>'
         )
         raise LoadError(e) from e
@@ -84,7 +84,7 @@ def main():
         exit(1)
     except Exception as e:
         logger.error("OOPS!There is something wrong while this process is running!")
-        logger.opt(exception=True).error(f"Error!：{type(e).__name__}")
+        logger.opt(exception=True, raw=True).error(f"Error!：{type(e).__name__}")
         exit(1)
     driver.on_startup(exit_test)
     logger.info("Testing pre-startup...")

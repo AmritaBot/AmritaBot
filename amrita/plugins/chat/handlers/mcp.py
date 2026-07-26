@@ -95,7 +95,7 @@ async def add_mcp_server(
         await matcher.send("添加成功")
     except Exception as e:
         await matcher.send(f"添加失败: {e}")
-        logger.opt(exception=e, colors=True).exception(e)
+        logger.opt(exception=e, colors=True, raw=True).exception(e)
 
 
 async def del_mcp_server(matcher: Matcher, mcp_server: str):
@@ -112,7 +112,7 @@ async def del_mcp_server(matcher: Matcher, mcp_server: str):
         await config_manager.save_config()
         await matcher.send("删除成功")
     except Exception as e:
-        logger.opt(exception=e, colors=True).exception(e)
+        logger.opt(exception=e, colors=True, raw=True).exception(e)
         await matcher.finish("删除失败")
 
 
@@ -129,7 +129,7 @@ async def reload(matcher: Matcher):
             await cl.bound_to(client_manager)
         await matcher.send("重载成功")
     except Exception as e:
-        logger.opt(exception=e, colors=True).exception(e)
+        logger.opt(exception=e, colors=True, raw=True).exception(e)
         await matcher.send("重载失败")
 
 
@@ -155,5 +155,5 @@ async def deep_reload(matcher: Matcher):
 
         await matcher.send("完全重载成功")
     except BaseException as e:
-        logger.opt(exception=e, colors=True).exception(e)
+        logger.opt(exception=e, colors=True, raw=True).exception(e)
         await matcher.send("完全重载失败")

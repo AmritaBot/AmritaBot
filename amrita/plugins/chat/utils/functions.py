@@ -130,7 +130,9 @@ async def synthesize_forward_message(forward_msg: dict, bot: Bot) -> str:
                         case "forward":
                             result += f"\\（合并转发:{await synthesize_forward_message(await bot.get_forward_msg(id=segments['data']['id']), bot)}）\\"
         except Exception as e:
-            logger.opt(colors=True, exception=e).warning(f"解析消息时出错：{e!s}'")
+            logger.opt(colors=True, exception=e, raw=True).warning(
+                f"解析消息时出错：{e!s}'"
+            )
             result += f"\n<!--该消息段无法被解析--><origin>{segment!s}</origin>"
         result += "\n"
     return result
@@ -165,7 +167,7 @@ def split_list(lst: list, threshold: int) -> list[Any]:
     return [lst[i : i + threshold] for i in range(0, len(lst), threshold)]
 
 
-def get_current_datetime_timestamp(utc_time: None | datetime = None):
+def get_current_datetime_timestamp(utc_time: datetime | None = None):
     """获取当前时间并格式化为日期、星期和时间字符串"""
     utc_time = utc_time or datetime.now(pytz.utc)
     asia_shanghai = pytz.timezone("Asia/Shanghai")

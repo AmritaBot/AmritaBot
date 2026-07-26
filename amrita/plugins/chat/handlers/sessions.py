@@ -70,7 +70,9 @@ async def sessions(
         except (ValueError, IndexError):
             await matcher.finish("请输入正确的编号")
         except Exception as e:
-            logger.opt(exception=e, colors=True).exception("覆盖记忆文件失败。")
+            logger.opt(exception=e, colors=True, raw=True).exception(
+                "覆盖记忆文件失败。"
+            )
             await matcher.finish("覆盖记忆文件失败，这个对话可能损坏了。")
 
     async def delete_session(
@@ -101,7 +103,9 @@ async def sessions(
         except (ValueError, IndexError):
             await matcher.finish("请输入正确的编号")
         except Exception as e:
-            logger.opt(exception=e, colors=True).exception("删除指定编号会话失败。")
+            logger.opt(exception=e, colors=True, raw=True).exception(
+                "删除指定编号会话失败。"
+            )
             await matcher.finish("删除指定编号会话失败。")
 
     async def archive_session() -> None:
@@ -133,7 +137,9 @@ async def sessions(
         except NoneBotException as e:
             raise e
         except Exception as e:
-            logger.opt(exception=e, colors=True).exception("归档当前会话失败。")
+            logger.opt(exception=e, colors=True, raw=True).exception(
+                "归档当前会话失败。"
+            )
             await matcher.finish("归档当前会话失败。")
 
     async def clear_sessions() -> None:

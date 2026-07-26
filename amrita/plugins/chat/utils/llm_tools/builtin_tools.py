@@ -1,5 +1,4 @@
 from copy import deepcopy
-from typing import Literal
 
 from amrita_core import PreCompletionEvent, simple_tool
 from amrita_core.tools.models import (
@@ -135,11 +134,11 @@ REPORT_TOOL_LOW = ToolFunctionSchema(
 
 
 @simple_tool
-def get_amrita_info(category: Literal["all", "sense", "core", "bot"]) -> str:
+def get_amrita_info(category: str) -> str:
     """Get the AmritaBot's version information
 
     Args:
-        category (str): The category of metadata to get, sense: AmritaSense, core: AmritaCore
+        category (str): The category of metadata to get, available: sense: AmritaSense, core: AmritaCore, bot: AmritaBot itself, all: all metadata
 
     Returns:
         str: metadata of AmritaBot
@@ -152,4 +151,4 @@ def get_amrita_info(category: Literal["all", "sense", "core", "bot"]) -> str:
         "sense": ambot + "\n" + amsense,
         "core": ambot + "\n" + amcore,
         "bot": ambot,
-    }[category]
+    }.get(category, ambot + "\n" + amcore + "\n" + amsense)

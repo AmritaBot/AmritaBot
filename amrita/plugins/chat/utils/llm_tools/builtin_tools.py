@@ -1,6 +1,7 @@
 from copy import deepcopy
+from typing import Literal
 
-from amrita_core import PreCompletionEvent
+from amrita_core import PreCompletionEvent, simple_tool
 from amrita_core.tools.models import (
     FunctionDefinitionSchema,
     FunctionParametersSchema,
@@ -16,6 +17,7 @@ from nonebot.adapters.onebot.v11 import (
 )
 
 from amrita.utils.admin import send_to_admin
+from amrita.utils.utils import get_amrita_version, get_core_version, get_sense_version
 
 
 async def report(
@@ -130,3 +132,24 @@ REPORT_TOOL_LOW = ToolFunctionSchema(
     ),
     strict=True,
 )
+
+
+@simple_tool
+def get_amrita_info(category: Literal["all", "sense", "core", "bot"]) -> str:
+    """Get the AmritaBot's version information
+
+    Args:
+        category (str): The category of metadata to get, sense: AmritaSense, core: AmritaCore
+
+    Returns:
+        str: metadata of AmritaBot
+    """
+    ambot = f"AmritaBot: {get_amrita_version()}"
+    amcore = f"AmritaCore: {get_core_version()}"
+    amsense = f"AmritaSense: {get_sense_version()}"
+    return {
+        "all": ambot + "\n" + amcore + "\n" + amsense,
+        "sense": ambot + "\n" + amsense,
+        "core": ambot + "\n" + amcore,
+        "bot": ambot,
+    }[category]

@@ -61,6 +61,32 @@ class ToolsConfig(BaseModel):
     )
 
 
+class StepLifecycleConfig(BaseModel):
+    """Step 生命周期消息开关（type=step）"""
+
+    decompose: bool = Field(default=True, description="分解决策（simple/DAG）")
+    intro: bool = Field(default=True, description="进入 Step（phase/编号/描述）")
+    leave: bool = Field(default=True, description="离开 Step（摘要动词/宾语）")
+    stall: bool = Field(default=True, description="停滞检测（重复工具签名）")
+    compress: bool = Field(default=True, description="Step 间压缩（tokens/阈值）")
+
+
+class MetaInfoConfig(BaseModel):
+    """元信息消息显示开关（Core 通过 io_stream 推送的 MessageWithMetadata）"""
+
+    enable: bool = Field(default=True, description="元信息总开关")
+    step: StepLifecycleConfig = Field(
+        default_factory=StepLifecycleConfig, description="Step 生命周期消息开关"
+    )
+    reflection: bool = Field(default=True, description="反思结果（pass/warning/fail）")
+    error_report: bool = Field(
+        default=True, description="错误报告：loop_reasoning / Agent 运行失败"
+    )
+    stream_reasoning: bool = Field(
+        default=False, description="流式思考块（单token粒度，默认关闭避免刷屏）"
+    )
+
+
 class SessionConfig(BaseModel):
     session_control: bool = Field(default=False, description="是否启用会话超时自动清理")
     session_allow_continue: bool = Field(default=True, description="是否允许会话继续")
@@ -221,6 +247,9 @@ class Config(BaseModel):
         default=ModelPreset(), description="默认预设配置"
     )
     session: SessionConfig = Field(default=SessionConfig(), description="会话管理配置")
+    meta: MetaInfoConfig = Field(
+        default=MetaInfoConfig(), description="元信息消息显示开关"
+    )
     autoreply: AutoReplyConfig = Field(
         default=AutoReplyConfig(), description="自动回复设置"
     )

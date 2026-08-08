@@ -17,6 +17,7 @@ pardon_group = pardon.command(
         name="解封群组",
         description="用于解封群",
         usage="/pardon.group <group-id>",
+        show_if="lp.admin",
     ).model_dump(),
 )
 pardon_user = pardon.command(
@@ -25,6 +26,7 @@ pardon_user = pardon.command(
         name="解封用户",
         description="用于解封用户",
         usage="/pardon.user <user-id>",
+        show_if="lp.admin",
     ).model_dump(),
 )
 

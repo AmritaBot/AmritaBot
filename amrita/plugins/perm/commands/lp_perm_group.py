@@ -191,6 +191,7 @@ async def _(matcher: Matcher):
         name="lp权限组配置",
         description="配置权限组权限",
         usage="/lp.perm_group.[to|parent|permission|list]",
+        show_if="lp.admin",
     ).model_dump(),
 ).handle()
 async def lp_perm_group(

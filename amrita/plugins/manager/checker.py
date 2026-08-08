@@ -130,6 +130,7 @@ async def _(event: GroupBanNoticeEvent):
         name="Bot可用状态设置",
         usage="/set_enable <true/false>",
         description="设置Bot状态",
+        show_if="lp.admin",
     ).model_dump(),
 ).handle()
 async def _(event: MessageEvent, matcher: Matcher, args: Message = CommandArg()):

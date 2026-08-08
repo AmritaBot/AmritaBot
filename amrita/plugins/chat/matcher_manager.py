@@ -63,6 +63,7 @@ base_matcher.on_command(
     state=MatcherData(
         name="模型管理",
         description="查看、切换与测试模型",
+        show_if="lp.admin",
         usage=(
             "/model — 查看当前模型；"
             "/model list — 可用模型；"
@@ -144,6 +145,7 @@ base_matcher.on_command(
     state=MatcherData(
         name="调试模式",
         description="调试模式开关（on/off/status）",
+        show_if="lp.admin",
         usage="/debug <on|off|status>",
     ).model_dump(),
 ).append_handler(debug_switchs)
@@ -169,6 +171,7 @@ base_matcher.on_command(
     state=MatcherData(
         name="mcp",
         description="管理MCP服务",
+        show_if="lp.admin",
         usage="/mcp <stats [-d|--details];add <server_script>;del <server_script>;reload>",
     ).model_dump(),
 ).append_handler(mcp_command)

@@ -12,6 +12,7 @@ clean_groups = on_command(
         name="无用群组清理",
         description="清理人数小于20的无效聊群",
         usage="/clean_groups",
+        show_if="lp.admin",
     ).model_dump(),
 )
 

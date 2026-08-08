@@ -9,6 +9,10 @@ class MatcherData(pydantic.BaseModel):
     usage: str | None = pydantic.Field(default=None, description="功能用法")
     description: str = pydantic.Field(..., description="功能描述")
     related: str | None = pydantic.Field(description="父级菜单", default=None)
+    show_if: str | None = pydantic.Field(
+        default=None,
+        description="权限节点，调用者不满足该节点则不展示该功能（None=总是展示）",
+    )
 
 
 class PluginData:

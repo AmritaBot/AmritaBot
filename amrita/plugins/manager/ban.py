@@ -15,6 +15,7 @@ ban_group = ban.command(
         name="封禁群",
         usage="/ban.group",
         description="封禁聊群",
+        show_if="lp.admin",
     ).model_dump(),
 )
 ban_user = ban.command(
@@ -23,6 +24,7 @@ ban_user = ban.command(
         name="封禁用户",
         description="用于封禁用户",
         usage="/ban.user <user-id> [原因]",
+        show_if="lp.admin",
     ).model_dump(),
 )
 

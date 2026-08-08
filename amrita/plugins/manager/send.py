@@ -15,6 +15,7 @@ group = send.command(
         name="推送群消息",
         description="用于向一个群发送消息",
         usage="/send_to.group [群号] [消息]",
+        show_if="lp.admin",
     ).model_dump(),
 )
 user = send.command(
@@ -23,6 +24,7 @@ user = send.command(
         name="推送私聊消息",
         description="用于向一个用户发送消息",
         usage="/send_to.user [用户ID] [消息]",
+        show_if="lp.admin",
     ).model_dump(),
 )
 

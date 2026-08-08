@@ -3,8 +3,7 @@
 该模块负责管理聊天插件中的所有事件匹配器，包括消息、命令和通知事件的处理。
 """
 
-from nonebot import MatcherGroup, on_command
-from nonebot.permission import Permission
+from nonebot import MatcherGroup
 from nonebot.rule import Rule
 
 from ..menu.models import MatcherData
@@ -15,27 +14,18 @@ from .check_rule import (
     is_group_admin_if_is_in_group,
     should_respond_with_usage_check,
 )
-from .handlers.abstract import abstract_show
 from .handlers.add_notices import add_notices
 from .handlers.chat import entry as chat
+from .handlers.chat_switch import chat as chat_switch
 from .handlers.chatobj import chatobj_manage
-from .handlers.choose_prompt import choose_prompt
 from .handlers.debug_switchs import debug_switchs
-from .handlers.del_memory import del_memory
-from .handlers.disable import disable
-from .handlers.enable import enable
-from .handlers.fakepeople_switch import switch
 from .handlers.insights import insights
-from .handlers.mcp import (
-    mcp_command,
-)
+from .handlers.mcp import mcp_command
+from .handlers.model import model
 from .handlers.poke_event import poke_event
-from .handlers.preset_test import t_preset
-from .handlers.presets import presets
 from .handlers.prompt import prompt
 from .handlers.recall import recall
-from .handlers.sessions import sessions
-from .handlers.set_preset import set_preset
+from .handlers.session_cmd import session
 
 # 创建基础匹配器组，所有匹配器都需满足is_bot_enabled规则
 base_matcher = MatcherGroup(rule=is_bot_enabled)
@@ -63,50 +53,90 @@ base_matcher.on_message(
     rule=Rule(should_respond_with_usage_check, is_bot_enabled),
 ).append_handler(chat)
 
+# 模型域
 base_matcher.on_command(
-    "abstract",
+    "model",
+    aliases={"模型", "切换模型", "模型管理"},
+    priority=10,
+    block=True,
+    permission=is_bot_admin,
     state=MatcherData(
-        name="查看摘要", description="查看当前会话的摘要", usage="/abstract [clear]"
+        name="模型管理",
+        description="查看、切换与测试模型",
+        show_if="lp.admin",
+        usage=(
+            "/model — 查看当前模型；"
+            "/model list — 可用模型；"
+            "/model switch <名> — 切换；"
+            "/model info — 当前详情；"
+            "/model test [名] [-d] — 测试"
+        ),
     ).model_dump(),
-).append_handler(abstract_show)
-# 添加各种命令处理器
+).append_handler(model)
+
+# 提示词域
 base_matcher.on_command(
     "prompt",
     priority=10,
     block=True,
-    permission=Permission(is_group_admin_if_is_in_group),
+    permission=is_group_admin_if_is_in_group,
     state=MatcherData(
-        name="设置系统提示",
-        description="设置系统提示词，用于指导AI回复",
-        usage="/prompt <提示词内容>",
+        name="提示词管理",
+        description="设置自定义提示词与切换模板",
+        usage=(
+            "/prompt — 查看；"
+            "/prompt set <文本> — 设置；"
+            "/prompt clear — 清空；"
+            "/prompt template [group|private] [名称] — 模板"
+        ),
     ).model_dump(),
 ).append_handler(prompt)
 
+# 会话域
 base_matcher.on_command(
-    "presets",
+    "session",
+    aliases={"会话", "会话管理"},
     priority=10,
     block=True,
-    permission=is_bot_admin,
+    force_whitespace=True,
+    permission=is_group_admin_if_is_in_group,
     state=MatcherData(
-        name="预设列表",
-        description="查看所有可用的预设列表",
-        usage="/presets",
+        name="会话管理",
+        description="会话信息、历史、压缩与记忆管理",
+        usage=(
+            "/session info — 元信息；"
+            "/session list — 历史；"
+            "/session use <编号> — 恢复；"
+            "/session del <编号> — 删除；"
+            "/session archive — 归档；"
+            "/session clear — 清空；"
+            "/session compact [force] — 压缩；"
+            "/session forget — 清除记忆；"
+            "/session abstract [clear] — 摘要"
+        ),
     ).model_dump(),
-).append_handler(presets)
+).append_handler(session)
 
+# 聊天开关域
 base_matcher.on_command(
-    "set_preset",
-    aliases={"设置预设", "设置模型预设"},
+    "chat",
+    aliases={"聊天开关", "chat_switch"},
     priority=10,
     block=True,
-    permission=is_bot_admin,
+    permission=is_group_admin,
     state=MatcherData(
-        name="设置预设",
-        description="设置当前会话使用的预设",
-        usage="/set_preset <预设名>",
+        name="聊天开关",
+        description="开启/关闭聊天与自动回复",
+        usage=(
+            "/chat — 状态；"
+            "/chat on|off — 聊天开关；"
+            "/chat auto <on|off> — 自动回复；"
+            "/chat status — 状态"
+        ),
     ).model_dump(),
-).append_handler(set_preset)
+).append_handler(chat_switch)
 
+# 调试
 base_matcher.on_command(
     "debug",
     priority=10,
@@ -114,86 +144,13 @@ base_matcher.on_command(
     permission=is_bot_admin,
     state=MatcherData(
         name="调试模式",
-        description="切换调试模式，用于查看详细日志",
-        usage="/debug <on|off>",
+        description="调试模式开关（on/off/status）",
+        show_if="lp.admin",
+        usage="/debug <on|off|status>",
     ).model_dump(),
 ).append_handler(debug_switchs)
 
-base_matcher.on_command(
-    "autochat",
-    aliases={"自动回复", "autoreply"},
-    priority=10,
-    block=True,
-    permission=is_group_admin,
-    state=MatcherData(
-        name="自动聊天开关",
-        description="切换自动回复模式",
-        usage="/autochat <on|off>",
-    ).model_dump(),
-).append_handler(switch)
-
-base_matcher.on_command(
-    "choose_prompt",
-    priority=10,
-    block=True,
-    permission=is_bot_admin,
-    state=MatcherData(
-        name="选择提示词",
-        description="从预设提示词中选择一个",
-        usage="/choose_prompt",
-    ).model_dump(),
-).append_handler(choose_prompt)
-
-base_matcher.on_command(
-    "sessions",
-    priority=10,
-    block=True,
-    permission=is_group_admin_if_is_in_group,
-    state=MatcherData(
-        name="会话管理",
-        description="管理当前所有会话",
-        usage="/sessions [list|clear|set|del|archive|help]",
-    ).model_dump(),
-).append_handler(sessions)
-
-base_matcher.on_command(
-    "del_memory",
-    aliases={"失忆", "删除记忆", "删除回忆"},
-    block=True,
-    priority=10,
-    state=MatcherData(
-        name="删除记忆",
-        description="删除AI的历史记忆",
-        usage="/del_memory",
-    ).model_dump(),
-).append_handler(del_memory)
-
-on_command(
-    "enable",
-    aliases={"启用聊天", "enable_chat"},
-    block=True,
-    priority=10,
-    permission=is_group_admin,
-    state=MatcherData(
-        name="启用聊天",
-        description="在当前群组启用AI聊天功能",
-        usage="/enable",
-    ).model_dump(),
-).append_handler(enable)
-
-on_command(
-    "disable",
-    aliases={"禁用聊天", "disable_chat"},
-    block=True,
-    priority=10,
-    permission=is_group_admin,
-    state=MatcherData(
-        name="禁用聊天",
-        description="在当前群组禁用AI聊天功能",
-        usage="/disable",
-    ).model_dump(),
-).append_handler(disable)
-
+# 用量统计
 base_matcher.on_command(
     "insights",
     aliases={"今日用量"},
@@ -206,19 +163,7 @@ base_matcher.on_command(
     ).model_dump(),
 ).append_handler(insights)
 
-base_matcher.on_command(
-    "test_preset",
-    aliases={"测试预设"},
-    block=True,
-    priority=10,
-    state=MatcherData(
-        name="测试预设",
-        description="测试所有预设,--details查看详细结果",
-        usage="/test_preset [-d|--details]",
-    ).model_dump(),
-    permission=is_bot_admin,
-).append_handler(t_preset)
-
+# MCP 管理
 base_matcher.on_command(
     "mcp",
     aliases={"MCP管理"},
@@ -226,10 +171,12 @@ base_matcher.on_command(
     state=MatcherData(
         name="mcp",
         description="管理MCP服务",
+        show_if="lp.admin",
         usage="/mcp <stats [-d|--details];add <server_script>;del <server_script>;reload>",
     ).model_dump(),
 ).append_handler(mcp_command)
 
+# 会话进程管理
 base_matcher.on_command(
     "chatobj",
     aliases={"chat_obj"},

@@ -61,6 +61,32 @@ class ToolsConfig(BaseModel):
     )
 
 
+class StepLifecycleConfig(BaseModel):
+    """Step 生命周期消息开关（type=step）"""
+
+    decompose: bool = Field(default=True, description="分解决策（simple/DAG）")
+    intro: bool = Field(default=True, description="进入 Step（phase/编号/描述）")
+    leave: bool = Field(default=True, description="离开 Step（摘要动词/宾语）")
+    stall: bool = Field(default=True, description="停滞检测（重复工具签名）")
+    compress: bool = Field(default=True, description="Step 间压缩（tokens/阈值）")
+
+
+class MetaInfoConfig(BaseModel):
+    """元信息消息显示开关（Core 通过 io_stream 推送的 MessageWithMetadata）"""
+
+    enable: bool = Field(default=True, description="元信息总开关")
+    step: StepLifecycleConfig = Field(
+        default_factory=StepLifecycleConfig, description="Step 生命周期消息开关"
+    )
+    reflection: bool = Field(default=True, description="反思结果（pass/warning/fail）")
+    error_report: bool = Field(
+        default=True, description="错误报告：loop_reasoning / Agent 运行失败"
+    )
+    stream_reasoning: bool = Field(
+        default=False, description="流式思考块（单token粒度，默认关闭避免刷屏）"
+    )
+
+
 class SessionConfig(BaseModel):
     session_control: bool = Field(default=False, description="是否启用会话超时自动清理")
     session_allow_continue: bool = Field(default=True, description="是否允许会话继续")
@@ -97,12 +123,13 @@ class FunctionConfig(BaseModel):
             "  legacy — [群主][张三（12345）]说:内容（紧凑但LLM易误解析）"
         ),
     )
-    chat_pending_mode: Literal["single", "queue", "single_with_report"] = Field(
+    chat_pending_mode: Literal["single", "queue", "single_with_report", "interactive"] = Field(
         default="queue",
         description="聊天时，如果同一个Session并发调用但是上一条消息没有处理完时插件的行为。\n"
         + "single: 忽略这条消息；\n"
         + "queue: 等待上一条消息处理完再处理；\n"
-        + "single_with_report: 忽略这条消息并提示用户正在等待。",
+        + "single_with_report: 忽略这条消息并提示用户正在等待。；\n"
+        + "interactive: 将消息通过反向流推送给正在运行的ChatObject（Step边界消费）",
     )
     synthesize_forward_message: bool = Field(
         default=True, description="是否解析合并转发消息"
@@ -124,6 +151,14 @@ class FunctionConfig(BaseModel):
     )
     chat_object_keep_count: int = Field(
         default=10, description="单会话聊天对象保存数量限制"
+    )
+    forward_threshold: int = Field(
+        default=200,
+        description="最终响应超过该字符数时改用合并转发发送（0=禁用）",
+    )
+    forward_min_chunk: int = Field(
+        default=500,
+        description="合并转发时每个分块的最小字符数，不满足则不分块",
     )
 
     @property
@@ -221,6 +256,9 @@ class Config(BaseModel):
         default=ModelPreset(), description="默认预设配置"
     )
     session: SessionConfig = Field(default=SessionConfig(), description="会话管理配置")
+    meta: MetaInfoConfig = Field(
+        default=MetaInfoConfig(), description="元信息消息显示开关"
+    )
     autoreply: AutoReplyConfig = Field(
         default=AutoReplyConfig(), description="自动回复设置"
     )

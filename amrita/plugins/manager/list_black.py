@@ -16,6 +16,7 @@ black_list = on_command(
         name="列出黑名单",
         description="用于列出黑名单",
         usage="/blacklist",
+        show_if="amrita.blacklist",
     ).model_dump(),
     permission=Permission(
         is_lp_admin, UserPermissionChecker("amrita.blacklist").checker()

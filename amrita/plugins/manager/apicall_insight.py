@@ -13,7 +13,9 @@ from .checker import APICalledRepo
     aliases={"OneBot状态", "protocol_stats"},
     permission=is_lp_admin,
     state=MatcherData(
-        name="api_stats", description="获取OneBotV11 API调用状态"
+        name="api_stats",
+        description="获取OneBotV11 API调用状态",
+        show_if="lp.admin",
     ).model_dump(),
 ).handle()
 async def _(bot: Bot, event: MessageEvent):

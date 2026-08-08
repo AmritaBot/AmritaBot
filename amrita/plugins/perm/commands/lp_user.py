@@ -186,6 +186,7 @@ async def lp_user_perm_group(
         name="lp用户权限配置",
         description="配置特定用户权限",
         usage="/lp.user.[perm_group|parent|permission]",
+        show_if="lp.admin",
     ).model_dump(),
 ).handle()
 async def lp_user(

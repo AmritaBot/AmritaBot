@@ -2,7 +2,6 @@
 
 import asyncio
 import contextlib
-import random
 from asyncio import CancelledError
 from datetime import datetime
 
@@ -15,22 +14,15 @@ from amrita_core import (
     logger,
     text_generator,
 )
-from amrita_core.base.adapter import COMPLETION_RETURNING
 from amrita_core.builtins.agent import (
     HybridReActAgentStrategy,
     NoActionAgentStrategy,
     ReActAgentStrategy,
-    gather_usage,
 )
 from amrita_core.chatmanager import (
     ChatObject as CoreChatObject,
 )
-from amrita_core.chatmanager.chat_object import DatabackendOptions
-from amrita_core.contents import (
-    ImageMessage,
-    MessageWithMetadata,
-    StringMessageContent,
-)
+from amrita_core.chatmanager.chat_object import DatabackendOptions, gather_usage
 from amrita_core.tokenizer import hybrid_token_count
 from amrita_core.types import USER_INPUT, Content, ImageContent, ImageUrl
 from amrita_sense.hook.exception import MatcherException as ChatException
@@ -38,7 +30,6 @@ from beartype.typing import Sequence
 from nonebot import get_driver
 from nonebot.adapters.onebot.v11 import (
     Bot,
-    MessageSegment,
 )
 from nonebot.adapters.onebot.v11.event import (
     GroupMessageEvent,
@@ -51,20 +42,18 @@ from nonebot_plugin_amrita.database import (
     InsightsModel,
 )
 from nonebot_plugin_amrita.memory import CachedUserDataRepository, MemorySchema
-from pytz import utc
 
 from amrita.plugins.chat.config import ConfigManager, config_manager
 from amrita.plugins.chat.runtime import (
     AMRITA_CTX_KEY,
     AmritaBotContext,
     bot_chat_manager,
-    get_amrita_ctx,
     pending_chatobj,
 )
 from amrita.plugins.chat.runtime_session import SessionManager
+from amrita.plugins.chat.utils.context import build_train_dict
 from amrita.plugins.chat.utils.functions import (
     get_friend_name,
-    split_message_into_chats,
     synthesize_message,
 )
 from amrita.plugins.chat.utils.libchat import add_usage
@@ -72,7 +61,7 @@ from amrita.plugins.chat.utils.lock import get_group_lock, get_private_lock
 from amrita.plugins.chat.utils.sql import (
     get_uni_user_id,
 )
-from amrita.utils.admin import send_to_admin
+from amrita.plugins.chat.utils.stream_sender import ChatStreamSender, NoMessageSendError
 
 command_prefix = get_driver().config.command_start or "/"
 
@@ -202,27 +191,6 @@ async def get_user_role(bot: Bot, group_id: int, user_id: int) -> str:
     return role_str
 
 
-async def send_response(chat: CoreChatObject, response: str):
-    """发送聊天模型的回复，根据配置选择不同的发送方式。"""
-    ctx = get_amrita_ctx(chat)
-    matcher = ctx["matcher"]
-    bot_config = ctx["bot_config"]
-    event = ctx["event"]
-
-    chat.last_call = datetime.now(utc)
-    debug_log(f"发送响应: {response[:50]}..")  # 只显示前50个字符
-    if not bot_config.function.nature_chat_style:
-        await matcher.send(
-            MessageSegment.reply(event.message_id) + MessageSegment.text(response)
-        )
-    elif response_list := split_message_into_chats(response):
-        for message in response_list:
-            await matcher.send(MessageSegment.text(message))
-            await asyncio.sleep(
-                random.randint(1, 3) + (len(message) // random.randint(80, 100))
-            )
-
-
 def synthesize_message_to_msg(
     event: MessageEvent,
     role: str,
@@ -307,13 +275,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     ):
         matcher.skip()
     session_id = get_uni_user_id(event)
-    train = (
-        config_manager.group_train
-        if isinstance(event, GroupMessageEvent)
-        else config_manager.private_train
-    )
     config = ConfigManager().config
-    can_send_message: bool = True
     cudr = CachedUserDataRepository()
 
     #  阶段 1：加载 memory 与会话管理
@@ -387,59 +349,8 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         case _:
             raise ValueError(f"Invalid agent strategy: {config.llm.agent_strategy}")
 
-    # 构建定制化的 system prompt
-    msg_type = config.function.message_type
-
-    if msg_type == "xml":
-        format_desc = (
-            "你的工作环境是一个社交软件。**输入**的聊天记录使用 XML 标签标记：\n"
-            '  <msg role="群主/管理员/普通成员/自己" name="昵称" uid="QQ号">\n'
-            "  消息内容（多行）\n"
-            "  </msg>\n"
-            "引用消息使用 <ref name='...' uid='...'>...</ref> 包裹。\n"
-            "你的**输出**必须是纯自然语言文本，**严禁**输出任何 XML 标签、属性或类似的结构化标记。\n"
-            "正确示例：\n"
-            "  输入：<msg role='普通成员' name='张三' uid='12345'>今天天气真好</msg>\n"
-            "  输出：今天天气真好呢。\n"
-            "错误示例（**禁止**）：\n"
-            "  输入：<msg role='普通成员' name='张三' uid='12345'>今天天气真好</msg>\n"
-            "  输出：<msg role='自己' name='爱丽丝' uid='67890'>是啊，阳光明媚。</msg>\n"
-        )
-    else:
-        format_desc = (
-            "你的工作环境是一个社交软件。所有**输入**的聊天记录遵循以下格式：\n"
-            "- 每条消息以 [身份] 开头，方括号内是消息发送者的身份标记（群主/管理员/普通成员/自己）\n"
-            "- 身份后跟 [昵称（QQ号）] 再跟 说:内容\n"
-            "  示例: [普通成员][张三（12345）]说:今天天气真好\n"
-            "- 用户输入中已对特殊字符做了全角转义（［ ］ 说：），避免与格式标记混淆\n"
-            "你的**输出**必须是纯自然语言文本，**严禁**使用上述方括号或“说:”格式，也不能添加任何身份、昵称或QQ号标记。\n"
-            "正确示例：\n"
-            "  输入：[普通成员][张三（12345）]说:今天天气真好\n"
-            "  输出：今天天气真好呢。\n"
-            "错误示例（**禁止**）：\n"
-            "  输入：[普通成员][张三（12345）]说:今天天气真好\n"
-            "  输出：[自己][爱丽丝（67890）]说:是啊，阳光明媚。\n"
-        )
-    train_content = (
-        "<SCHEMA_EXTENSIONS>\n"
-        + "你在纯文本环境工作，不允许使用MarkDown回复。"
-        + f"<IO_REQUIREMENT>\n{format_desc}\n</IO_REQUIREMENT>"
-        + "请以你自己的角色身份参与讨论，交流时不同话题尽量不使用相似句式回复。"
-        + "`<EXTRA>`规则仅作为补充，如果与EXTRA规则上文有冲突，请遵循上文规则。"
-        + "\n</SCHEMA_EXTENSION>\n"
-        + (
-            train["content"]
-            .replace("{self_id}", str(event.self_id))
-            .replace("{user_id}", str(event.user_id))
-            .replace("{user_name}", str(event.sender.nickname))
-        )
-        + (
-            f"<EXTRA>\n（此处是EXTRA规则，如果与上文有任何冲突，请忽略此EXTRA规则）\n{memory.extra_prompt}\n</EXTRA>"
-            if config.function.allow_custom_prompt
-            else ""
-        )
-    )
-    train_dict = {"role": "system", "content": train_content}
+    # 构建定制化的 system prompt（与 /compact、/session info 共用同一构建逻辑）
+    train_dict = build_train_dict(event, memory, config)
 
     #  阶段 4：创建 ChatObject
     ctx: AmritaBotContext = {
@@ -470,67 +381,8 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     )
 
     #  阶段 5：设置回调并启动
-    async def on_stream_message(message: COMPLETION_RETURNING):
-        nonlocal can_send_message
-        if isinstance(message, str):
-            return
-        elif isinstance(message, MessageWithMetadata):
-            match message.metadata.get("type", ""):
-                case "system":
-                    if message.metadata["extra_type"] == "tool_call_limit":
-                        await matcher.send(
-                            "⚠️ 已超出工具调用限制，请调整你的prompt以继续。"
-                        )
-                    else:
-                        await matcher.send(message.content)
-                case "reasoning":
-                    if not config.core.builtin.agent_reasoning_hide:
-                        await matcher.send(message.content)
-                case "tool_prediction":
-                    if config.core.builtin.agent_tool_call_notice == "notify":
-                        await matcher.send("⏩ 已决定工具调用")
-                case "middle_message":
-                    await matcher.send(f"💬 {message.content}")
-                case "function_call":
-                    if (
-                        message.metadata["is_done"]  # type: ignore[typeddict-unknown-key]
-                        and config.core.builtin.agent_tool_call_notice == "notify"
-                    ):
-                        function_name = message.metadata["function_name"]  # type: ignore[typeddict-unknown-key]
-                        if (err := message.metadata.get("err")) is not None:
-                            logger.opt(exception=err, colors=True, raw=True).exception(
-                                f"Tool {function_name} execution failed: {err}"
-                            )
-                            await matcher.send(
-                                f"ERR: {function_name} 执行失败",
-                            )
-                        else:
-                            await matcher.send(f"调用了工具：{function_name}")
-                case "text":
-                    if (
-                        message.metadata["extra_type"] == "structured_reasoning_step"
-                        and not config.core.builtin.agent_reasoning_hide
-                    ):
-                        await matcher.send(message.content)
-                case "error":
-                    if message.metadata.get("extra_type") == "cookie":
-                        can_send_message = False
-                        assert chat._di_resp.response
-                        await send_to_admin(
-                            f"安全警告：用户请求导致了可能的Prompt泄露。已在response检测到cookie泄露，请检查！\n用户请求：\n{chat.user_input!s}\n模型模型输出：\n{chat._di_resp.response.content!s}"
-                        )
-                        return await matcher.send(random.choice(config.llm.block_msg))
-                    error = message.metadata["error"]  # type: ignore[typeddict-unknown-key]
-                    logger.opt(exception=error, colors=True, raw=True).exception(
-                        f"有错误发生:{error}"
-                    )
-        elif isinstance(message, StringMessageContent):
-            await matcher.send(message.get_content())
-        elif isinstance(message, ImageMessage):
-            msg = MessageSegment.image(await message.get_image())
-            await matcher.send(msg)
-
-    chat.io_stream.set_callback_func(on_stream_message)
+    stream_sender = ChatStreamSender(matcher, bot, event, config, chat)
+    chat.io_stream.set_callback_func(stream_sender.handle)
 
     lock = (
         get_group_lock(event.group_id) if is_group else get_private_lock(event.user_id)
@@ -545,6 +397,28 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
             if lock.locked():
                 debug_log("聊天已被锁定，发送报告")
                 await matcher.finish("聊天任务正在处理中，请稍后再试")
+        case "interactive":
+            if lock.locked():
+                # 锁被占用：不排队不跳过，通过反向流把本条消息推给正在运行的 ChatObject
+                # Core 在下一个 Step 边界将其消费为 [peer message] 追加到上下文
+                debug_log("聊天已被锁定，推送给正在运行的 ChatObject")
+                running_chat = next(
+                    (
+                        obj
+                        for obj in pending_chatobj[session_id]
+                        if obj.is_running()
+                    ),
+                    None,
+                )
+                if running_chat is not None:
+                    text = event.message.extract_plain_text().strip()
+                    try:
+                        await running_chat.io_stream.send_to_producer(text)
+                    except Exception as e:
+                        logger.opt(
+                            exception=e, colors=True, raw=True
+                        ).warning("推送交互消息失败，已静默丢弃。")
+                return matcher.stop_propagation()
 
     try:
         pending_chatobj[session_id].append(chat)
@@ -583,9 +457,10 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
                 response_received = True
                 memory.memory_json = chat.data
                 await cudr.update_memory_data(memory)
-                if can_send_message:
-                    assert chat._di_resp.response is not None
-                    await send_response(chat, chat._di_resp.response.content)
+                if chat._di_resp.response is not None:
+                    # 钩子可能抛出 NoMessageSendError 静默拦截，不发送、不报错
+                    with contextlib.suppress(NoMessageSendError):
+                        await stream_sender.send_final(chat._di_resp.response.content)
         finally:
             # 兜底：异常时清理 pending
             if chat in pending_chatobj[session_id]:

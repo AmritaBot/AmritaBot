@@ -87,7 +87,7 @@ def format_chat_object_info(obj: ChatObject) -> str:
     }
 
     if in_pending:
-        status = "⏳ Pending (等待锁)"
+        status = "⏳ Pending"
     elif obj.get_exception():
         status = f"❌ Error ({type(obj.get_exception()).__name__})"
     elif obj.is_done():

@@ -138,7 +138,10 @@ def create_system_info_image(system_info: list[str]):
 @on_command(
     "status",
     state=MatcherData(
-        description="查看系统状态", name="查看系统状态", usage="/status"
+        description="查看系统状态",
+        name="查看系统状态",
+        usage="/status",
+        show_if="amrita.status",
     ).model_dump(),
     permission=Permission(any_has_permission("amrita.status"), is_lp_admin),
 ).handle()

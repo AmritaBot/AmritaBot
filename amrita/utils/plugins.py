@@ -4,7 +4,7 @@ from pathlib import Path
 from venv import logger
 
 import nonebot
-import toml
+import tomli
 
 
 def add_module_dir(module_dir: str):
@@ -38,7 +38,9 @@ def load_plugins():
     nonebot.logger.info("Loading plugins......")
     from amrita.models.pyproject import PyprojectFile
 
-    meta = PyprojectFile.model_validate(toml.load("pyproject.toml"))
+    with open("pyproject.toml", "rb") as f:
+        meta = PyprojectFile.model_validate(tomli.load(f))
+
     for plugin in meta.tool.nonebot.plugins:
         nonebot.logger.debug(f"Loading NoneBot plugin {plugin}...")
         try:

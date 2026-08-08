@@ -181,6 +181,7 @@ async def lp_group_perm_group(
         name="lp聊群权限配置",
         description="配置特定群权限",
         usage="/lp.chat_group.[perm_group|parent|permission]",
+        show_if="lp.admin",
     ).model_dump(),
 ).handle()
 async def lp_group(

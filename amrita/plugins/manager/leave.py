@@ -15,6 +15,7 @@ from amrita.utils.admin import send_to_admin
         name="退出指定聊群",
         description="用于退出聊群",
         usage="/set_leave [<group-id>|--this]",
+        show_if="lp.admin",
     ).model_dump(),
 ).handle()
 async def leave(

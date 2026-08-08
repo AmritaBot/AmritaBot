@@ -89,13 +89,6 @@ class SetupTool(BaseModel):
 
     packages: SetupToolPackages = SetupToolPackages()
 
-
-class UVTool(BaseModel):
-    """uv 工具配置模型"""
-
-    package: bool = True
-
-
 class AmritaTool(BaseModel):
     """Amrita 工具配置模型"""
 
@@ -113,7 +106,6 @@ class Tool(BaseModel):
     nonebot: NonebotTool = NonebotTool()
     amrita: AmritaTool = AmritaTool()
     ruff: RUFFTool = RUFFTool()
-    uv: UVTool = UVTool()
     pyright: dict[str, Any] = Field(
         default_factory=lambda: {"typeCheckingMode": "standard"}
     )

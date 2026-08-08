@@ -397,6 +397,28 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
             if lock.locked():
                 debug_log("聊天已被锁定，发送报告")
                 await matcher.finish("聊天任务正在处理中，请稍后再试")
+        case "interactive":
+            if lock.locked():
+                # 锁被占用：不排队不跳过，通过反向流把本条消息推给正在运行的 ChatObject
+                # Core 在下一个 Step 边界将其消费为 [peer message] 追加到上下文
+                debug_log("聊天已被锁定，推送给正在运行的 ChatObject")
+                running_chat = next(
+                    (
+                        obj
+                        for obj in pending_chatobj[session_id]
+                        if obj.is_running()
+                    ),
+                    None,
+                )
+                if running_chat is not None:
+                    text = event.message.extract_plain_text().strip()
+                    try:
+                        await running_chat.io_stream.send_to_producer(text)
+                    except Exception as e:
+                        logger.opt(
+                            exception=e, colors=True, raw=True
+                        ).warning("推送交互消息失败，已静默丢弃。")
+                return matcher.stop_propagation()
 
     try:
         pending_chatobj[session_id].append(chat)

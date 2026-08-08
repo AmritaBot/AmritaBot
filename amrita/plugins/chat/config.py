@@ -123,12 +123,13 @@ class FunctionConfig(BaseModel):
             "  legacy — [群主][张三（12345）]说:内容（紧凑但LLM易误解析）"
         ),
     )
-    chat_pending_mode: Literal["single", "queue", "single_with_report"] = Field(
+    chat_pending_mode: Literal["single", "queue", "single_with_report", "interactive"] = Field(
         default="queue",
         description="聊天时，如果同一个Session并发调用但是上一条消息没有处理完时插件的行为。\n"
         + "single: 忽略这条消息；\n"
         + "queue: 等待上一条消息处理完再处理；\n"
-        + "single_with_report: 忽略这条消息并提示用户正在等待。",
+        + "single_with_report: 忽略这条消息并提示用户正在等待。；\n"
+        + "interactive: 将消息通过反向流推送给正在运行的ChatObject（Step边界消费）",
     )
     synthesize_forward_message: bool = Field(
         default=True, description="是否解析合并转发消息"

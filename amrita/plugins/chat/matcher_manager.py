@@ -20,6 +20,7 @@ from .handlers.add_notices import add_notices
 from .handlers.chat import entry as chat
 from .handlers.chatobj import chatobj_manage
 from .handlers.choose_prompt import choose_prompt
+from .handlers.compact import compact
 from .handlers.debug_switchs import debug_switchs
 from .handlers.del_memory import del_memory
 from .handlers.disable import disable
@@ -34,6 +35,7 @@ from .handlers.preset_test import t_preset
 from .handlers.presets import presets
 from .handlers.prompt import prompt
 from .handlers.recall import recall
+from .handlers.session_info import session_info
 from .handlers.sessions import sessions
 from .handlers.set_preset import set_preset
 
@@ -155,6 +157,32 @@ base_matcher.on_command(
         usage="/sessions [list|clear|set|del|archive|help]",
     ).model_dump(),
 ).append_handler(sessions)
+
+base_matcher.on_command(
+    "session",
+    aliases={"会话信息", "会话元信息"},
+    priority=10,
+    block=True,
+    permission=is_group_admin_if_is_in_group,
+    state=MatcherData(
+        name="会话元信息",
+        description="查看当前会话的模型、思考深度与上下文占用",
+        usage="/session info",
+    ).model_dump(),
+).append_handler(session_info)
+
+base_matcher.on_command(
+    "compact",
+    aliases={"压缩上下文", "压缩会话"},
+    priority=10,
+    block=True,
+    permission=is_group_admin_if_is_in_group,
+    state=MatcherData(
+        name="压缩上下文",
+        description="压缩当前会话的早期消息为摘要（占用未达15%时拒绝）",
+        usage="/compact [force]",
+    ).model_dump(),
+).append_handler(compact)
 
 base_matcher.on_command(
     "del_memory",

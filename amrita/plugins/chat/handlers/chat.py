@@ -20,7 +20,6 @@ from amrita_core.builtins.agent import (
     HybridReActAgentStrategy,
     NoActionAgentStrategy,
     ReActAgentStrategy,
-
 )
 from amrita_core.chatmanager import (
     ChatObject as CoreChatObject,
@@ -62,6 +61,7 @@ from amrita.plugins.chat.runtime import (
     pending_chatobj,
 )
 from amrita.plugins.chat.runtime_session import SessionManager
+from amrita.plugins.chat.utils.context import build_train_dict
 from amrita.plugins.chat.utils.functions import (
     get_friend_name,
     split_message_into_chats,
@@ -307,11 +307,6 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     ):
         matcher.skip()
     session_id = get_uni_user_id(event)
-    train = (
-        config_manager.group_train
-        if isinstance(event, GroupMessageEvent)
-        else config_manager.private_train
-    )
     config = ConfigManager().config
     can_send_message: bool = True
     cudr = CachedUserDataRepository()
@@ -387,59 +382,8 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         case _:
             raise ValueError(f"Invalid agent strategy: {config.llm.agent_strategy}")
 
-    # 构建定制化的 system prompt
-    msg_type = config.function.message_type
-
-    if msg_type == "xml":
-        format_desc = (
-            "你的工作环境是一个社交软件。**输入**的聊天记录使用 XML 标签标记：\n"
-            '  <msg role="群主/管理员/普通成员/自己" name="昵称" uid="QQ号">\n'
-            "  消息内容（多行）\n"
-            "  </msg>\n"
-            "引用消息使用 <ref name='...' uid='...'>...</ref> 包裹。\n"
-            "你的**输出**必须是纯自然语言文本，**严禁**输出任何 XML 标签、属性或类似的结构化标记。\n"
-            "正确示例：\n"
-            "  输入：<msg role='普通成员' name='张三' uid='12345'>今天天气真好</msg>\n"
-            "  输出：今天天气真好呢。\n"
-            "错误示例（**禁止**）：\n"
-            "  输入：<msg role='普通成员' name='张三' uid='12345'>今天天气真好</msg>\n"
-            "  输出：<msg role='自己' name='爱丽丝' uid='67890'>是啊，阳光明媚。</msg>\n"
-        )
-    else:
-        format_desc = (
-            "你的工作环境是一个社交软件。所有**输入**的聊天记录遵循以下格式：\n"
-            "- 每条消息以 [身份] 开头，方括号内是消息发送者的身份标记（群主/管理员/普通成员/自己）\n"
-            "- 身份后跟 [昵称（QQ号）] 再跟 说:内容\n"
-            "  示例: [普通成员][张三（12345）]说:今天天气真好\n"
-            "- 用户输入中已对特殊字符做了全角转义（［ ］ 说：），避免与格式标记混淆\n"
-            "你的**输出**必须是纯自然语言文本，**严禁**使用上述方括号或“说:”格式，也不能添加任何身份、昵称或QQ号标记。\n"
-            "正确示例：\n"
-            "  输入：[普通成员][张三（12345）]说:今天天气真好\n"
-            "  输出：今天天气真好呢。\n"
-            "错误示例（**禁止**）：\n"
-            "  输入：[普通成员][张三（12345）]说:今天天气真好\n"
-            "  输出：[自己][爱丽丝（67890）]说:是啊，阳光明媚。\n"
-        )
-    train_content = (
-        "<SCHEMA_EXTENSIONS>\n"
-        + "你在纯文本环境工作，不允许使用MarkDown回复。"
-        + f"<IO_REQUIREMENT>\n{format_desc}\n</IO_REQUIREMENT>"
-        + "请以你自己的角色身份参与讨论，交流时不同话题尽量不使用相似句式回复。"
-        + "`<EXTRA>`规则仅作为补充，如果与EXTRA规则上文有冲突，请遵循上文规则。"
-        + "\n</SCHEMA_EXTENSION>\n"
-        + (
-            train["content"]
-            .replace("{self_id}", str(event.self_id))
-            .replace("{user_id}", str(event.user_id))
-            .replace("{user_name}", str(event.sender.nickname))
-        )
-        + (
-            f"<EXTRA>\n（此处是EXTRA规则，如果与上文有任何冲突，请忽略此EXTRA规则）\n{memory.extra_prompt}\n</EXTRA>"
-            if config.function.allow_custom_prompt
-            else ""
-        )
-    )
-    train_dict = {"role": "system", "content": train_content}
+    # 构建定制化的 system prompt（与 /compact、/session info 共用同一构建逻辑）
+    train_dict = build_train_dict(event, memory, config)
 
     #  阶段 4：创建 ChatObject
     ctx: AmritaBotContext = {

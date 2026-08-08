@@ -89,6 +89,7 @@ class SetupTool(BaseModel):
 
     packages: SetupToolPackages = SetupToolPackages()
 
+
 class AmritaTool(BaseModel):
     """Amrita 工具配置模型"""
 

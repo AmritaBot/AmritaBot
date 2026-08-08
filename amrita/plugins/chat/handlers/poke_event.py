@@ -5,8 +5,10 @@ import traceback
 
 from amrita_core import UniResponse, UniResponseUsage, call_completion
 from amrita_core.types import Message as CoreMessage
+from amrita_sense.hook.event import BaseEvent
+from amrita_sense.hook.matcher import MatcherFactory
 from nonebot import logger
-from nonebot.adapters.onebot.v11 import Bot, MessageSegment
+from nonebot.adapters.onebot.v11 import Bot, Message, MessageSegment
 from nonebot.adapters.onebot.v11.event import PokeNotifyEvent
 from nonebot.exception import NoneBotException
 from nonebot.matcher import Matcher
@@ -25,6 +27,59 @@ from ..utils.functions import (
 )
 from ..utils.libchat import add_usage, get_tokens, usage_enough
 from ..utils.lock import get_group_lock, get_private_lock
+
+
+class PokeSendError(BaseException):
+    """钩子抛出以静默拦截 poke 回复发送（不回复、不报错）"""
+
+
+class PokeSendMessageEvent(BaseEvent[str]):
+    """poke 回复发送前触发的事件（与 chat 的 SendMessageEvent 完全独立）
+
+    content: 构建好的 MessageSegment，钩子可直接修改或替换
+    """
+
+    def __init__(
+        self,
+        content: Message,
+        *,
+        event: PokeNotifyEvent,
+        matcher: Matcher,
+        bot: Bot,
+    ):
+        self.content = content
+        self.event = event
+        self.matcher = matcher
+        self.bot = bot
+
+    def get_event_type(self) -> str:
+        return "POKE_SEND_MESSAGE"
+
+    @property
+    def event_type(self) -> str:
+        return "POKE_SEND_MESSAGE"
+
+
+async def _trigger_poke_send(
+    content: Message,
+    *,
+    event: PokeNotifyEvent,
+    matcher: Matcher,
+    bot: Bot,
+) -> Message:
+    """触发 poke 发送钩子，返回（可能被修改的）最终消息
+
+    Raises:
+        PokeSendError: 钩子拦截，静默不发送
+    """
+    ev = PokeSendMessageEvent(
+        content,
+        event=event,
+        matcher=matcher,
+        bot=bot,
+    )
+    await MatcherFactory.trigger_event(ev, exception_ignored=(PokeSendError,))
+    return ev.content
 
 
 async def poke_event(event: PokeNotifyEvent, bot: Bot, matcher: Matcher):
@@ -106,11 +161,21 @@ async def handle_group_poke(
         + MessageSegment.text(response)
     )
 
+    # 触发独立钩子：允许修改或拦截（发送流程保持不变）
+    message = await _trigger_poke_send(
+        Message(message),
+        event=event,
+        matcher=matcher,
+        bot=bot,
+    )
+
     # 根据配置决定消息发送方式
     if not config_manager.config.function.nature_chat_style:
         await matcher.send(message)
     else:
-        await send_split_messages(response, event.user_id, matcher)
+        await send_split_messages(
+            message.extract_plain_text(), event.user_id, matcher
+        )
 
 
 async def handle_private_poke(
@@ -140,10 +205,21 @@ async def handle_private_poke(
 
     # 处理戳一戳事件并获取回复
     response = await process_poke_event(event, send_messages, repo)
+    message = MessageSegment.text(response)
+
+    message = await _trigger_poke_send(
+        Message(message),
+        event=event,
+        matcher=matcher,
+        bot=bot,
+    )
+
     if not config_manager.config.function.nature_chat_style:
-        await matcher.send(MessageSegment.text(response))
+        await matcher.send(message)
     else:
-        await send_split_messages(response, event.user_id, matcher)
+        await send_split_messages(
+            message.extract_plain_text(), event.user_id, matcher
+        )
 
 
 async def process_poke_event(

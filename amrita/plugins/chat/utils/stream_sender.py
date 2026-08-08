@@ -25,6 +25,7 @@ from nonebot import logger
 from nonebot.adapters.onebot.v11 import Message, MessageSegment
 
 from amrita.utils.admin import send_to_admin
+from amrita.utils.send import send_forward_msg
 
 from ..config import Config
 from .functions import split_message_into_chats
@@ -67,6 +68,30 @@ class SendMessageEvent(BaseEvent[str]):
     @property
     def event_type(self) -> str:
         return "SEND_MESSAGE"
+
+
+def _split_forward_chunks(text: str, min_chunk: int) -> list[str]:
+    """按连续换行拆分合并转发分块
+
+    以 "\n\n" 为分隔拆分；若某块长度不足 min_chunk，则与下一块合并。
+    全部块都满足 min_chunk 或整体不足时返回单块。
+    """
+    raw_chunks = [c.strip() for c in text.split("\n\n") if c.strip()]
+    if not raw_chunks:
+        return [text]
+    chunks: list[str] = []
+    current = ""
+    for chunk in raw_chunks:
+        if not current:
+            current = chunk
+        elif len(current) < min_chunk:
+            current += "\n\n" + chunk
+        else:
+            chunks.append(current)
+            current = chunk
+    if current:
+        chunks.append(current)
+    return chunks
 
 
 class _ReasoningCollector:
@@ -235,8 +260,9 @@ class ChatStreamSender:
     async def send_final(self, content: str) -> None:
         """发送最终响应：先触发 SendMessageEvent 钩子，再发送
 
-        保持原有 send_response 行为：
-        - nature_chat_style 时按分句规则拆分发送（带随机间隔）
+        发送策略：
+        - 文本超过 200 字符：改用合并转发（分句拆分节点）
+        - nature_chat_style：按分句规则拆分发送（带随机间隔）
         - 否则引用回复一次性发送
 
         Args:
@@ -266,9 +292,25 @@ class ChatStreamSender:
         await MatcherFactory.trigger_event(ev, exception_ignored=(NoMessageSendError,))
 
         # 发送（与 send_response 行为一致）
-        if not self._config.function.nature_chat_style:
+        final_text = ev.content.extract_plain_text()
+        forward_threshold = self._config.function.forward_threshold
+        if forward_threshold > 0 and len(final_text) > forward_threshold:
+            # 超长响应改用合并转发：按连续换行拆分，每块至少 min_chunk 字符
+            min_chunk = self._config.function.forward_min_chunk
+            parts = [
+                MessageSegment.text(part)
+                for part in _split_forward_chunks(final_text, min_chunk)
+            ]
+            await send_forward_msg(
+                self._bot,
+                self._event,
+                name="Amrita",
+                uin=str(self._event.self_id),
+                msgs=parts,
+            )
+        elif not self._config.function.nature_chat_style:
             await self._matcher.send(ev.content)
-        elif response_list := split_message_into_chats(ev.content.extract_plain_text()):
+        elif response_list := split_message_into_chats(final_text):
             for part in response_list:
                 await self._matcher.send(MessageSegment.text(part))
                 await asyncio.sleep(

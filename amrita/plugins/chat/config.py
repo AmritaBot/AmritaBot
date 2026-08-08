@@ -151,6 +151,14 @@ class FunctionConfig(BaseModel):
     chat_object_keep_count: int = Field(
         default=10, description="单会话聊天对象保存数量限制"
     )
+    forward_threshold: int = Field(
+        default=200,
+        description="最终响应超过该字符数时改用合并转发发送（0=禁用）",
+    )
+    forward_min_chunk: int = Field(
+        default=500,
+        description="合并转发时每个分块的最小字符数，不满足则不分块",
+    )
 
     @property
     def pattern(self) -> re.Pattern:

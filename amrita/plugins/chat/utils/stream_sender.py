@@ -251,9 +251,9 @@ class ChatStreamSender:
         await self._flush_reasoning()
 
         # 构建 MessageSegment（引用回复）
-        message: Message = (
-            MessageSegment.reply(self._event.message_id) + MessageSegment.text(content)
-        )
+        message: Message = MessageSegment.reply(
+            self._event.message_id
+        ) + MessageSegment.text(content)
 
         # 触发钩子：允许修改或拦截
         ev = SendMessageEvent(
@@ -263,19 +263,14 @@ class ChatStreamSender:
             matcher=self._matcher,
             bot=self._bot,
         )
-        await MatcherFactory.trigger_event(
-            ev, exception_ignored=(NoMessageSendError,)
-        )
+        await MatcherFactory.trigger_event(ev, exception_ignored=(NoMessageSendError,))
 
         # 发送（与 send_response 行为一致）
         if not self._config.function.nature_chat_style:
             await self._matcher.send(ev.content)
-        elif response_list := split_message_into_chats(
-            ev.content.extract_plain_text()
-        ):
+        elif response_list := split_message_into_chats(ev.content.extract_plain_text()):
             for part in response_list:
                 await self._matcher.send(MessageSegment.text(part))
                 await asyncio.sleep(
-                    random.randint(1, 3)
-                    + (len(part) // random.randint(80, 100))
+                    random.randint(1, 3) + (len(part) // random.randint(80, 100))
                 )

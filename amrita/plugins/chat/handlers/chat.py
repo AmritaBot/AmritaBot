@@ -190,6 +190,7 @@ async def get_user_role(bot: Bot, group_id: int, user_id: int) -> str:
     debug_log(f"获取用户角色完成: {role_str}")
     return role_str
 
+
 def synthesize_message_to_msg(
     event: MessageEvent,
     role: str,
@@ -437,9 +438,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
                 if chat._di_resp.response is not None:
                     # 钩子可能抛出 NoMessageSendError 静默拦截，不发送、不报错
                     with contextlib.suppress(NoMessageSendError):
-                        await stream_sender.send_final(
-                            chat._di_resp.response.content
-                        )
+                        await stream_sender.send_final(chat._di_resp.response.content)
         finally:
             # 兜底：异常时清理 pending
             if chat in pending_chatobj[session_id]:

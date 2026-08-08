@@ -20,12 +20,12 @@ from amrita_core.builtins.agent import (
     HybridReActAgentStrategy,
     NoActionAgentStrategy,
     ReActAgentStrategy,
-    gather_usage,
+
 )
 from amrita_core.chatmanager import (
     ChatObject as CoreChatObject,
 )
-from amrita_core.chatmanager.chat_object import DatabackendOptions
+from amrita_core.chatmanager.chat_object import DatabackendOptions, gather_usage
 from amrita_core.contents import (
     ImageMessage,
     MessageWithMetadata,

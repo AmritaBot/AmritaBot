@@ -7,7 +7,7 @@ from amrita_core import (
     PreCompletionEvent,
     on_precompletion,
 )
-from amrita_core.builtins import agent
+from amrita_core.builtins.consts import BUILTIN_TOOLS_NAME
 from amrita_core.types import (
     CONTENT_LIST_TYPE as SEND_MESSAGES,
 )
@@ -38,8 +38,7 @@ from ..utils.llm_tools.builtin_tools import (
 )
 
 checkhook = on_precompletion(1, False)
-
-agent.BUILTIN_TOOLS_NAME.add(REPORT_TOOL_MEDIUM.function.name)
+BUILTIN_TOOLS_NAME.add(REPORT_TOOL_MEDIUM.function.name)
 
 
 @checkhook.handle()

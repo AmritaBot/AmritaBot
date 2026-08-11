@@ -84,7 +84,7 @@ export function LoginPage() {
               className="inline-flex items-center gap-1 hover:text-foreground"
               onClick={() =>
                 window.open(
-                  "https://github.com/AmritaBot/AmritaBot#web-ui",
+                  "https://github.com/AmritaBot/AmritaBot#Amrita 自定义配置",
                   "_blank",
                 )
               }

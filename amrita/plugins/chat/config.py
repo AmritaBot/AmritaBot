@@ -123,7 +123,9 @@ class FunctionConfig(BaseModel):
             "  legacy — [群主][张三（12345）]说:内容（紧凑但LLM易误解析）"
         ),
     )
-    chat_pending_mode: Literal["single", "queue", "single_with_report", "interactive"] = Field(
+    chat_pending_mode: Literal[
+        "single", "queue", "single_with_report", "interactive"
+    ] = Field(
         default="queue",
         description="聊天时，如果同一个Session并发调用但是上一条消息没有处理完时插件的行为。\n"
         + "single: 忽略这条消息；\n"
@@ -306,7 +308,7 @@ class Config(BaseModel):
 
         core_data: dict[str, Any] = {}
 
-        # cookies → core.cookie
+        # cookies -> core.cookie
         if "cookies" in data:
             cookies = data.pop("cookies")
             if isinstance(cookies, dict):
@@ -319,7 +321,7 @@ class Config(BaseModel):
                     if v is not None
                 }
 
-        # llm.* → core.llm (CoreLLMConfig fields)
+        # llm.* -> core.llm (CoreLLMConfig fields)
         if "llm" in data and isinstance(data["llm"], dict):
             llm = data["llm"]
             core_llm: dict[str, Any] = {}
@@ -331,7 +333,7 @@ class Config(BaseModel):
             if core_llm:
                 core_data["llm"] = core_llm
 
-            # llm.tools.* → core.builtin & core.function_config
+            # llm.tools.* -> core.builtin & core.function_config
             if "tools" in llm and isinstance(llm["tools"], dict):
                 tools = llm["tools"]
                 tools.pop("use_minimal_context", None)

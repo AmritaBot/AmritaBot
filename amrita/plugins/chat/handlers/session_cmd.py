@@ -220,7 +220,7 @@ async def _session_compact(event: MessageEvent, matcher: Matcher, force: bool) -
             f"当前上下文未超出限制（{current_tokens}/{max_tokens} tokens），无需压缩。"
         )
     else:
-        msg = f"✅ 压缩完成：{current_tokens} → {after_tokens} tokens"
+        msg = f"✅ 压缩完成：{current_tokens} -> {after_tokens} tokens"
         if usage is not None:
             msg += (
                 f"（摘要消耗 {usage.prompt_tokens + usage.completion_tokens} tokens）"

@@ -9,6 +9,7 @@ class SideBarItem(BaseModel):
     icon: str | None = None
     url: str | None = None
     active: bool = False
+    hidden: bool = False
 
 
 class SideBarCategory(BaseModel):
@@ -87,3 +88,45 @@ class SideBarManager:
             if category_item.name == category:
                 category_item.children = [item]
                 return
+
+    def get_sidebar_dump_with_hidden(self) -> list[dict]:
+        """导出侧边栏结构（含 hidden 项），供菜单 API 使用。"""
+        return [item.model_dump() for item in self.sidebar.items]
+
+
+class RouteRegistry:
+    """页面路由注册表：on_page 注册的页面元数据，前端据此生成 SPA 路由。
+
+    与侧边栏不同，这里包含所有页面（含 __HIDDEN__ 页），
+    因为隐藏页面同样需要前端路由匹配。
+    """
+
+    _instance: Self | None = None
+    _routes: list[dict]
+
+    def __new__(cls) -> Self:
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._routes = []
+        return cls._instance
+
+    def register(
+        self,
+        path: str,
+        name: str,
+        category: str,
+        icon: str | None = None,
+        hidden: bool = False,
+    ):
+        self._routes.append(
+            {
+                "path": path,
+                "name": name,
+                "category": category,
+                "icon": icon,
+                "hidden": hidden,
+            }
+        )
+
+    def get_routes(self) -> list[dict]:
+        return list(self._routes)

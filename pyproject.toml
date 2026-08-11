@@ -1,9 +1,9 @@
 [project]
 name = "amrita"
-version = "1.5.0"
+version = "1.6.0"
 description = "A powerful Agent bot powered by NoneBot2"
 readme = "README.md"
-license = "GPL-3.0-or-later"
+license = "AGPL-3.0-or-later"
 requires-python = ">=3.10, <3.14"
 dependencies = [
     "aiofiles>=24.1.0",
@@ -49,7 +49,8 @@ include = ["amrita", "amrita.*"]
 
 # 添加资源文件包含配置
 [tool.setuptools.package-data]
-"amrita.plugins.webui.service" = ["templates/*.html", "static/**/*"]
+# templates 已随 Jinja2 SSR 重构移除，仅保留 static 构建产物
+"amrita.plugins.webui.service" = ["static/**/*"]
 
 [dependency-groups]
 dev = [
@@ -108,3 +109,6 @@ plugins = [
 plugins = ["nonebot_plugin_amrita", "nonebot_plugin_orm"]
 [tool.pyright]
 typeCheckingMode = "standard"
+venvPath = "."
+venv = ".venv"
+executionEnvironments = [{ root = ".", pythonVersion = "3.10" }]

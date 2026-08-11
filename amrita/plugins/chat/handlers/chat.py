@@ -233,7 +233,7 @@ def synthesize_message_to_msg(
         if config_manager.config.function.message_type == "xml":
             # handle_reply 在 XML 模式下已对 content 做了 escape_xml，
             # 且 content 中可能包含 <ref> 标签（已转义好的引用内容），
-            # 因此不能再次经过 format_msg_xml → escape_xml 导致双重转义
+            # 因此不能再次经过 format_msg_xml -> escape_xml 导致双重转义
             if "\n<ref" in content:
                 safe_name = escape_xml(str(user_name))
                 attrs = f' role="{role}"' if role else ""
@@ -265,7 +265,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
       1. 会话超时检测与归档（SessionManager）
       2. 加载 memory、合成消息、构建 prompt
       3. 创建 CoreChatObject，通过 hook_kwargs 传递上下文
-      4. chat.begin() → lock → await chat
+      4. chat.begin() -> lock -> await chat
       5. 后处理：usage 统计、memory 持久化
     """
     if any(
@@ -403,11 +403,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
                 # Core 在下一个 Step 边界将其消费为 [peer message] 追加到上下文
                 debug_log("聊天已被锁定，推送给正在运行的 ChatObject")
                 running_chat = next(
-                    (
-                        obj
-                        for obj in pending_chatobj[session_id]
-                        if obj.is_running()
-                    ),
+                    (obj for obj in pending_chatobj[session_id] if obj.is_running()),
                     None,
                 )
                 if running_chat is not None:
@@ -415,9 +411,9 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
                     try:
                         await running_chat.io_stream.send_to_producer(text)
                     except Exception as e:
-                        logger.opt(
-                            exception=e, colors=True, raw=True
-                        ).warning("推送交互消息失败，已静默丢弃。")
+                        logger.opt(exception=e, colors=True, raw=True).warning(
+                            "推送交互消息失败，已静默丢弃。"
+                        )
                 return matcher.stop_propagation()
 
     try:

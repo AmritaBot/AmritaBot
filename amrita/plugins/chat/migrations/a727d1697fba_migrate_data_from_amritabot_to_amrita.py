@@ -264,7 +264,7 @@ def upgrade(name: str = "") -> None:
         if _inspector().has_table(tbl):
             op.drop_table(tbl)
 
-    # 5. 创建新 GROUP_CONFIG（FK → amrita_user_metadata）
+    # 5. 创建新 GROUP_CONFIG（FK -> amrita_user_metadata）
     op.create_table(
         "amrita_group_config",
         *_GROUP_CONFIG_COLS,
@@ -344,7 +344,7 @@ def downgrade(name: str = "") -> None:
             sa.UniqueConstraint("user_id", name=f"uq_{_TMP}_uid"),
         )
 
-    # 3. 回拷数据（新 → 旧）
+    # 3. 回拷数据（新 -> 旧）
     for src_old, dst_new, _cols, col_names in _MIGRATION_TABLES:
         src_table, dst_table = dst_new, src_old
         if insp.has_table(src_table):
@@ -365,7 +365,7 @@ def downgrade(name: str = "") -> None:
         if insp.has_table(tbl):
             op.drop_table(tbl)
 
-    # 5. 重建旧 GROUP_CONFIG（FK → amritabot_user_metadata）
+    # 5. 重建旧 GROUP_CONFIG（FK -> amritabot_user_metadata）
     op.create_table(
         "amrita_group_config",
         *_GROUP_CONFIG_COLS,

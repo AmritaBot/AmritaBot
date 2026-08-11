@@ -1,33 +1,17 @@
 import copy
-from pathlib import Path
 from typing import Any
 
 import aiofiles
 from amrita_core import ModelPreset
 from amrita_core.tools.mcp import ClientManager
 from amrita_core.types import ModelConfig, ThinkingConfig
-from fastapi import Query
+from fastapi import Request
 from nonebot import logger
 from nonebot_plugin_amrita.database import InsightsModel
 
 from amrita.plugins.chat.config import config_manager
-from amrita.plugins.webui.API import (
-    JSONResponse,
-    PageContext,
-    PageResponse,
-    Request,
-    SideBarCategory,
-    SideBarManager,
-    TemplatesManager,
-    on_page,
-)
+from amrita.plugins.webui.API import JSONResponse
 from amrita.plugins.webui.API import app as router
-
-TemplatesManager().add_templates_dir(Path(__file__).resolve().parent / "templates")
-
-SideBarManager().add_sidebar_category(
-    SideBarCategory(name="聊天管理", icon="fa fa-comments", url="#")
-)
 
 KEY_PLACEHOLDER = "••••••••"
 
@@ -76,7 +60,7 @@ async def create_model(request: Request):
         )
 
 
-@router.put("/api/chat/models/{name}")
+@router.post("/api/chat/models/{name}")
 async def update_model(request: Request, name: str):
     try:
         # 获取现有的模型预设
@@ -112,10 +96,15 @@ async def update_model(request: Request, name: str):
             elif hasattr(preset, key) and key != "name":  # 排除不可变的name字段
                 setattr(preset, key, value)
 
-        # 保存模型预设到文件
-        preset_path = config_manager.get_preset_path(name)
-
-        preset.save(preset_path)
+        if name == "default":
+            # default 预设即 config.default_preset（运行时模型配置），
+            # 更新后写回配置并持久化（不能存到预设表文件，那里不生效）
+            config_manager.config.default_preset = preset
+            await config_manager.save_config()
+        else:
+            # 保存模型预设到文件
+            preset_path = config_manager.get_preset_path(name)
+            preset.save(preset_path)
 
         # 重新加载模型列表
         await config_manager.get_all_presets(cache=False)
@@ -133,9 +122,16 @@ async def update_model(request: Request, name: str):
         )
 
 
-@router.delete("/api/chat/models/{name}")
+@router.post("/api/chat/models/{name}/delete")
 async def delete_model(name: str):
     try:
+        # default 预设是运行时配置（config.default_preset），不可删除
+        if name == "default":
+            return JSONResponse(
+                {"success": False, "message": "默认预设不可删除"},
+                status_code=400,
+            )
+
         preset_path = config_manager.get_preset_path(name)
 
         if not preset_path.exists():
@@ -171,7 +167,9 @@ async def get_models():
             model.api_key = KEY_PLACEHOLDER
             model_data.append(model.model_dump())
 
-        return JSONResponse({"success": True, "models": model_data}, status_code=200)
+        return JSONResponse(
+            {"success": True, "data": {"models": model_data}}, status_code=200
+        )
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).error("获取模型预设列表失败")
         return JSONResponse(
@@ -230,7 +228,7 @@ async def create_prompt(request: Request, prompt_type: str):
         )
 
 
-@router.put("/api/chat/prompts/{prompt_type}/{name}")
+@router.post("/api/chat/prompts/{prompt_type}/{name}")
 async def update_prompt(request: Request, prompt_type: str, name: str):
     try:
         data: dict[str, Any] = await request.json()
@@ -315,7 +313,7 @@ async def update_prompt(request: Request, prompt_type: str, name: str):
         )
 
 
-@router.delete("/api/chat/prompts/{prompt_type}/{name}")
+@router.post("/api/chat/prompts/{prompt_type}/{name}/delete")
 async def delete_prompt(prompt_type: str, name: str):
     try:
         if prompt_type not in ["group", "private"]:
@@ -382,7 +380,9 @@ async def get_prompts():
         return JSONResponse(
             {
                 "success": True,
-                "prompts": {"group": group_prompts, "private": private_prompts},
+                "data": {
+                    "prompts": {"group": group_prompts, "private": private_prompts}
+                },
             },
             status_code=200,
         )
@@ -423,7 +423,9 @@ async def get_mcp_servers():
                     }
                 )
 
-        return JSONResponse({"success": True, "servers": servers}, status_code=200)
+        return JSONResponse(
+            {"success": True, "data": {"servers": servers}}, status_code=200
+        )
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).error("获取MCP服务器列表失败")
         return JSONResponse(
@@ -476,22 +478,17 @@ async def add_mcp_server(request: Request):
         )
 
 
-@router.put("/api/chat/mcp/servers")
-async def update_mcp_server(request: Request, server_script: str | None = None):
-    """更新MCP服务器"""
+@router.put("/api/chat/mcp/servers/{server_script}")
+async def update_mcp_server(server_script: str, request: Request):
+    """更新MCP服务器（目标路径在 URL 中）"""
     try:
         data = await request.json()
         new_server_script = data.get("server_script")
-        old_server_script = data.get("id") or server_script
+        old_server_script = server_script
 
         if not new_server_script:
             return JSONResponse(
                 {"success": False, "message": "缺少服务器脚本路径"}, status_code=400
-            )
-
-        if not old_server_script:
-            return JSONResponse(
-                {"success": False, "message": "缺少原始服务器脚本路径"}, status_code=400
             )
 
         config = config_manager.ins_config
@@ -534,10 +531,8 @@ async def update_mcp_server(request: Request, server_script: str | None = None):
         )
 
 
-@router.delete("/api/chat/mcp/servers")
-async def delete_mcp_server(
-    server_script: str = Query(..., description="服务器脚本路径"),
-):
+@router.post("/api/chat/mcp/servers/{server_script}/delete")
+async def delete_mcp_server(server_script: str):
     """删除MCP服务器"""
     try:
         config = config_manager.ins_config
@@ -568,7 +563,7 @@ async def delete_mcp_server(
         )
 
 
-@router.post("/api/chat/mcp/servers/reload")
+@router.post("/api/chat/mcp/servers/actions/reload")
 async def reload_mcp_servers():
     """重载所有MCP服务器"""
     try:
@@ -594,74 +589,37 @@ async def reload_mcp_servers():
         )
 
 
-@on_page("/manage/chat/function", page_name="信息统计", category="聊天管理")
-async def _(ctx: PageContext):
-    insight = await InsightsModel.get()
-    insight_all = await InsightsModel.get_all()
-    return PageResponse(
-        name="function.html",
-        context={
-            "token_prompt": insight.token_input,
-            "token_completion": insight.token_output,
-            "usage_count": insight.usage_count,
-            "chart_data": [
-                {
-                    "date": i.date,
-                    "token_input": i.token_input,
-                    "token_output": i.token_output,
-                    "usage_count": i.usage_count,
-                }
-                for i in insight_all
-            ],
-        },
-    )
+@router.get("/api/chat/insights")
+async def get_chat_insights():
+    """信息统计：Token 用量与历史图表数据。"""
+    try:
+        insight = await InsightsModel.get()
+        insight_all = await InsightsModel.get_all()
+        return JSONResponse(
+            {
+                "success": True,
+                "data": {
+                    "token_prompt": insight.token_input,
+                    "token_completion": insight.token_output,
+                    "usage_count": insight.usage_count,
+                    "chart_data": [
+                        {
+                            "date": i.date,
+                            "token_input": i.token_input,
+                            "token_output": i.token_output,
+                            "usage_count": i.usage_count,
+                        }
+                        for i in insight_all
+                    ],
+                },
+            },
+            status_code=200,
+        )
+    except Exception as e:
+        from nonebot import logger
 
-
-@on_page("/manage/chat/models", page_name="模型预设", category="聊天管理")
-async def _(ctx: PageContext):
-    models = copy.deepcopy(await config_manager.get_all_presets(cache=False))
-    model_data = []
-    for model in models:
-        model.api_key = KEY_PLACEHOLDER
-        model_data.append(model.model_dump())
-    current_default = config_manager.config.preset
-
-    return PageResponse(
-        name="models.html",
-        context={
-            "models": model_data,
-            "current_default": current_default,
-            "key_placeholder": KEY_PLACEHOLDER,
-        },
-    )
-
-
-@on_page("/manage/chat/prompts", page_name="提示词预设", category="聊天管理")
-async def _(ctx: PageContext):
-    # 重新加载提示词列表以确保最新
-    await config_manager.get_prompts(cache=False)
-
-    # 获取群组提示词列表
-    group_prompts = [
-        {"name": prompt.name, "text": prompt.text}
-        for prompt in config_manager.prompts.group
-    ]
-
-    # 获取私聊提示词列表
-    private_prompts = [
-        {"name": prompt.name, "text": prompt.text}
-        for prompt in config_manager.prompts.private
-    ]
-
-    return PageResponse(
-        name="prompts.html",
-        context={"group_prompts": group_prompts, "private_prompts": private_prompts},
-    )
-
-
-@on_page("/manage/chat/mcp", page_name="MCP服务器", category="聊天管理")
-async def _(ctx: PageContext):
-    return PageResponse(
-        name="mcp.html",
-        context={},
-    )
+        logger.opt(exception=e, colors=True, raw=True).error("获取信息统计失败")
+        return JSONResponse(
+            {"success": False, "message": "获取信息统计失败"},
+            status_code=500,
+        )

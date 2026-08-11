@@ -173,9 +173,7 @@ async def handle_group_poke(
     if not config_manager.config.function.nature_chat_style:
         await matcher.send(message)
     else:
-        await send_split_messages(
-            message.extract_plain_text(), event.user_id, matcher
-        )
+        await send_split_messages(message.extract_plain_text(), event.user_id, matcher)
 
 
 async def handle_private_poke(
@@ -217,9 +215,7 @@ async def handle_private_poke(
     if not config_manager.config.function.nature_chat_style:
         await matcher.send(message)
     else:
-        await send_split_messages(
-            message.extract_plain_text(), event.user_id, matcher
-        )
+        await send_split_messages(message.extract_plain_text(), event.user_id, matcher)
 
 
 async def process_poke_event(

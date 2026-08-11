@@ -1,0 +1,11 @@
+# 构建产物（WebUI 前端输出）：Bun 构建生成静态 .js/.css/.html/.map
+# 源码在 frontend/，amrita/ 下出现的这些文件一律是构建输出
+*.js
+*.html
+*.css
+*.map
+*.js.map
+
+# 构建产物目录
+plugins/webui/service/static/*
+!plugins/webui/service/static/images/

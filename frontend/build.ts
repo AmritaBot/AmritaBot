@@ -144,6 +144,9 @@ const result = await Bun.build({
   minify: true,
   target: "browser",
   sourcemap: "linked",
+  // 显式指定 tsconfig：确保 @/* 路径别名在不同 Bun 版本/环境下都能解析
+  // （CI 的 Bun 1.3.14 在部分场景下不自动发现 tsconfig，导致 "@/lib/api" 解析失败）
+  tsconfig: path.resolve("tsconfig.json"),
   define: {
     "process.env.NODE_ENV": JSON.stringify("production"),
   },

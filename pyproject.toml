@@ -3,7 +3,7 @@ name = "amrita"
 version = "1.5.1"
 description = "A powerful Agent bot powered by NoneBot2"
 readme = "README.md"
-license = "GPL-3.0-or-later"
+license = "AGPL-3.0-or-later"
 requires-python = ">=3.10, <3.14"
 dependencies = [
     "aiofiles>=24.1.0",

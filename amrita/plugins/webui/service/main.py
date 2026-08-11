@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pytz import utc
 
 from .authlib import TOKEN_KEY, AuthManager, TokenManager
+from .config import is_using_default_password
 from .response import fail
 
 STATIC_PATH = Path(__file__).resolve().parent / "static"
@@ -64,12 +65,28 @@ async def auth_middleware(request: Request, call_next):
     if path.startswith("/static") or path in public_paths:
         return await call_next(request)
 
+    # 安全锁：仍在使用出厂默认密码时，拒绝所有访问（仅登录端点放行，登录时也会拒绝）
+    if is_using_default_password():
+        if path == "/api/auth/login":
+            return await call_next(request)
+        if path.startswith("/api"):
+            return JSONResponse(
+                {
+                    "code": 423,
+                    "message": "检测到默认密码，请在 .env 中设置 WEBUI_PASSWORD 后重启 Amrita",
+                    "success": False,
+                    "data": {"requires_password_change": True},
+                },
+                status_code=423,
+            )
+        # 页面路径：回到登录页（前端据此显示密码锁定提示）
+        return RedirectResponse(url="/", status_code=303)
+
     try:
         await AuthManager().check_current_user(request)
     except HTTPException as e:
         if e.status_code != 401:
             raise
-        # 未认证
         if path.startswith("/api"):
             if path == "/api/auth/login":
                 return await call_next(request)
@@ -77,10 +94,9 @@ async def auth_middleware(request: Request, call_next):
                 {"code": 401, "message": "未授权", "success": False, "data": None},
                 status_code=401,
             )
-        # 页面路径：重定向到登录页
         return RedirectResponse(url="/", status_code=303)
 
-    # 已认证：续期 cookie
+    # 已认证：剩余 <10 分钟时续期 cookie
     access_token = request.cookies.get(TOKEN_KEY)
     assert access_token
     response: Response = await call_next(request)

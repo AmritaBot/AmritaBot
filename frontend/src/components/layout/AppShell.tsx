@@ -85,6 +85,10 @@ export function AppShell({ categories }: { categories: MenuCategory[] }) {
         <div className="mx-auto max-w-6xl">
           <Outlet />
         </div>
+        {/* 页脚版权 */}
+        <footer className="mt-6 border-t pt-4 text-center text-xs text-muted-foreground">
+          © AmritaConstant 2025-{new Date().getFullYear()} · AGPL-3.0
+        </footer>
       </main>
     </div>
   );

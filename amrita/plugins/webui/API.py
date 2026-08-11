@@ -12,8 +12,6 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from fastapi import Request
-
 from .service.authlib import AuthManager, OnetimeTokenData, TokenData, TokenManager
 from .service.main import STATIC_PATH, app
 from .service.response import JSONResponse
@@ -51,7 +49,7 @@ def on_page(
             icon=icon,
             hidden=real_hidden,
         )
-        # 非隐藏页面加入侧边栏
+        # 非隐藏页面才进入侧边栏（注册表包含全部，侧边栏只显示可见项）
         if not real_hidden:
             if all(
                 cate.name != category for cate in SideBarManager().get_sidebar().items

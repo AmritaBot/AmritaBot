@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import importlib.metadata
 import logging
-from datetime import datetime
 from typing import Literal
 
 import nonebot

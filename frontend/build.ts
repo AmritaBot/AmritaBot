@@ -174,6 +174,24 @@ if (
   }
 }
 
+// favicon：源 index.html 使用空 href 占位（避免 Bun 尝试打包 /static 路径资源），
+// 构建完成后注入真实静态文件链接（images/favicon-48.png 由脚本生成，随包分发）。
+{
+  const indexPath = path.join(outdir, "index.html");
+  if (existsSync(indexPath)) {
+    const html = await Bun.file(indexPath).text();
+    // 匹配空 href 的 icon link（兼容单行/多行格式）
+    const fixed = html.replace(
+      /<link[^>]*rel="icon"[^>]*href=""\s*\/?>/,
+      '<link rel="icon" type="image/png" href="/static/images/favicon-48.png" />',
+    );
+    if (fixed !== html) {
+      await Bun.write(indexPath, fixed);
+      console.log("🔧 Injected favicon link → /static/images/favicon-48.png");
+    }
+  }
+}
+
 const end = performance.now();
 
 const outputTable = result.outputs.map((output) => ({

@@ -26,7 +26,6 @@ class APIResponse:
 
     @staticmethod
     def ok(message: str = "ok", data: Any = None) -> JSONResponse:
-        """成功响应"""
         return JSONResponse(
             {
                 "code": 200,
@@ -45,7 +44,7 @@ class APIResponse:
         *,
         status_code: int | None = None,
     ) -> JSONResponse:
-        """失败响应"""
+        """status_code 默认跟随 code（4xx/5xx 业务码通常即 HTTP 码）。"""
         if status_code is None:
             status_code = code
         return JSONResponse(
@@ -59,6 +58,5 @@ class APIResponse:
         )
 
 
-# 便捷别名
 ok = APIResponse.ok
 fail = APIResponse.fail

@@ -17,10 +17,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import threading
+import weakref
 from collections import deque
+from collections.abc import Coroutine
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import aiofiles
 import nonebot
@@ -51,8 +55,6 @@ _LEVEL_META: dict[str, tuple[str, str]] = {
 
 
 class ChannelHub:
-    """频道 → 订阅者管理。"""
-
     def __init__(self) -> None:
         self._subscribers: dict[str, set[WebSocket]] = {}
         # 每个 WS 的发送锁：广播（dispatcher）与回放（订阅时）可能并发 send_json，
@@ -84,26 +86,33 @@ hub = ChannelHub()
 
 
 async def _send_json_locked(ws: WebSocket, message: dict) -> None:
-    """持锁发送：同一 WS 的所有发送串行化（广播/回放/meta 响应）。"""
+    """同一 WS 的所有发送串行化——广播/回放/meta 并发 send 会断连。"""
     async with hub.lock(ws):
         await ws.send_json(message)
 
 
+async def _send_to_subscriber(ws: WebSocket, message: dict) -> bool:
+    """发送失败返回 False，由调用方剔除。"""
+    try:
+        await _send_json_locked(ws, message)
+        return True
+    except Exception:
+        return False
+
+
 async def _broadcast(channel: str, data: dict) -> None:
-    """向频道所有订阅者推送，失败的连接静默剔除。"""
+    """推送失败的订阅者静默剔除，不阻塞广播循环。"""
     message = {"channel": channel, "data": data}
-    dead: list[WebSocket] = []
-    for ws in hub.subscribers(channel):
-        try:
-            await _send_json_locked(ws, message)
-        except Exception:
-            dead.append(ws)
+    dead = [
+        ws
+        for ws in hub.subscribers(channel)
+        if not await _send_to_subscriber(ws, message)
+    ]
     for ws in dead:
         hub.remove_ws(ws)
 
 
 async def _system_loop() -> None:
-    """周期推送系统资源。"""
     while True:
         try:
             usage = calculate_system_usage()
@@ -122,7 +131,6 @@ async def _system_loop() -> None:
 
 
 async def _bot_loop() -> None:
-    """周期推送 Bot 连接状态。"""
     last_state: bool | None = None
     while True:
         try:
@@ -255,9 +263,11 @@ _install_log_capture()
 
 async def _send_log_replay(ws: WebSocket) -> None:
     """订阅 logs 时回放本次启动以来的完整日志（读 jsonl 文件，不读 event.json）。"""
-    if _log_path is None or not _log_path.exists():
+    if _log_path is None:
         return
     try:
+        if not os.path.exists(_log_path):  # noqa: ASYNC240
+            return
         async with aiofiles.open(_log_path, encoding="utf-8") as f:
             async for line in f:
                 line = line.strip()
@@ -290,6 +300,25 @@ async def _send_log_replay(ws: WebSocket) -> None:
 
 _started = False
 
+_background_tasks: weakref.WeakSet[asyncio.Task] = weakref.WeakSet()
+
+
+def _spawn_background(coro: Coroutine[Any, Any, Any]) -> asyncio.Task:
+    """登记到 WeakSet：driver shutdown 统一取消，任务结束自动移除。"""
+    task = asyncio.create_task(coro)
+    _background_tasks.add(task)
+    return task
+
+
+@nonebot.get_driver().on_shutdown
+async def _cancel_background_tasks() -> None:
+    """driver shutdown 时取消，避免事件循环关闭残留 pending task。"""
+    tasks = list(_background_tasks)
+    for task in tasks:
+        task.cancel()
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+
 
 async def _ensure_loops() -> None:
     global _started
@@ -298,9 +327,9 @@ async def _ensure_loops() -> None:
     _started = True
     # 注意：不再调用 _install_log_capture() —— sink 在模块加载时已安装，
     # 重复安装会重建 jsonl 文件（unlink 旧文件），导致「本次启动」日志丢失
-    asyncio.create_task(_system_loop())
-    asyncio.create_task(_bot_loop())
-    asyncio.create_task(_log_dispatcher())
+    _spawn_background(_system_loop())
+    _spawn_background(_bot_loop())
+    _spawn_background(_log_dispatcher())
 
 
 @app.websocket("/amrita/ui/ws")

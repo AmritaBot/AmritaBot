@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Github, HelpCircle } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-background p-4">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <img
@@ -77,8 +78,35 @@ export function LoginPage() {
               {submitting ? "登录中…" : "登录"}
             </Button>
           </form>
+          <div className="flex items-center justify-between pt-1 text-xs text-muted-foreground">
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 hover:text-foreground"
+              onClick={() =>
+                window.open(
+                  "https://github.com/AmritaBot/AmritaBot#web-ui",
+                  "_blank",
+                )
+              }
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+              忘记密码？
+            </button>
+            <a
+              href="https://github.com/AmritaBot/AmritaBot"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 hover:text-foreground"
+            >
+              <Github className="h-3.5 w-3.5" />
+              GitHub
+            </a>
+          </div>
         </CardContent>
       </Card>
+      <footer className="absolute bottom-4 text-center text-xs text-muted-foreground">
+        © AmritaConstant 2025-{new Date().getFullYear()} · AGPL-3.0
+      </footer>
     </div>
   );
 }

@@ -22,7 +22,9 @@ async def list_events(request: Request):
     try:
         params = request.query_params
         levels = [
-            l.strip().upper() for l in params.get("level", "").split(",") if l.strip()
+            level.strip().upper()
+            for level in params.get("level", "").split(",")
+            if level.strip()
         ]
         keyword = params.get("keyword", "").strip().lower()
         try:
@@ -43,7 +45,7 @@ async def list_events(request: Request):
                 or keyword in (e.message or "").lower()
             ]
 
-        # 倒序：最新在前
+        # 最新在前
         events = events[-limit:][::-1] if limit > 0 else events[::-1]
 
         return ok(

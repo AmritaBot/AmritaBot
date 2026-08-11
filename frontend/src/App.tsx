@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { AppShell } from "@/components/layout/AppShell";
 import { NotFound } from "@/components/shared/PagePlaceholder";
 import { LoginPage } from "@/pages/login";
+import { PasswordLockedPage } from "@/pages/password-locked";
 
 function Splash() {
   return (
@@ -31,7 +32,7 @@ function Splash() {
 }
 
 export function App() {
-  const { user, loading } = useAuth();
+  const { user, loading, passwordLocked } = useAuth();
 
   const { data: menuData } = useQuery({
     queryKey: ["menu"],
@@ -49,6 +50,9 @@ export function App() {
   );
 
   if (loading) return <Splash />;
+
+  // 安全锁：后端检测到默认密码（423），拒绝所有 API 访问，强制更换密码
+  if (passwordLocked) return <PasswordLockedPage />;
 
   // 未登录：首页（/）即登录面板，登录 API 为 POST /api/auth/login
   if (!user) return <LoginPage />;

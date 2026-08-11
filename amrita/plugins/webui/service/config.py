@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from nonebot import get_plugin_config
 from pydantic import BaseModel
 
@@ -14,3 +16,12 @@ class Config(BaseModel):
 
 def get_webui_config() -> Config:
     return get_plugin_config(Config)
+
+
+# 出厂默认密码（不安全）：检测到正在使用它时，WebUI 将拒绝所有访问
+DEFAULT_WEBUI_PASSWORD = "admin123"
+
+
+def is_using_default_password() -> bool:
+    """是否仍在使用出厂默认密码（此时 WebUI 锁定，要求更换）。"""
+    return get_webui_config().webui_password.strip() == DEFAULT_WEBUI_PASSWORD

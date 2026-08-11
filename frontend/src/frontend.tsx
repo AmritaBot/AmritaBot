@@ -7,7 +7,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/hooks/use-auth";
 import { App } from "./App";
 
@@ -24,13 +24,7 @@ const app = (
       <BrowserRouter>
         <AuthProvider>
           <App />
-          <Toaster
-            position="bottom-right"
-            richColors
-            toastOptions={{
-              duration: 4000,
-            }}
-          />
+          <Toaster />
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

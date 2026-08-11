@@ -54,13 +54,10 @@ class OnetimeTokenData(BaseModel):
 
 
 class LoginRateLimiter:
-    """
-    登录速率限制器，防止暴力破解
-    """
+    """1 秒内最多允许 count 次登录请求，防暴力破解。"""
 
     _instance = None
     __limiter_lock: Lock
-    # 存储IP地址和对应的请求时间列表
     __requests: dict[str, list[datetime]]
 
     def __new__(cls) -> Self:
@@ -71,13 +68,9 @@ class LoginRateLimiter:
         return cls._instance
 
     async def is_allowed(self, ip: str, count: int = 10) -> bool:
-        """
-        检查指定IP是否允许登录请求
-        1秒内最多允许10次请求
-        """
         async with self.__limiter_lock:
             now = datetime.now(utc)
-            # 清理1秒前的请求记录
+            # 窗口内只保留最近 1 秒的请求
             if ip in self.__requests:
                 self.__requests[ip] = [
                     req_time
@@ -87,18 +80,14 @@ class LoginRateLimiter:
             else:
                 self.__requests[ip] = []
 
-            # 检查请求数量
             if len(self.__requests[ip]) >= count:
                 return False
 
-            # 记录本次请求
             self.__requests[ip].append(now)
             return True
 
     async def clear_ip_records(self, ip: str) -> None:
-        """
-        清除指定IP的所有记录
-        """
+        """登录成功后清除该 IP 的失败记录，避免成功后仍被限速。"""
         async with self.__limiter_lock:
             self.__requests.pop(ip, None)
 
@@ -261,7 +250,7 @@ class AuthManager:
     async def authenticate_user(
         self, request: Request, username: str, password: str
     ) -> bool:
-        # 检查速率限制
+        # 先限速再验密，防暴力破解
         client_ip = request.client.host if request.client else "unknown"
         rate_limiter = LoginRateLimiter()
         if not await rate_limiter.is_allowed(client_ip):
@@ -273,7 +262,6 @@ class AuthManager:
 
         if username in self.__users:
             result = self._verify_password(password, self.__users[username])
-            # 如果认证成功，清除该IP的记录
             if result:
                 await rate_limiter.clear_ip_records(client_ip)
             return result

@@ -12,6 +12,7 @@ from fastapi import HTTPException, Request
 from pydantic import BaseModel
 
 from ..authlib import TOKEN_KEY, AuthManager, TokenManager
+from ..config import is_using_default_password
 from ..main import app
 from ..response import fail, ok
 
@@ -24,6 +25,13 @@ class LoginSchema(BaseModel):
 @app.post("/api/auth/login")
 async def login(request: Request, data: LoginSchema):
     """登录：校验凭据并设置 httpOnly Cookie。"""
+    # 安全锁：默认密码不可用于登录，强制要求更换后再使用
+    if is_using_default_password():
+        return fail(
+            423,
+            "检测到默认密码，请在 .env 中设置 WEBUI_PASSWORD 后重启 Amrita",
+            status_code=423,
+        )
     if not await AuthManager().authenticate_user(request, data.username, data.password):
         return fail(401, "用户名或密码错误")
     access_token_expires = timedelta(minutes=30)

@@ -14,7 +14,6 @@ from ..main import app
 
 logger = logging.getLogger(__name__)
 
-# 获取项目根目录
 PROJECT_ROOT = Path(os.getcwd())
 
 

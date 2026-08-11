@@ -29,11 +29,12 @@ if webui_config.webui_enable:
         api,
         auth,
         confedit,
-        config as route_config,
         dbmeta,
-        events,
         menu,
         permissions,
+    )
+    from .service.route import (
+        config as route_config,
     )
 
     # 所有 API 路由注册完成后，最后注册 SPA catch-all

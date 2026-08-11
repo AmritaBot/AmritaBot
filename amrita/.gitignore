@@ -8,5 +8,4 @@
 
 # 构建产物目录
 plugins/webui/service/static/*
-!plugins/webui/service/static/.placeholder
 !plugins/webui/service/static/images/

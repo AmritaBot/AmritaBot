@@ -47,13 +47,13 @@ rm_target() {
   if [[ ! -e "$target" ]]; then
     return
   fi
-  # 保护 static/images（logo 资源）与 .placeholder（git 占位）
+  # 保护 static/images（logo 资源，git 跟踪）
   if [[ "$target" == "$ROOT/amrita/plugins/webui/service/static" ]]; then
-    find "$target" -mindepth 1 -maxdepth 1 ! -name "images" ! -name ".placeholder" -exec rm -rf {} +
+    find "$target" -mindepth 1 -maxdepth 1 ! -name "images" -exec rm -rf {} +
     if [[ "$DRY_RUN" == true ]]; then
-      echo "  🗑️  将删除: amrita/plugins/webui/service/static/（保留 images/ 与 .placeholder）"
+      echo "  🗑️  将删除: amrita/plugins/webui/service/static/（保留 images/）"
     else
-      echo "  🗑️  已删除: amrita/plugins/webui/service/static/（保留 images/ 与 .placeholder）"
+      echo "  🗑️  已删除: amrita/plugins/webui/service/static/（保留 images/）"
     fi
     return
   fi
@@ -91,7 +91,6 @@ fi
 if [[ "$DRY_RUN" == false ]]; then
   mkdir -p "$ROOT/amrita/plugins/webui/service/static"
 fi
-# 确保 images 与 .placeholder 存在（静态资源目录合法入 git）
+# 确保 images 存在（logo 静态资源，git 跟踪）
 mkdir -p "$ROOT/amrita/plugins/webui/service/static/images"
-touch "$ROOT/amrita/plugins/webui/service/static/.placeholder"
 echo "✅ 完成"

@@ -22,6 +22,25 @@ T = TypeVar("T")
 BOT_SESSION_ID = random.randint(0, 1000000)
 TOKEN_KEY = f"amrita_token_{BOT_SESSION_ID}"
 
+# 安全锁定：登录失败达到阈值后永久锁定 UI（重启解除）
+UI_SEC_LOCKED = False
+MAX_LOGIN_FAILURES = 20
+_login_failure_count = 0
+
+
+def record_login_failure() -> None:
+    """全局失败计数 +1，达到阈值锁定 UI（重启前不再解锁）。"""
+    global UI_SEC_LOCKED, _login_failure_count
+    _login_failure_count += 1
+    if _login_failure_count >= MAX_LOGIN_FAILURES:
+        UI_SEC_LOCKED = True
+
+
+def clear_login_failures() -> None:
+    """登录成功后清零计数（正常使用不积累惩罚）。"""
+    global _login_failure_count
+    _login_failure_count = 0
+
 
 def get_restful_auth_header(request: Request) -> str | None:
     if auth_header := request.headers.get("Authorization"):

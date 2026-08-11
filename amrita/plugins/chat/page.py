@@ -5,11 +5,12 @@ import aiofiles
 from amrita_core import ModelPreset
 from amrita_core.tools.mcp import ClientManager
 from amrita_core.types import ModelConfig, ThinkingConfig
+from fastapi import Request
 from nonebot import logger
 from nonebot_plugin_amrita.database import InsightsModel
 
 from amrita.plugins.chat.config import config_manager
-from amrita.plugins.webui.API import JSONResponse, Request
+from amrita.plugins.webui.API import JSONResponse
 from amrita.plugins.webui.API import app as router
 
 KEY_PLACEHOLDER = "••••••••"

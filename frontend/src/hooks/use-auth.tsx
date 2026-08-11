@@ -19,6 +19,8 @@ interface AuthContextValue {
   loading: boolean;
   /** 后端检测到默认密码（HTTP 423）：WebUI 锁定，必须更换密码 */
   passwordLocked: boolean;
+  /** 登录失败次数过多（401 + ui_sec_locked 标记）：UI 安全锁定 */
+  uiSecLocked: boolean;
   login: (username: string, password: string) => Promise<AuthMe>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -33,17 +35,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthMe | null>(null);
   const [loading, setLoading] = useState(true);
   const [passwordLocked, setPasswordLocked] = useState(false);
+  const [uiSecLocked, setUiSecLocked] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
       const res = await api.get<AuthMe>("/api/auth/me");
       setUser(res.data);
       setPasswordLocked(false);
+      setUiSecLocked(false);
     } catch (err) {
       setUser(null);
-      // 423 = 默认密码锁定，渲染专门的更换密码提示页
-      if (err instanceof ApiError && err.code === PASSWORD_LOCKED_CODE) {
-        setPasswordLocked(true);
+      if (err instanceof ApiError) {
+        // 423 = 默认密码锁定，渲染专门的更换密码提示页
+        if (err.code === PASSWORD_LOCKED_CODE) {
+          setPasswordLocked(true);
+        }
+        // 401 + ui_sec_locked 标记 = 失败次数过多，渲染安全锁定页
+        if (
+          err.code === 401 &&
+          (err.data as { ui_sec_locked?: boolean } | undefined)?.ui_sec_locked
+        ) {
+          setUiSecLocked(true);
+        }
       }
     } finally {
       setLoading(false);
@@ -77,7 +90,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, passwordLocked, login, logout, refresh }}
+      value={{
+        user,
+        loading,
+        passwordLocked,
+        uiSecLocked,
+        login,
+        logout,
+        refresh,
+      }}
     >
       {children}
     </AuthContext.Provider>

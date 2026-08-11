@@ -10,6 +10,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { NotFound } from "@/components/shared/PagePlaceholder";
 import { LoginPage } from "@/pages/login";
 import { PasswordLockedPage } from "@/pages/password-locked";
+import { UiSecLockedPage } from "@/pages/ui-sec-locked";
 
 function Splash() {
   return (
@@ -32,7 +33,7 @@ function Splash() {
 }
 
 export function App() {
-  const { user, loading, passwordLocked } = useAuth();
+  const { user, loading, passwordLocked, uiSecLocked } = useAuth();
 
   const { data: menuData } = useQuery({
     queryKey: ["menu"],
@@ -50,6 +51,9 @@ export function App() {
   );
 
   if (loading) return <Splash />;
+
+  // 安全锁：登录失败次数过多，UI 永久锁定（重启解除）
+  if (uiSecLocked) return <UiSecLockedPage />;
 
   // 安全锁：后端检测到默认密码（423），拒绝所有 API 访问，强制更换密码
   if (passwordLocked) return <PasswordLockedPage />;

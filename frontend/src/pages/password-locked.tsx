@@ -16,22 +16,18 @@ export function PasswordLockedPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4 text-center">
-          <h1 className="text-xl font-semibold tracking-tight">
-            WebUI 已锁定
-          </h1>
+          <h1 className="text-xl font-semibold tracking-tight">WebUI 已锁定</h1>
           <p className="text-sm text-muted-foreground">
             检测到仍在使用出厂默认密码，为安全起见已拒绝所有访问。
           </p>
           <div className="rounded-md bg-muted p-4 text-left font-mono text-xs leading-relaxed text-muted-foreground">
-            <p className="mb-1 font-semibold text-foreground">
-              配置密码步骤：
+            <p className="mb-1 font-semibold text-foreground">配置密码步骤：</p>
+            <p>
+              1. 编辑 Bot 根目录的 <code className="text-primary">.env</code>
             </p>
-            <p>1. 编辑 Bot 根目录的 <code className="text-primary">.env</code></p>
             <p>
               2. 添加/修改{" "}
-              <code className="text-primary">
-                WEBUI_USER_NAME=你的用户名
-              </code>{" "}
+              <code className="text-primary">WEBUI_USER_NAME=你的用户名</code>{" "}
               （可选）
             </p>
             <p>

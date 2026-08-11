@@ -11,7 +11,14 @@ from datetime import timedelta
 from fastapi import HTTPException, Request
 from pydantic import BaseModel
 
-from ..authlib import TOKEN_KEY, AuthManager, TokenManager
+from .. import authlib
+from ..authlib import (
+    TOKEN_KEY,
+    AuthManager,
+    TokenManager,
+    clear_login_failures,
+    record_login_failure,
+)
 from ..config import is_using_default_password
 from ..main import app
 from ..response import fail, ok
@@ -25,6 +32,9 @@ class LoginSchema(BaseModel):
 @app.post("/api/auth/login")
 async def login(request: Request, data: LoginSchema):
     """登录：校验凭据并设置 httpOnly Cookie。"""
+    # 安全锁：失败次数过多已锁定，拒绝一切登录尝试
+    if authlib.UI_SEC_LOCKED:
+        return fail(401, "登录失败次数过多，UI 已安全锁定，请重启 Amrita 解除")
     # 安全锁：默认密码不可用于登录，强制要求更换后再使用
     if is_using_default_password():
         return fail(
@@ -33,7 +43,9 @@ async def login(request: Request, data: LoginSchema):
             status_code=423,
         )
     if not await AuthManager().authenticate_user(request, data.username, data.password):
+        record_login_failure()
         return fail(401, "用户名或密码错误")
+    clear_login_failures()
     access_token_expires = timedelta(minutes=30)
     access_token = await AuthManager().create_token(data.username, access_token_expires)
     response = ok("登录成功", data={"username": data.username})

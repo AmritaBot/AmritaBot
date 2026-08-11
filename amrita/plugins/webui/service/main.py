@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pytz import utc
 
+from . import authlib
 from .authlib import TOKEN_KEY, AuthManager, TokenManager
 from .config import is_using_default_password
 from .response import fail
@@ -64,6 +65,20 @@ async def auth_middleware(request: Request, call_next):
     }
     if path.startswith("/static") or path in public_paths:
         return await call_next(request)
+
+    # 安全锁：登录失败次数过多，UI 永久锁定（重启解除），所有访问拒绝
+    if authlib.UI_SEC_LOCKED:
+        if path.startswith("/api"):
+            return JSONResponse(
+                {
+                    "code": 401,
+                    "message": "登录失败次数过多，UI 已安全锁定，请重启 Amrita 解除",
+                    "success": False,
+                    "data": {"ui_sec_locked": True},
+                },
+                status_code=401,
+            )
+        return RedirectResponse(url="/", status_code=303)
 
     # 安全锁：仍在使用出厂默认密码时，拒绝所有访问（仅登录端点放行，登录时也会拒绝）
     if is_using_default_password():

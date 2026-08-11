@@ -9,7 +9,9 @@
     "build": "bun run build.ts --outdir=../amrita/plugins/webui/service/static --splitting --minify --public-path=/static/",
     "build:local": "bun run build.ts --splitting --minify",
     "build:frontend": "bash ../scripts/build-frontend.sh",
-    "typecheck": "bunx tsc --noEmit"
+    "typecheck": "bunx tsc --noEmit",
+    "lint": "bash ../scripts/lint.sh",
+    "lint:check": "bash ../scripts/lint.sh --check"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.23",
@@ -33,6 +35,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
     "@types/bun": "latest",
     "@types/react": "^19",
     "@types/react-dom": "^19",

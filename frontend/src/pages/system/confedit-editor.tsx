@@ -337,7 +337,7 @@ export function ConfeditEditorPage() {
               <div className="min-w-0">
                 <Label className="font-mono text-xs">{field.name}</Label>
                 {field.description && (
-                  <CardDescription className="mt-1 break-words">
+                  <CardDescription className="mt-1 wrap-break-word">
                     {field.description}
                   </CardDescription>
                 )}

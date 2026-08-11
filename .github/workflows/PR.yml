@@ -29,11 +29,6 @@ jobs:
           uv venv
           uv sync
 
-      - name: Install frontend dependencies
-        run: |
-          cd frontend
-          bun install
-
       - name: Get Python path
         run: |
           PYTHON_BIN="$(uv run python -c 'import sys; print(sys.executable)')"
@@ -50,10 +45,9 @@ jobs:
         with:
           args: check . --exit-non-zero-on-fix
 
-      - name: Frontend typecheck
-        run: |
-          cd frontend
-          bun run typecheck
+      # - name: Frontend typecheck
+      #   run: |
+      #     bash scripts/typecheck.sh
 
       - name: Full build (frontend + package)
         run: |

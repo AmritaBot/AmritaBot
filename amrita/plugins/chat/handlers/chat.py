@@ -403,11 +403,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
                 # Core 在下一个 Step 边界将其消费为 [peer message] 追加到上下文
                 debug_log("聊天已被锁定，推送给正在运行的 ChatObject")
                 running_chat = next(
-                    (
-                        obj
-                        for obj in pending_chatobj[session_id]
-                        if obj.is_running()
-                    ),
+                    (obj for obj in pending_chatobj[session_id] if obj.is_running()),
                     None,
                 )
                 if running_chat is not None:
@@ -415,9 +411,9 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
                     try:
                         await running_chat.io_stream.send_to_producer(text)
                     except Exception as e:
-                        logger.opt(
-                            exception=e, colors=True, raw=True
-                        ).warning("推送交互消息失败，已静默丢弃。")
+                        logger.opt(exception=e, colors=True, raw=True).warning(
+                            "推送交互消息失败，已静默丢弃。"
+                        )
                 return matcher.stop_propagation()
 
     try:

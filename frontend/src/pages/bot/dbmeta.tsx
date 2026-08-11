@@ -12,7 +12,8 @@ import {
 
 function InfoGrid({ data }: { data: Record<string, unknown> }) {
   const entries = Object.entries(data);
-  if (entries.length === 0) return <p className="text-sm text-muted-foreground">无数据</p>;
+  if (entries.length === 0)
+    return <p className="text-sm text-muted-foreground">无数据</p>;
   return (
     <div className="grid gap-x-8 gap-y-1 sm:grid-cols-2">
       {entries.map(([k, v]) => (
@@ -77,9 +78,7 @@ export function DbMetaPage() {
         </p>
       </div>
 
-      {d.error && (
-        <p className="text-sm text-destructive">{d.error}</p>
-      )}
+      {d.error && <p className="text-sm text-destructive">{d.error}</p>}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

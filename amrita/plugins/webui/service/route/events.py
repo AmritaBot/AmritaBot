@@ -22,9 +22,7 @@ async def list_events(request: Request):
     try:
         params = request.query_params
         levels = [
-            l.strip().upper()
-            for l in params.get("level", "").split(",")
-            if l.strip()
+            l.strip().upper() for l in params.get("level", "").split(",") if l.strip()
         ]
         keyword = params.get("keyword", "").strip().lower()
         try:

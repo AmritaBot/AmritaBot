@@ -16,12 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ModelRow extends ChatModel {
   __editing?: boolean;
@@ -50,7 +45,11 @@ function ModelForm({
     <div className="space-y-4">
       <div className="space-y-2">
         <Label>名称</Label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} disabled={!!initial} />
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          disabled={!!initial}
+        />
       </div>
       <div className="space-y-2">
         <Label>模型标识</Label>
@@ -75,7 +74,13 @@ function ModelForm({
       <DialogFooter>
         <Button
           onClick={() =>
-            onSubmit({ name, model, base_url: baseUrl, api_key: apiKey, protocol })
+            onSubmit({
+              name,
+              model,
+              base_url: baseUrl,
+              api_key: apiKey,
+              protocol,
+            })
           }
           disabled={!name || !model || submitting}
         >
@@ -108,8 +113,13 @@ export function ModelsPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ name, payload }: { name: string; payload: Record<string, unknown> }) =>
-      api.post(`/api/chat/models/${encodeURIComponent(name)}`, payload),
+    mutationFn: ({
+      name,
+      payload,
+    }: {
+      name: string;
+      payload: Record<string, unknown>;
+    }) => api.post(`/api/chat/models/${encodeURIComponent(name)}`, payload),
     onSuccess: (res) => {
       toast.success(res.message);
       setEditing(null);
@@ -129,10 +139,30 @@ export function ModelsPage() {
   });
 
   const columns: Column<ModelRow>[] = [
-    { key: "name", header: "名称", render: (m) => <span className="font-medium">{m.name}</span> },
-    { key: "model", header: "模型", render: (m) => <code className="font-mono text-xs">{m.model}</code> },
-    { key: "base_url", header: "Base URL", render: (m) => <span className="text-muted-foreground">{m.base_url}</span> },
-    { key: "protocol", header: "协议", render: (m) => <span className="text-xs text-muted-foreground">{m.protocol}</span> },
+    {
+      key: "name",
+      header: "名称",
+      render: (m) => <span className="font-medium">{m.name}</span>,
+    },
+    {
+      key: "model",
+      header: "模型",
+      render: (m) => <code className="font-mono text-xs">{m.model}</code>,
+    },
+    {
+      key: "base_url",
+      header: "Base URL",
+      render: (m) => (
+        <span className="text-muted-foreground">{m.base_url}</span>
+      ),
+    },
+    {
+      key: "protocol",
+      header: "协议",
+      render: (m) => (
+        <span className="text-xs text-muted-foreground">{m.protocol}</span>
+      ),
+    },
     {
       key: "actions",
       header: "操作",
@@ -180,7 +210,10 @@ export function ModelsPage() {
         </Dialog>
       </div>
 
-      <Dialog open={!!editing} onOpenChange={(open: boolean) => !open && setEditing(null)}>
+      <Dialog
+        open={!!editing}
+        onOpenChange={(open: boolean) => !open && setEditing(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>编辑模型：{editing?.name}</DialogTitle>

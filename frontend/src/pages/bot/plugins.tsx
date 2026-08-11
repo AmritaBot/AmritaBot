@@ -12,16 +12,32 @@ export function BotPluginsPage() {
   });
 
   const columns: Column<PluginInfo>[] = [
-    { key: "name", header: "名称", render: (p) => <span className="font-medium">{p.name}</span> },
-    { key: "version", header: "版本", render: (p) => <span className="text-muted-foreground">{p.version}</span> },
+    {
+      key: "name",
+      header: "名称",
+      render: (p) => <span className="font-medium">{p.name}</span>,
+    },
+    {
+      key: "version",
+      header: "版本",
+      render: (p) => <span className="text-muted-foreground">{p.version}</span>,
+    },
     {
       key: "type",
       header: "类型",
       render: (p) => (
-        <Badge variant={p.type === "application" ? "default" : "secondary"}>{p.type}</Badge>
+        <Badge variant={p.type === "application" ? "default" : "secondary"}>
+          {p.type}
+        </Badge>
       ),
     },
-    { key: "description", header: "描述", render: (p) => <span className="text-muted-foreground">{p.description}</span> },
+    {
+      key: "description",
+      header: "描述",
+      render: (p) => (
+        <span className="text-muted-foreground">{p.description}</span>
+      ),
+    },
     {
       key: "is_local",
       header: "来源",
@@ -37,7 +53,9 @@ export function BotPluginsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">插件管理</h1>
-        <p className="text-sm text-muted-foreground">已加载的 NoneBot 插件列表</p>
+        <p className="text-sm text-muted-foreground">
+          已加载的 NoneBot 插件列表
+        </p>
       </div>
       <Card>
         <CardHeader>
@@ -48,7 +66,10 @@ export function BotPluginsPage() {
         <CardContent>
           <DataTable
             columns={columns}
-            data={(data?.data.plugins ?? []) as PluginInfo[] & Record<string, unknown>[]}
+            data={
+              (data?.data.plugins ?? []) as PluginInfo[] &
+                Record<string, unknown>[]
+            }
             loading={isLoading}
             emptyText="没有加载任何插件"
           />

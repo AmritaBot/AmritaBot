@@ -367,7 +367,9 @@ async def get_prompts():
         return JSONResponse(
             {
                 "success": True,
-                "data": {"prompts": {"group": group_prompts, "private": private_prompts}},
+                "data": {
+                    "prompts": {"group": group_prompts, "private": private_prompts}
+                },
             },
             status_code=200,
         )

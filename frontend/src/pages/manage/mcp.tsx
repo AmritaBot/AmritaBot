@@ -17,12 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function McpPage() {
   const qc = useQueryClient();
@@ -46,7 +41,8 @@ export function McpPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: () => api.post("/api/chat/mcp/servers", { server_script: newScript }),
+    mutationFn: () =>
+      api.post("/api/chat/mcp/servers", { server_script: newScript }),
     onSuccess: (res) => {
       toast.success(res.message);
       setCreateOpen(false);
@@ -58,10 +54,9 @@ export function McpPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ old, newScript }: { old: string; newScript: string }) =>
-      api.post(
-        `/api/chat/mcp/servers/${encodeURIComponent(old)}`,
-        { server_script: newScript },
-      ),
+      api.post(`/api/chat/mcp/servers/${encodeURIComponent(old)}`, {
+        server_script: newScript,
+      }),
     onSuccess: (res) => {
       toast.success(res.message);
       setEditing(null);
@@ -84,10 +79,16 @@ export function McpPage() {
     {
       key: "server_script",
       header: "脚本路径",
-      render: (s) => <code className="font-mono text-xs">{s.server_script}</code>,
+      render: (s) => (
+        <code className="font-mono text-xs">{s.server_script}</code>
+      ),
     },
     { key: "tools_count", header: "工具数", render: (s) => s.tools_count },
-    { key: "status", header: "状态", render: (s) => <StatusBadge status={s.status} /> },
+    {
+      key: "status",
+      header: "状态",
+      render: (s) => <StatusBadge status={s.status} />,
+    },
     {
       key: "actions",
       header: "操作",
@@ -129,7 +130,9 @@ export function McpPage() {
             onClick={() => reloadMutation.mutate()}
             disabled={reloadMutation.isPending}
           >
-            <RefreshCw className={`mr-1 h-4 w-4 ${reloadMutation.isPending ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`mr-1 h-4 w-4 ${reloadMutation.isPending ? "animate-spin" : ""}`}
+            />
             重载全部
           </Button>
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -165,14 +168,21 @@ export function McpPage() {
         </div>
       </div>
 
-      <Dialog open={!!editing} onOpenChange={(open: boolean) => !open && setEditing(null)}>
+      <Dialog
+        open={!!editing}
+        onOpenChange={(open: boolean) => !open && setEditing(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>更新 MCP 服务器</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
             <Label>原路径</Label>
-            <Input value={editing?.server_script ?? ""} disabled className="font-mono text-xs" />
+            <Input
+              value={editing?.server_script ?? ""}
+              disabled
+              className="font-mono text-xs"
+            />
             <Label className="pt-2">新路径</Label>
             <Input
               value={editScript}
@@ -183,7 +193,11 @@ export function McpPage() {
           <DialogFooter>
             <Button
               onClick={() =>
-                editing && updateMutation.mutate({ old: editing.server_script, newScript: editScript })
+                editing &&
+                updateMutation.mutate({
+                  old: editing.server_script,
+                  newScript: editScript,
+                })
               }
               disabled={!editing || !editScript || updateMutation.isPending}
             >

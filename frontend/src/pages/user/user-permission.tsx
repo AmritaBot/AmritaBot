@@ -63,7 +63,9 @@ function PermissionScope({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">权限字符串</CardTitle>
-          <CardDescription>每行一条权限，格式如 node.permission</CardDescription>
+          <CardDescription>
+            每行一条权限，格式如 node.permission
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea

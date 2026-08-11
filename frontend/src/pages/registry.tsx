@@ -10,28 +10,80 @@ import { lazy, type ComponentType } from "react";
 
 export const registry: Record<string, ComponentType> = {
   // 仪表盘 & 系统
-  "/dashboard": lazy(() => import("@/pages/dashboard").then((m) => ({ default: m.DashboardPage }))),
-  "/bot/status": lazy(() => import("@/pages/bot/status").then((m) => ({ default: m.BotStatusPage }))),
-  "/bot/logs": lazy(() => import("@/pages/bot/logs").then((m) => ({ default: m.LogsPage }))),
-  "/events": lazy(() => import("@/pages/events").then((m) => ({ default: m.EventsPage }))),
-  "/bot/plugins": lazy(() => import("@/pages/bot/plugins").then((m) => ({ default: m.BotPluginsPage }))),
-  "/bot/config": lazy(() => import("@/pages/bot/config").then((m) => ({ default: m.BotConfigPage }))),
-  "/dbmeta": lazy(() => import("@/pages/bot/dbmeta").then((m) => ({ default: m.DbMetaPage }))),
+  "/dashboard": lazy(() =>
+    import("@/pages/dashboard").then((m) => ({ default: m.DashboardPage })),
+  ),
+  "/bot/status": lazy(() =>
+    import("@/pages/bot/status").then((m) => ({ default: m.BotStatusPage })),
+  ),
+  "/bot/logs": lazy(() =>
+    import("@/pages/bot/logs").then((m) => ({ default: m.LogsPage })),
+  ),
+  "/events": lazy(() =>
+    import("@/pages/events").then((m) => ({ default: m.EventsPage })),
+  ),
+  "/bot/plugins": lazy(() =>
+    import("@/pages/bot/plugins").then((m) => ({ default: m.BotPluginsPage })),
+  ),
+  "/bot/config": lazy(() =>
+    import("@/pages/bot/config").then((m) => ({ default: m.BotConfigPage })),
+  ),
+  "/dbmeta": lazy(() =>
+    import("@/pages/bot/dbmeta").then((m) => ({ default: m.DbMetaPage })),
+  ),
 
   // 用户管理
-  "/blacklists": lazy(() => import("@/pages/user/blacklist").then((m) => ({ default: m.BlacklistPage }))),
-  "/permissions/groups": lazy(() => import("@/pages/user/permissions").then((m) => ({ default: m.PermissionsPage }))),
-  "/permissions/groups/{name}": lazy(() => import("@/pages/user/perm-group").then((m) => ({ default: m.PermGroupDetailPage }))),
-  "/permissions/users/{user_id}": lazy(() => import("@/pages/user/user-permission").then((m) => ({ default: m.UserPermissionPage }))),
-  "/permissions/group-scopes/{group_id}": lazy(() => import("@/pages/user/user-permission").then((m) => ({ default: m.GroupPermissionPage }))),
+  "/blacklists": lazy(() =>
+    import("@/pages/user/blacklist").then((m) => ({
+      default: m.BlacklistPage,
+    })),
+  ),
+  "/permissions/groups": lazy(() =>
+    import("@/pages/user/permissions").then((m) => ({
+      default: m.PermissionsPage,
+    })),
+  ),
+  "/permissions/groups/{name}": lazy(() =>
+    import("@/pages/user/perm-group").then((m) => ({
+      default: m.PermGroupDetailPage,
+    })),
+  ),
+  "/permissions/users/{user_id}": lazy(() =>
+    import("@/pages/user/user-permission").then((m) => ({
+      default: m.UserPermissionPage,
+    })),
+  ),
+  "/permissions/group-scopes/{group_id}": lazy(() =>
+    import("@/pages/user/user-permission").then((m) => ({
+      default: m.GroupPermissionPage,
+    })),
+  ),
 
   // 系统管理
-  "/system/confedit": lazy(() => import("@/pages/system/confedit").then((m) => ({ default: m.ConfeditPage }))),
-  "/system/confedit/{owner_name}": lazy(() => import("@/pages/system/confedit-editor").then((m) => ({ default: m.ConfeditEditorPage }))),
+  "/system/confedit": lazy(() =>
+    import("@/pages/system/confedit").then((m) => ({
+      default: m.ConfeditPage,
+    })),
+  ),
+  "/system/confedit/{owner_name}": lazy(() =>
+    import("@/pages/system/confedit-editor").then((m) => ({
+      default: m.ConfeditEditorPage,
+    })),
+  ),
 
   // 聊天管理
-  "/manage/chat/insights": lazy(() => import("@/pages/manage/insights").then((m) => ({ default: m.InsightsPage }))),
-  "/manage/chat/models": lazy(() => import("@/pages/manage/models").then((m) => ({ default: m.ModelsPage }))),
-  "/manage/chat/prompts": lazy(() => import("@/pages/manage/prompts").then((m) => ({ default: m.PromptsPage }))),
-  "/manage/chat/mcp": lazy(() => import("@/pages/manage/mcp").then((m) => ({ default: m.McpPage }))),
+  "/manage/chat/insights": lazy(() =>
+    import("@/pages/manage/insights").then((m) => ({
+      default: m.InsightsPage,
+    })),
+  ),
+  "/manage/chat/models": lazy(() =>
+    import("@/pages/manage/models").then((m) => ({ default: m.ModelsPage })),
+  ),
+  "/manage/chat/prompts": lazy(() =>
+    import("@/pages/manage/prompts").then((m) => ({ default: m.PromptsPage })),
+  ),
+  "/manage/chat/mcp": lazy(() =>
+    import("@/pages/manage/mcp").then((m) => ({ default: m.McpPage })),
+  ),
 };

@@ -138,13 +138,16 @@ function connect() {
         channel: keyof ChannelData;
         data: ChannelData[keyof ChannelData];
       };
-      if (msg.channel === "system") updateSnapshot("system", msg.data as SystemUsage);
-      else if (msg.channel === "bot") updateSnapshot("bot", msg.data as BotState);
+      if (msg.channel === "system")
+        updateSnapshot("system", msg.data as SystemUsage);
+      else if (msg.channel === "bot")
+        updateSnapshot("bot", msg.data as BotState);
       else if (msg.channel === "logs") {
         // 按 (time,title,desc) 去重（后端订阅回放 + 实时推送可能重叠），不截断
         const ev = msg.data as LogEvent;
         const exists = global.snapshots.logs.some(
-          (l) => l.time === ev.time && l.title === ev.title && l.desc === ev.desc,
+          (l) =>
+            l.time === ev.time && l.title === ev.title && l.desc === ev.desc,
         );
         if (!exists) {
           updateSnapshot("logs", [ev, ...global.snapshots.logs]);
@@ -198,7 +201,9 @@ interface UseWsOptions {
 
 export function useWs({ channels, onStatusChange }: UseWsOptions) {
   const [connected, setConnected] = useState(global.connected);
-  const [system, setSystem] = useState<SystemUsage | null>(global.snapshots.system);
+  const [system, setSystem] = useState<SystemUsage | null>(
+    global.snapshots.system,
+  );
   const [bot, setBot] = useState<BotState | null>(global.snapshots.bot);
   const [logs, setLogs] = useState<LogEvent[]>(global.snapshots.logs);
 
@@ -242,7 +247,9 @@ export function useWs({ channels, onStatusChange }: UseWsOptions) {
 
     // 订阅（若连接已开）
     if (global.ws?.readyState === WebSocket.OPEN) {
-      global.ws.send(JSON.stringify({ action: "subscribe", channels: current }));
+      global.ws.send(
+        JSON.stringify({ action: "subscribe", channels: current }),
+      );
     }
 
     // 建立连接

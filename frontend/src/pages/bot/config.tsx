@@ -6,12 +6,7 @@ import type { BotConfigData, BotConfigListData } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function BotConfigPage() {
   const qc = useQueryClient();
@@ -60,7 +55,9 @@ export function BotConfigPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Dotenv 编辑</h1>
-        <p className="text-sm text-muted-foreground">编辑 Bot 环境变量配置文件</p>
+        <p className="text-sm text-muted-foreground">
+          编辑 Bot 环境变量配置文件
+        </p>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -78,7 +75,9 @@ export function BotConfigPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">{activeFile ?? "未选择文件"}</CardTitle>
+          <CardTitle className="text-base">
+            {activeFile ?? "未选择文件"}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea

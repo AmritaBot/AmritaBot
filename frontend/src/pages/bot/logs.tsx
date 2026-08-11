@@ -61,7 +61,8 @@ export function LogsPage() {
     const kw = keyword.trim().toLowerCase();
     return visible.filter((l) => {
       if (level !== "ALL" && l.title !== level) return false;
-      if (kw && !`${l.title} ${l.desc}`.toLowerCase().includes(kw)) return false;
+      if (kw && !`${l.title} ${l.desc}`.toLowerCase().includes(kw))
+        return false;
       return true;
     });
   }, [visible, level, keyword]);
@@ -110,21 +111,18 @@ export function LogsPage() {
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="w-36">
-          <Select
-            value={level}
-            onValueChange={(v) => setLevel(v as Level)}
-          >
+          <Select value={level} onValueChange={(v) => setLevel(v as Level)}>
             <SelectTrigger className="h-9">
               <SelectValue placeholder="级别" />
             </SelectTrigger>
             <SelectContent>
-              {(["ALL", "INFO", "DEBUG", "WARNING", "ERROR", "FATAL"] as Level[]).map(
-                (l) => (
-                  <SelectItem key={l} value={l}>
-                    {l}
-                  </SelectItem>
-                ),
-              )}
+              {(
+                ["ALL", "INFO", "DEBUG", "WARNING", "ERROR", "FATAL"] as Level[]
+              ).map((l) => (
+                <SelectItem key={l} value={l}>
+                  {l}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -162,7 +160,9 @@ export function LogsPage() {
                   key={`${l.time}-${i}`}
                   className="flex items-start gap-2 border-b border-border/50 px-3 py-1.5 last:border-0"
                 >
-                  <span className="shrink-0 text-muted-foreground">{l.time}</span>
+                  <span className="shrink-0 text-muted-foreground">
+                    {l.time}
+                  </span>
                   <LevelBadge level={l.title} />
                   <span className="break-all">{l.desc}</span>
                 </div>

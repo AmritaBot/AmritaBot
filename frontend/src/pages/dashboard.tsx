@@ -1,12 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import {
-  Activity,
-  Bot,
-  History,
-  MessageSquare,
-  Puzzle,
-} from "lucide-react";
+import { Activity, Bot, History, MessageSquare, Puzzle } from "lucide-react";
 import {
   ResponsiveContainer,
   Bar,
@@ -21,12 +15,7 @@ import type { DashboardData } from "@/lib/types";
 import { StatCard } from "@/components/shared/StatCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -69,16 +58,8 @@ export function DashboardPage() {
           value={d.total_message}
           icon={MessageSquare}
         />
-        <StatCard
-          title="系统健康"
-          value={`${d.health}%`}
-          icon={Activity}
-        />
-        <StatCard
-          title="已加载插件"
-          value={d.loaded_plugins}
-          icon={Puzzle}
-        />
+        <StatCard title="系统健康" value={`${d.health}%`} icon={Activity} />
+        <StatCard title="已加载插件" value={d.loaded_plugins} icon={Puzzle} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -91,7 +72,11 @@ export function DashboardPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="date" fontSize={12} stroke="var(--muted-foreground)" />
+                  <XAxis
+                    dataKey="date"
+                    fontSize={12}
+                    stroke="var(--muted-foreground)"
+                  />
                   <YAxis fontSize={12} stroke="var(--muted-foreground)" />
                   <Tooltip
                     contentStyle={{
@@ -101,7 +86,11 @@ export function DashboardPage() {
                       fontSize: 12,
                     }}
                   />
-                  <Bar dataKey="messages" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
+                  <Bar
+                    dataKey="messages"
+                    fill="var(--chart-1)"
+                    radius={[4, 4, 0, 0]}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -122,7 +111,11 @@ export function DashboardPage() {
                   }))}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="label" fontSize={12} stroke="var(--muted-foreground)" />
+                  <XAxis
+                    dataKey="label"
+                    fontSize={12}
+                    stroke="var(--muted-foreground)"
+                  />
                   <YAxis fontSize={12} stroke="var(--muted-foreground)" />
                   <Tooltip
                     contentStyle={{
@@ -132,7 +125,11 @@ export function DashboardPage() {
                       fontSize: 12,
                     }}
                   />
-                  <Bar dataKey="count" fill="var(--chart-2)" radius={[4, 4, 0, 0]} />
+                  <Bar
+                    dataKey="count"
+                    fill="var(--chart-2)"
+                    radius={[4, 4, 0, 0]}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>

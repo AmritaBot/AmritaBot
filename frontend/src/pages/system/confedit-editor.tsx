@@ -219,7 +219,10 @@ export function ConfeditEditorPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["confedit-schema", owner_name],
-    queryFn: () => api.get<ConfeditSchemaData>(`/api/confedit/${encodeURIComponent(owner_name ?? "")}/schema`),
+    queryFn: () =>
+      api.get<ConfeditSchemaData>(
+        `/api/confedit/${encodeURIComponent(owner_name ?? "")}/schema`,
+      ),
     enabled: !!owner_name,
   });
 
@@ -249,7 +252,9 @@ export function ConfeditEditorPage() {
   };
 
   /** 提交前清理：所有 list 数组字段过滤空条目 */
-  function cleanForSubmit(config: Record<string, FieldValue>): Record<string, FieldValue> {
+  function cleanForSubmit(
+    config: Record<string, FieldValue>,
+  ): Record<string, FieldValue> {
     const cleaned: Record<string, FieldValue> = {};
     for (const [key, v] of Object.entries(config)) {
       cleaned[key] = Array.isArray(v)
@@ -270,7 +275,9 @@ export function ConfeditEditorPage() {
       setChanged(false);
       setDraft({});
       // 刷新 schema：UI 立即显示服务器最新值（否则表单停留在旧值，误以为保存失败）
-      void queryClient.invalidateQueries({ queryKey: ["confedit-schema", owner_name] });
+      void queryClient.invalidateQueries({
+        queryKey: ["confedit-schema", owner_name],
+      });
     },
     onError: (e: Error) => {
       if (e instanceof ApiError && e.code === 409) {
@@ -293,9 +300,7 @@ export function ConfeditEditorPage() {
   }
 
   if (error) {
-    return (
-      <p className="text-destructive">加载配置失败：{error.message}</p>
-    );
+    return <p className="text-destructive">加载配置失败：{error.message}</p>;
   }
 
   return (
@@ -332,7 +337,9 @@ export function ConfeditEditorPage() {
               <div className="min-w-0">
                 <Label className="font-mono text-xs">{field.name}</Label>
                 {field.description && (
-                  <CardDescription className="mt-1 break-words">{field.description}</CardDescription>
+                  <CardDescription className="mt-1 break-words">
+                    {field.description}
+                  </CardDescription>
                 )}
               </div>
               <FieldEditor
@@ -346,9 +353,7 @@ export function ConfeditEditorPage() {
       </Card>
 
       {changed && (
-        <p className="text-xs text-muted-foreground">
-          有未保存的修改
-        </p>
+        <p className="text-xs text-muted-foreground">有未保存的修改</p>
       )}
     </div>
   );

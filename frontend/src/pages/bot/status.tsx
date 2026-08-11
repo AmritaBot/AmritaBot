@@ -15,7 +15,9 @@ function Meter({ label, value }: { label: string; value?: number }) {
     <div className="space-y-1">
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">{label}</span>
-        <span className="font-medium">{value === undefined ? "—" : `${v.toFixed(1)}%`}</span>
+        <span className="font-medium">
+          {value === undefined ? "—" : `${v.toFixed(1)}%`}
+        </span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-muted">
         <div
@@ -77,8 +79,8 @@ export function BotStatusPage() {
               逻辑核心：{system.logical_cores}
               {system.network_io && (
                 <span className="ml-3">
-                  网络：↑ {(system.network_io.sent / 1024 / 1024).toFixed(1)} MB / ↓{" "}
-                  {(system.network_io.received / 1024 / 1024).toFixed(1)} MB
+                  网络：↑ {(system.network_io.sent / 1024 / 1024).toFixed(1)} MB
+                  / ↓ {(system.network_io.received / 1024 / 1024).toFixed(1)} MB
                 </span>
               )}
             </p>

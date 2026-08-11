@@ -44,7 +44,9 @@ export function LoginPage() {
             alt="AmritaBot"
             className="mx-auto h-16 w-16 rounded-full"
           />
-          <CardTitle className="text-xl tracking-tight">AmritaBot WebUI</CardTitle>
+          <CardTitle className="text-xl tracking-tight">
+            AmritaBot WebUI
+          </CardTitle>
           <CardDescription>登录以管理你的 Bot</CardDescription>
         </CardHeader>
         <CardContent>
@@ -70,9 +72,7 @@ export function LoginPage() {
                 required
               />
             </div>
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? "登录中…" : "登录"}
             </Button>

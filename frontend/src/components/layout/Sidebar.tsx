@@ -89,7 +89,9 @@ export function Sidebar({
               alt="AmritaBot"
               className="h-7 w-7 shrink-0 rounded-full"
             />
-            <span className="truncate text-lg font-semibold tracking-tight">AmritaBot</span>
+            <span className="truncate text-lg font-semibold tracking-tight">
+              AmritaBot
+            </span>
             <span className="shrink-0 rounded-full bg-sidebar-primary px-2 py-0.5 text-xs font-medium text-sidebar-primary-foreground">
               WebUI
             </span>
@@ -144,7 +146,9 @@ export function Sidebar({
                   }`}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
-                  {!effectiveCollapsed && <span className="truncate">{item.name}</span>}
+                  {!effectiveCollapsed && (
+                    <span className="truncate">{item.name}</span>
+                  )}
                 </button>
               );
             })}

@@ -20,9 +20,7 @@ PROJECT_ROOT = Path(os.getcwd())
 
 def _list_env_files() -> list[str]:
     env_files = glob.glob(str(PROJECT_ROOT / ".env*"))
-    return [
-        Path(f).name for f in env_files if not f.endswith((".py", ".pyc", ".pyo"))
-    ]
+    return [Path(f).name for f in env_files if not f.endswith((".py", ".pyc", ".pyo"))]
 
 
 @app.get("/api/bot/config")

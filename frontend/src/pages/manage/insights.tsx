@@ -13,12 +13,7 @@ import type { ChatInsightsData } from "@/lib/types";
 import { StatCard } from "@/components/shared/StatCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Coins, Gauge, MessageSquare } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function InsightsPage() {
   const { data, isLoading } = useQuery({
@@ -65,16 +60,36 @@ export function InsightsPage() {
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="inputGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0} />
+                    <stop
+                      offset="5%"
+                      stopColor="var(--chart-1)"
+                      stopOpacity={0.4}
+                    />
+                    <stop
+                      offset="95%"
+                      stopColor="var(--chart-1)"
+                      stopOpacity={0}
+                    />
                   </linearGradient>
                   <linearGradient id="outputGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--chart-3)" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="var(--chart-3)" stopOpacity={0} />
+                    <stop
+                      offset="5%"
+                      stopColor="var(--chart-3)"
+                      stopOpacity={0.4}
+                    />
+                    <stop
+                      offset="95%"
+                      stopColor="var(--chart-3)"
+                      stopOpacity={0}
+                    />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="date" fontSize={12} stroke="var(--muted-foreground)" />
+                <XAxis
+                  dataKey="date"
+                  fontSize={12}
+                  stroke="var(--muted-foreground)"
+                />
                 <YAxis fontSize={12} stroke="var(--muted-foreground)" />
                 <Tooltip
                   contentStyle={{

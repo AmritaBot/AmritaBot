@@ -54,8 +54,7 @@ def on_page(
         # 非隐藏页面加入侧边栏
         if not real_hidden:
             if all(
-                cate.name != category
-                for cate in SideBarManager().get_sidebar().items
+                cate.name != category for cate in SideBarManager().get_sidebar().items
             ):
                 SideBarManager().add_sidebar_category(
                     SideBarCategory(
@@ -90,4 +89,3 @@ __all__ = [
     "get_templates_dir",
     "on_page",
 ]
-

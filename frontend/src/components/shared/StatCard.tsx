@@ -15,7 +15,12 @@ interface StatCardProps {
 }
 
 /** 仪表盘统计卡 */
-export function StatCard({ title, value, description, icon: Icon }: StatCardProps) {
+export function StatCard({
+  title,
+  value,
+  description,
+  icon: Icon,
+}: StatCardProps) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

@@ -19,7 +19,9 @@ function Splash() {
           alt="AmritaBot"
           className="h-16 w-16 rounded-full"
         />
-        <span className="text-lg font-semibold tracking-tight">AmritaBot WebUI</span>
+        <span className="text-lg font-semibold tracking-tight">
+          AmritaBot WebUI
+        </span>
         <div className="h-1 w-32 overflow-hidden rounded-full bg-muted">
           <div className="h-full w-1/3 animate-pulse rounded-full bg-sidebar-primary" />
         </div>

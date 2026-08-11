@@ -49,7 +49,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const login = useCallback(async (username: string, password: string) => {
-    const res = await api.post<AuthMe>("/api/auth/login", { username, password });
+    const res = await api.post<AuthMe>("/api/auth/login", {
+      username,
+      password,
+    });
     setUser(res.data);
     return res.data;
   }, []);
@@ -73,4 +76,3 @@ export function useAuth(): AuthContextValue {
   if (!ctx) throw new Error("useAuth 必须在 AuthProvider 内使用");
   return ctx;
 }
-

@@ -351,9 +351,7 @@ async def get_plugin_config_schema(owner_name: str):
                 default_value = dv_str if len(dv_str) <= 20 else dv_str[:20] + "..."
 
             type_name = type(flat_value).__name__
-            literal_values = (
-                extract_literal_values(field_type) if field_type else None
-            )
+            literal_values = extract_literal_values(field_type) if field_type else None
             if literal_values:
                 type_name = "literal"
 

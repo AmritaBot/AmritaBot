@@ -5,12 +5,7 @@ import { GripVertical } from "lucide-react";
 import { api } from "@/lib/api";
 import type { ConfeditListData } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ConfigItem {
   name: string;
@@ -36,7 +31,9 @@ export function ConfeditPage() {
     if (configs.length === 0) return;
     // 尝试读取本地顺序（仅保留仍存在的插件名）
     try {
-      const saved = JSON.parse(localStorage.getItem(ORDER_KEY) ?? "[]") as string[];
+      const saved = JSON.parse(
+        localStorage.getItem(ORDER_KEY) ?? "[]",
+      ) as string[];
       const savedOrder = saved
         .map((name) => configs.find((c) => c.name === name))
         .filter((c): c is ConfigItem => c !== undefined);

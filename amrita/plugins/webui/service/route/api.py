@@ -175,15 +175,11 @@ async def blacklist_action(type: str, id: str, data: BlacklistActionSchema):
     try:
         if data.action == "add":
             func = (
-                BL_Manager.private_append
-                if type == "user"
-                else BL_Manager.group_append
+                BL_Manager.private_append if type == "user" else BL_Manager.group_append
             )
             await func(id, data.reason)
             return ok("已添加到黑名单")
-        func = (
-            BL_Manager.private_remove if type == "user" else BL_Manager.group_remove
-        )
+        func = BL_Manager.private_remove if type == "user" else BL_Manager.group_remove
         await func(id)
         return ok("已移除")
     except Exception:

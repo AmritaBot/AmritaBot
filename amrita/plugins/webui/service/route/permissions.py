@@ -106,9 +106,7 @@ async def get_user_permissions(user_id: str):
     dt = PermissionStorage()
     user_data = await dt.get_member_permission(user_id, "user")
     perm = Permissions(user_data.permissions)
-    groups = (
-        await dt.get_member_related_permission_groups(user_id, "user")
-    ).groups
+    groups = (await dt.get_member_related_permission_groups(user_id, "user")).groups
     return ok(
         "success",
         data={
@@ -140,9 +138,7 @@ async def get_group_permissions(group_id: str):
     dt = PermissionStorage()
     group_data = await dt.get_member_permission(group_id, "group")
     perm = Permissions(group_data.permissions)
-    groups = (
-        await dt.get_member_related_permission_groups(group_id, "group")
-    ).groups
+    groups = (await dt.get_member_related_permission_groups(group_id, "group")).groups
     return ok(
         "success",
         data={

@@ -17,12 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function PermissionsPage() {
   const qc = useQueryClient();
@@ -48,7 +43,9 @@ export function PermissionsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (groupName: string) =>
-      api.post(`/api/permissions/groups/${encodeURIComponent(groupName)}/delete`),
+      api.post(
+        `/api/permissions/groups/${encodeURIComponent(groupName)}/delete`,
+      ),
     onSuccess: (res) => {
       toast.success(res.message);
       void qc.invalidateQueries({ queryKey: ["perm-groups"] });
@@ -57,7 +54,11 @@ export function PermissionsPage() {
   });
 
   const columns: Column<{ name: string; permissions: string }>[] = [
-    { key: "name", header: "名称", render: (g) => <span className="font-medium">{g.name}</span> },
+    {
+      key: "name",
+      header: "名称",
+      render: (g) => <span className="font-medium">{g.name}</span>,
+    },
     {
       key: "permissions",
       header: "权限",
@@ -75,7 +76,9 @@ export function PermissionsPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate(`/permissions/groups/${encodeURIComponent(g.name)}`)}
+            onClick={() =>
+              navigate(`/permissions/groups/${encodeURIComponent(g.name)}`)
+            }
           >
             详情
           </Button>

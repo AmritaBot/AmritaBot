@@ -13,7 +13,10 @@ const API_TARGET = process.env.AMRITA_API_TARGET ?? "http://127.0.0.1:11451";
 const SRC_DIR = path.join(import.meta.dir, "src");
 
 /** WebSocket 代理：透传 /amrita/ui/ws 到后端（Bun 的 ws 转发模式） */
-async function proxyWs(req: Request, server: import("bun").Server): Promise<Response> {
+async function proxyWs(
+  req: Request,
+  server: import("bun").Server,
+): Promise<Response> {
   // Bun 支持通过 fetch 到 ws:// 目标做全双工转发
   const targetWs = API_TARGET.replace(/^http/, "ws");
   return fetch(`${targetWs}/amrita/ui/ws`, {
@@ -30,7 +33,13 @@ async function proxyApi(req: Request): Promise<Response> {
   try {
     // 只转发必要的头（cookie / content-type / authorization），避免 Host 等被 Bun 拒绝
     const headers = new Headers();
-    for (const name of ["cookie", "content-type", "authorization", "accept", "x-requested-with"]) {
+    for (const name of [
+      "cookie",
+      "content-type",
+      "authorization",
+      "accept",
+      "x-requested-with",
+    ]) {
       const v = req.headers.get(name);
       if (v) headers.set(name, v);
     }
@@ -53,7 +62,12 @@ async function proxyApi(req: Request): Promise<Response> {
   } catch (e) {
     console.error(`[proxy] ${req.method} ${url.pathname} -> 代理失败:`, e);
     return Response.json(
-      { code: 502, message: "代理后端失败，请确认 bot 已启动", success: false, data: null },
+      {
+        code: 502,
+        message: "代理后端失败，请确认 bot 已启动",
+        success: false,
+        data: null,
+      },
       { status: 502 },
     );
   }
@@ -74,7 +88,10 @@ const server = serve({
   // WebSocket 代理：/amrita/ui/ws → 后端（Bun 原生支持 ws 转发）
   async fetch(req, server) {
     const url = new URL(req.url);
-    if (url.pathname === "/amrita/ui/ws" && req.headers.get("upgrade") === "websocket") {
+    if (
+      url.pathname === "/amrita/ui/ws" &&
+      req.headers.get("upgrade") === "websocket"
+    ) {
       return await proxyWs(req, server);
     }
     return server.fetch(req);

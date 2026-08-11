@@ -110,7 +110,14 @@ class RouteRegistry:
             cls._routes = []
         return cls._instance
 
-    def register(self, path: str, name: str, category: str, icon: str | None = None, hidden: bool = False):
+    def register(
+        self,
+        path: str,
+        name: str,
+        category: str,
+        icon: str | None = None,
+        hidden: bool = False,
+    ):
         self._routes.append(
             {
                 "path": path,

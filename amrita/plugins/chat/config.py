@@ -123,7 +123,9 @@ class FunctionConfig(BaseModel):
             "  legacy — [群主][张三（12345）]说:内容（紧凑但LLM易误解析）"
         ),
     )
-    chat_pending_mode: Literal["single", "queue", "single_with_report", "interactive"] = Field(
+    chat_pending_mode: Literal[
+        "single", "queue", "single_with_report", "interactive"
+    ] = Field(
         default="queue",
         description="聊天时，如果同一个Session并发调用但是上一条消息没有处理完时插件的行为。\n"
         + "single: 忽略这条消息；\n"

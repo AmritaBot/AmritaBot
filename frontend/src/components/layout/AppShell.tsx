@@ -78,7 +78,9 @@ export function AppShell({ categories }: { categories: MenuCategory[] }) {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <span className="text-sm font-semibold tracking-tight">AmritaBot</span>
+          <span className="text-sm font-semibold tracking-tight">
+            AmritaBot
+          </span>
         </div>
         <div className="mx-auto max-w-6xl">
           <Outlet />

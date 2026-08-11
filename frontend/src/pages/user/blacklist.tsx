@@ -16,12 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type Entry = BlacklistEntry & { kind: "group" | "user" };
 
@@ -60,9 +55,12 @@ export function BlacklistPage() {
 
   const removeMutation = useMutation({
     mutationFn: (entry: Entry) =>
-      api.post(`/api/blacklists/${entry.kind}/${encodeURIComponent(entry.id)}`, {
-        action: "remove",
-      }),
+      api.post(
+        `/api/blacklists/${entry.kind}/${encodeURIComponent(entry.id)}`,
+        {
+          action: "remove",
+        },
+      ),
     onSuccess: (res) => {
       toast.success(res.message);
       void qc.invalidateQueries({ queryKey: ["blacklists"] });
@@ -71,10 +69,30 @@ export function BlacklistPage() {
   });
 
   const columns: Column<Entry>[] = [
-    { key: "kind", header: "类型", render: (e) => (e.kind === "group" ? "群组" : "用户") },
-    { key: "id", header: "ID", render: (e) => <code className="font-mono text-sm">{e.id}</code> },
-    { key: "reason", header: "原因", render: (e) => <span className="text-muted-foreground">{e.reason || "—"}</span> },
-    { key: "added_time", header: "拉黑时间", render: (e) => <span className="text-muted-foreground">{e.added_time}</span> },
+    {
+      key: "kind",
+      header: "类型",
+      render: (e) => (e.kind === "group" ? "群组" : "用户"),
+    },
+    {
+      key: "id",
+      header: "ID",
+      render: (e) => <code className="font-mono text-sm">{e.id}</code>,
+    },
+    {
+      key: "reason",
+      header: "原因",
+      render: (e) => (
+        <span className="text-muted-foreground">{e.reason || "—"}</span>
+      ),
+    },
+    {
+      key: "added_time",
+      header: "拉黑时间",
+      render: (e) => (
+        <span className="text-muted-foreground">{e.added_time}</span>
+      ),
+    },
     {
       key: "actions",
       header: "操作",
@@ -97,7 +115,8 @@ export function BlacklistPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">黑名单管理</h1>
           <p className="text-sm text-muted-foreground">
-            共 {entries.length} 条（群组 {data?.data.groups.length ?? 0} / 用户 {data?.data.users.length ?? 0}）
+            共 {entries.length} 条（群组 {data?.data.groups.length ?? 0} / 用户{" "}
+            {data?.data.users.length ?? 0}）
           </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>

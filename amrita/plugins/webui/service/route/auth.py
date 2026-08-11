@@ -27,9 +27,7 @@ async def login(request: Request, data: LoginSchema):
     if not await AuthManager().authenticate_user(request, data.username, data.password):
         return fail(401, "用户名或密码错误")
     access_token_expires = timedelta(minutes=30)
-    access_token = await AuthManager().create_token(
-        data.username, access_token_expires
-    )
+    access_token = await AuthManager().create_token(data.username, access_token_expires)
     response = ok("登录成功", data={"username": data.username})
     response.set_cookie(
         key=TOKEN_KEY,

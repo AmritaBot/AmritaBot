@@ -48,9 +48,7 @@ async def db_metadata_api():
                 "db_info": metrics.database_info,
                 "connection_stats": asdict(metrics.connection_stats),
                 "cache_efficiency": asdict(metrics.cache_efficiency),
-                "table_activity": [
-                    asdict(ta) for ta in metrics.table_activity[:10]
-                ],
+                "table_activity": [asdict(ta) for ta in metrics.table_activity[:10]],
                 "index_usage": [asdict(iu) for iu in metrics.index_usage[:10]],
                 "lock_info": [asdict(li) for li in metrics.lock_info],
                 "query_stats": [asdict(qs) for qs in metrics.query_stats[:10]],

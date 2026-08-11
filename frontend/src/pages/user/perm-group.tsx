@@ -22,7 +22,10 @@ export function PermGroupDetailPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["perm-group", name],
-    queryFn: () => api.get<PermissionsDetailData>(`/api/permissions/groups/${encodeURIComponent(name ?? "")}`),
+    queryFn: () =>
+      api.get<PermissionsDetailData>(
+        `/api/permissions/groups/${encodeURIComponent(name ?? "")}`,
+      ),
     enabled: !!name,
   });
 
@@ -47,7 +50,9 @@ export function PermGroupDetailPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">权限组：{name}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          权限组：{name}
+        </h1>
         <p className="text-sm text-muted-foreground">
           已关联权限组：{data.data.permission_groups.join("、") || "无"}
         </p>
@@ -56,7 +61,9 @@ export function PermGroupDetailPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">权限字符串</CardTitle>
-          <CardDescription>每行一条权限，格式如 node.permission</CardDescription>
+          <CardDescription>
+            每行一条权限，格式如 node.permission
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
@@ -66,7 +73,10 @@ export function PermGroupDetailPage() {
             spellCheck={false}
           />
           <div className="flex justify-between">
-            <Button variant="outline" onClick={() => navigate("/permissions/groups")}>
+            <Button
+              variant="outline"
+              onClick={() => navigate("/permissions/groups")}
+            >
               返回
             </Button>
             <Button

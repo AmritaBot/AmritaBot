@@ -18,6 +18,9 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
       - name: Set up Python
         run: uv python install
 
@@ -26,14 +29,10 @@ jobs:
           uv venv
           uv sync
 
-      - name: Download Tailwind CSS CLI
+      - name: Install frontend dependencies
         run: |
-          curl -sLo tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.19/tailwindcss-linux-x64
-          chmod +x tailwindcss
-
-      - name: Build Tailwind CSS
-        run: |
-          ./tailwindcss -i amrita/plugins/webui/service/static/css/tailwind.css -o amrita/plugins/webui/service/static/css/dist.css --minify
+          cd frontend
+          bun install
 
       - name: Get Python path
         run: |
@@ -51,5 +50,11 @@ jobs:
         with:
           args: check . --exit-non-zero-on-fix
 
-      - name: Build package
-        run: uv build # 生成构建产物到dist目录
+      - name: Frontend typecheck
+        run: |
+          cd frontend
+          bun run typecheck
+
+      - name: Full build (frontend + package)
+        run: |
+          bash scripts/full-build.sh --skip-typecheck

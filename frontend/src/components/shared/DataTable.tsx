@@ -52,7 +52,10 @@ export function DataTable<T extends object>({
         <TableBody>
           {data.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
+              <TableCell
+                colSpan={columns.length}
+                className="h-24 text-center text-muted-foreground"
+              >
                 {emptyText}
               </TableCell>
             </TableRow>
@@ -77,6 +80,7 @@ export function DataTable<T extends object>({
 
 /** 状态徽章 */
 export function StatusBadge({ status }: { status: string }) {
-  const variant = status === "online" || status === "connected" ? "success" : "secondary";
+  const variant =
+    status === "online" || status === "connected" ? "success" : "secondary";
   return <Badge variant={variant}>{status}</Badge>;
 }

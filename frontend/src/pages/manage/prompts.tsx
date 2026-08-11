@@ -17,12 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type PromptType = "group" | "private";
 
@@ -44,13 +39,22 @@ export function PromptsPage() {
   });
 
   const rows: PromptRow[] = [
-    ...(data?.data.prompts.group.map((p) => ({ ...p, type: "group" as const })) ?? []),
-    ...(data?.data.prompts.private.map((p) => ({ ...p, type: "private" as const })) ?? []),
+    ...(data?.data.prompts.group.map((p) => ({
+      ...p,
+      type: "group" as const,
+    })) ?? []),
+    ...(data?.data.prompts.private.map((p) => ({
+      ...p,
+      type: "private" as const,
+    })) ?? []),
   ];
 
   const createMutation = useMutation({
     mutationFn: () =>
-      api.post(`/api/chat/prompts/${createType}`, { name: newName, text: newText }),
+      api.post(`/api/chat/prompts/${createType}`, {
+        name: newName,
+        text: newText,
+      }),
     onSuccess: (res) => {
       toast.success(res.message);
       setCreateOpen(false);
@@ -63,7 +67,10 @@ export function PromptsPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ row, text }: { row: PromptRow; text: string }) =>
-      api.post(`/api/chat/prompts/${row.type}/${encodeURIComponent(row.name)}`, { text }),
+      api.post(
+        `/api/chat/prompts/${row.type}/${encodeURIComponent(row.name)}`,
+        { text },
+      ),
     onSuccess: (res) => {
       toast.success(res.message);
       setEditing(null);
@@ -74,7 +81,9 @@ export function PromptsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (row: PromptRow) =>
-      api.post(`/api/chat/prompts/${row.type}/${encodeURIComponent(row.name)}/delete`),
+      api.post(
+        `/api/chat/prompts/${row.type}/${encodeURIComponent(row.name)}/delete`,
+      ),
     onSuccess: (res) => {
       toast.success(res.message);
       void qc.invalidateQueries({ queryKey: ["chat-prompts"] });
@@ -83,9 +92,25 @@ export function PromptsPage() {
   });
 
   const columns: Column<PromptRow>[] = [
-    { key: "type", header: "类型", render: (p) => (p.type === "group" ? "群聊" : "私聊") },
-    { key: "name", header: "名称", render: (p) => <span className="font-medium">{p.name}</span> },
-    { key: "text", header: "内容", render: (p) => <span className="line-clamp-1 max-w-lg text-muted-foreground">{p.text}</span> },
+    {
+      key: "type",
+      header: "类型",
+      render: (p) => (p.type === "group" ? "群聊" : "私聊"),
+    },
+    {
+      key: "name",
+      header: "名称",
+      render: (p) => <span className="font-medium">{p.name}</span>,
+    },
+    {
+      key: "text",
+      header: "内容",
+      render: (p) => (
+        <span className="line-clamp-1 max-w-lg text-muted-foreground">
+          {p.text}
+        </span>
+      ),
+    },
     {
       key: "actions",
       header: "操作",
@@ -178,11 +203,15 @@ export function PromptsPage() {
         </Dialog>
       </div>
 
-      <Dialog open={!!editing} onOpenChange={(open: boolean) => !open && setEditing(null)}>
+      <Dialog
+        open={!!editing}
+        onOpenChange={(open: boolean) => !open && setEditing(null)}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              编辑提示词：{editing?.name}（{editing?.type === "group" ? "群聊" : "私聊"}）
+              编辑提示词：{editing?.name}（
+              {editing?.type === "group" ? "群聊" : "私聊"}）
             </DialogTitle>
           </DialogHeader>
           {editing && (
@@ -191,7 +220,9 @@ export function PromptsPage() {
               <PromptEditor
                 key={editing.name + editing.type}
                 initial={editing.text}
-                onSubmit={(text) => updateMutation.mutate({ row: editing, text })}
+                onSubmit={(text) =>
+                  updateMutation.mutate({ row: editing, text })
+                }
                 submitting={updateMutation.isPending}
               />
             </div>

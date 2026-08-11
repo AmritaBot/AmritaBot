@@ -82,13 +82,13 @@ export function EventsPage() {
               <SelectValue placeholder="级别" />
             </SelectTrigger>
             <SelectContent>
-              {(["ALL", "INFO", "DEBUG", "WARNING", "ERROR", "FATAL"] as Level[]).map(
-                (l) => (
-                  <SelectItem key={l} value={l}>
-                    {l}
-                  </SelectItem>
-                ),
-              )}
+              {(
+                ["ALL", "INFO", "DEBUG", "WARNING", "ERROR", "FATAL"] as Level[]
+              ).map((l) => (
+                <SelectItem key={l} value={l}>
+                  {l}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -120,10 +120,10 @@ export function EventsPage() {
       )}
 
       <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">事件列表</CardTitle>
-            <CardDescription>点击条目展开完整堆栈信息</CardDescription>
-          </CardHeader>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">事件列表</CardTitle>
+          <CardDescription>点击条目展开完整堆栈信息</CardDescription>
+        </CardHeader>
         <CardContent>
           {events.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
@@ -157,11 +157,13 @@ export function EventsPage() {
                         {ev.time}
                       </span>
                     </div>
-                    {isOpen && (ev.traceback || ev.message) && ev.message !== "None" && (
-                      <pre className="ml-6 mt-1 overflow-x-auto rounded-md bg-muted/50 p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">
-                        {ev.traceback ?? ev.message}
-                      </pre>
-                    )}
+                    {isOpen &&
+                      (ev.traceback || ev.message) &&
+                      ev.message !== "None" && (
+                        <pre className="ml-6 mt-1 overflow-x-auto rounded-md bg-muted/50 p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">
+                          {ev.traceback ?? ev.message}
+                        </pre>
+                      )}
                   </button>
                 );
               })}

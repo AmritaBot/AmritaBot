@@ -39,6 +39,11 @@ export function LoginPage() {
     <div className="grid min-h-screen place-items-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
+          <img
+            src="/static/images/logo-96.png"
+            alt="AmritaBot"
+            className="mx-auto h-16 w-16 rounded-full"
+          />
           <CardTitle className="text-xl tracking-tight">AmritaBot WebUI</CardTitle>
           <CardDescription>登录以管理你的 Bot</CardDescription>
         </CardHeader>

@@ -41,7 +41,7 @@ function LevelBadge({ level }: { level: string }) {
   );
 }
 
-/** 事件查看器：基于 event.json 的追溯事件列表（时间倒序，支持过滤与详情展开） */
+/** 事件查看器：异常事件追溯（时间倒序，支持过滤与详情展开） */
 export function EventsPage() {
   const [level, setLevel] = useState<Level>("ALL");
   const [keyword, setKeyword] = useState("");
@@ -72,9 +72,7 @@ export function EventsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">事件查看器</h1>
-        <p className="text-sm text-muted-foreground">
-          基于 event.json 的追溯事件记录（时间倒序）
-        </p>
+        <p className="text-sm text-muted-foreground">异常事件追溯</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

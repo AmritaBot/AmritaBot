@@ -14,6 +14,11 @@ function Splash() {
   return (
     <div className="grid min-h-screen place-items-center bg-background text-foreground">
       <div className="flex flex-col items-center gap-3">
+        <img
+          src="/static/images/logo-96.png"
+          alt="AmritaBot"
+          className="h-16 w-16 rounded-full"
+        />
         <span className="text-lg font-semibold tracking-tight">AmritaBot WebUI</span>
         <div className="h-1 w-32 overflow-hidden rounded-full bg-muted">
           <div className="h-full w-1/3 animate-pulse rounded-full bg-sidebar-primary" />

@@ -22,7 +22,7 @@ Amrita 是一个基于[NoneBot2](https://nonebot.dev/)与[AmritaCore](https://am
 - **CLI 工具**: 一体化命令行管理工具，简化开发和部署流程
 - **Agent**: 支持Agent推理
 - **智能上下文管理**: 支持智能Session管理
-- **Web UI**: 集成 Web UI，提供可视化管理界面，基于FastAPI+Jinja2+TailwindCSS V3构建。
+- **Web UI**: 集成 Web UI，提供可视化管理界面，基于 FastAPI + React 19 + ShadCN UI + TailwindCSS V4 构建。
 - **MCP**: 源生MCP Client集成
 
 ## 📚 文档和资源
@@ -31,6 +31,56 @@ Amrita 是一个基于[NoneBot2](https://nonebot.dev/)与[AmritaCore](https://am
 - [Core开发文档](https://core.amritabot.com)
 - [AmritaSense 开发文档](https://sense.amritabot.com)
 - [问题反馈](https://github.com/AmritaBot/Amrita/issues)
+
+## 🛠️ 开发
+
+### 环境要求
+
+- Python 3.10+
+- [uv](https://docs.astral.sh/uv/)（Python 包管理）
+- [Bun](https://bun.sh) 1.x（前端构建）
+
+### 一键开发运行
+
+```bash
+bash scripts/devrun.sh
+```
+
+依次执行：清理构建产物 → 构建前端（含类型检查）→ 启动后端（`uv run ambot run`）。
+
+常用参数：
+
+```bash
+bash scripts/devrun.sh --skip-clean       # 跳过清理
+bash scripts/devrun.sh --skip-typecheck   # 构建时跳过类型检查
+bash scripts/devrun.sh --no-restart       # 仅清理 + 构建，不重启后端
+```
+
+### 完整构建（发布）
+
+```bash
+bash scripts/full-build.sh
+```
+
+依次执行：清理构建产物 → 构建前端（输出到 `amrita/plugins/webui/service/static/`）→ `uv build` 构建后端包（`dist/` 下生成 wheel + sdist）。
+
+### 其他脚本
+
+```bash
+bash scripts/cleanup.sh            # 清理全部构建产物（static/、dist/、build/、egg-info、realtime.jsonl）
+bash scripts/cleanup.sh --dry-run  # 预演模式，仅列出将删除的内容
+bash scripts/build-frontend.sh     # 仅构建前端（含 typecheck）
+```
+
+### 前端开发（Bun dev server）
+
+```bash
+cd frontend
+bun install
+bun run dev   # http://localhost:3000，/api 与 /amrita/ui/ws 代理到后端 11451
+```
+
+前端源码位于 `frontend/`（React 19 + TypeScript + ShadCN UI），构建产物输出到 `amrita/plugins/webui/service/static/`（已 gitignore，不提交）。
 
 ## 🤝 贡献
 

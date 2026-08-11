@@ -12,6 +12,8 @@ class Config(BaseModel):
     webui_enable: bool = True
     webui_user_name: str = "admin"
     webui_password: str = "admin123"
+    # 禁用 Dotenv 编辑（默认 true 防敏感数据泄露；为 true 时 WebUI 显示不可用，读写接口均拒绝）
+    no_env_editor: bool = True
 
 
 def get_webui_config() -> Config:

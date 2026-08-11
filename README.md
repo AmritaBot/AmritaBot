@@ -73,6 +73,7 @@ uv add amrita
 | `WEBUI_ENABLE`                | `true`     | 是否启用 WebUI                                                              |
 | `WEBUI_USER_NAME`             | `admin`    | WebUI 登录用户名                                                            |
 | `WEBUI_PASSWORD`              | `admin123` | WebUI 登录密码（**出厂默认值，使用默认密码时 WebUI 会拒绝访问**，必须修改） |
+| `NO_ENV_EDITOR`               | `true`     | 是否禁用 WebUI 的 Dotenv 编辑（**默认禁用防敏感数据泄露**；为 `true` 时页面提示不可用，读写接口均拒绝；需要编辑时设为 `false`） |
 
 ### NoneBot 官方配置
 

@@ -8,7 +8,14 @@ import { DataTable, type Column } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -152,10 +159,7 @@ function ModelForm({
             </div>
             <div className="space-y-2">
               <Label>thinking_effort（推理强度）</Label>
-              <Select
-                value={thinkingEffort}
-                onValueChange={setThinkingEffort}
-              >
+              <Select value={thinkingEffort} onValueChange={setThinkingEffort}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>

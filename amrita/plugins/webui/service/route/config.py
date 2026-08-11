@@ -8,6 +8,7 @@ from pathlib import Path
 import aiofiles
 from fastapi import Request
 
+from amrita.plugins.webui.service.config import get_webui_config
 from amrita.plugins.webui.service.response import fail, ok
 
 from ..main import app
@@ -15,6 +16,11 @@ from ..main import app
 logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(os.getcwd())
+
+
+def _env_editor_disabled() -> bool:
+    """Dotenv 编辑是否被禁用（NO_ENV_EDITOR=true）。"""
+    return get_webui_config().no_env_editor
 
 
 def _list_env_files() -> list[str]:
@@ -25,6 +31,12 @@ def _list_env_files() -> list[str]:
 @app.get("/api/bot/config")
 async def list_config_files():
     """配置文件列表。"""
+    # 禁用时返回标记，前端显示不可用提示
+    if _env_editor_disabled():
+        return ok(
+            "disabled",
+            data={"files": [], "selected": None, "content": "", "disabled": True},
+        )
     files = _list_env_files()
     selected = ".env" if ".env" in files else (files[0] if files else None)
     content = ""
@@ -42,6 +54,8 @@ async def list_config_files():
 @app.post("/api/bot/config")
 async def update_config(request: Request):
     """保存配置文件内容。"""
+    if _env_editor_disabled():
+        return fail(403, "Dotenv 编辑已被管理员禁用")
     data = await request.json()
     content = data.get("content", "")
     filename = data.get("filename", ".env")
@@ -64,6 +78,8 @@ async def update_config(request: Request):
 @app.get("/api/bot/config/{filename}")
 async def get_config(filename: str):
     """获取指定配置文件内容。"""
+    if _env_editor_disabled():
+        return fail(403, "Dotenv 编辑已被管理员禁用")
     try:
         env_file_path = PROJECT_ROOT / filename
         if not env_file_path.exists():

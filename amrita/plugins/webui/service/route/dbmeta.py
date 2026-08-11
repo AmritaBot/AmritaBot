@@ -5,8 +5,10 @@ from nonebot_plugin_orm import get_session
 from sqlalchemy import Connection, Engine
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from amrita.plugins.webui.API import PageContext, PageResponse, on_page
 from amrita.utils.dbmetadata import AsyncDatabasePerformanceCollector, DatabaseType
+
+from ..main import app
+from ..response import ok
 
 
 def get_database_type(
@@ -29,9 +31,9 @@ def get_database_type(
         raise RuntimeError(f"Unsupported database type `{name}`")
 
 
-@on_page("/bot/database", "数据库元信息", "系统信息")
-async def db_metadata_page(ctx: PageContext) -> PageResponse:
-    """数据库元信息页面"""
+@app.get("/api/dbmeta")
+async def db_metadata_api():
+    """数据库元信息 API。"""
     try:
         session: AsyncSession = get_session()
         db_type = get_database_type(session)
@@ -40,22 +42,18 @@ async def db_metadata_page(ctx: PageContext) -> PageResponse:
             collector = AsyncDatabasePerformanceCollector(session, db_type)
             metrics = await collector.collect_performance_stats()
 
-        return PageResponse(
-            name="dbmetadata.html",
-            context={
+        return ok(
+            "success",
+            data={
                 "db_info": metrics.database_info,
                 "connection_stats": asdict(metrics.connection_stats),
                 "cache_efficiency": asdict(metrics.cache_efficiency),
                 "table_activity": [
                     asdict(ta) for ta in metrics.table_activity[:10]
-                ],  # 只显示前10个表
-                "index_usage": [
-                    asdict(iu) for iu in metrics.index_usage[:10]
-                ],  # 只显示前10个索引
+                ],
+                "index_usage": [asdict(iu) for iu in metrics.index_usage[:10]],
                 "lock_info": [asdict(li) for li in metrics.lock_info],
-                "query_stats": [
-                    asdict(qs) for qs in metrics.query_stats[:10]
-                ],  # 只显示前10个查询
+                "query_stats": [asdict(qs) for qs in metrics.query_stats[:10]],
                 "collection_timestamp": metrics.collection_timestamp.strftime(
                     "%Y-%m-%d %H:%M:%S"
                 ),
@@ -65,9 +63,9 @@ async def db_metadata_page(ctx: PageContext) -> PageResponse:
 
     except Exception as e:
         logger.error(f"获取数据库元信息失败: {e}")
-        return PageResponse(
-            name="dbmetadata.html",
-            context={
+        return ok(
+            "success",
+            data={
                 "error": f"获取数据库元信息失败: {e!s}",
                 "db_info": {},
                 "connection_stats": {},

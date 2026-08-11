@@ -17,6 +17,9 @@ class LoggingEvent(BaseModel):
     log_level: Literal["WARNING", "ERROR", "FATAL", "INFO", "DEBUG"]
     description: str
     message: str
+    # 格式化后的完整堆栈（traceback.format_exception 产物，纯字符串，可 JSON 序列化）。
+    # traceback/frame 对象本身不可序列化，因此写入 event.json 前必须格式化。
+    traceback: str | None = None
     time: datetime = Field(default_factory=datetime.now)
 
     @property

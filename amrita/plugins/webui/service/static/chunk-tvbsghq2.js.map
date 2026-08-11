@@ -1,0 +1,11 @@
+{
+  "version": 3,
+  "sources": ["../../../../../frontend/node_modules/@radix-ui/react-label/dist/index.mjs", "../../../../../frontend/src/components/ui/label.tsx"],
+  "sourcesContent": [
+    "\"use client\";\nvar __defProp = Object.defineProperty;\nvar __name = (target, value) => __defProp(target, \"name\", { value, configurable: true });\n\n// src/label.tsx\nimport * as React from \"react\";\nimport { Primitive } from \"@radix-ui/react-primitive\";\nimport { jsx } from \"react/jsx-runtime\";\nvar Label = /* @__PURE__ */ React.forwardRef(\n  /* @__PURE__ */ __name(function Label2(props, forwardedRef) {\n    return /* @__PURE__ */ jsx(\n      Primitive.label,\n      {\n        ...props,\n        ref: forwardedRef,\n        onMouseDown: (event) => {\n          const target = event.target;\n          if (target.closest(\"button, input, select, textarea\")) return;\n          props.onMouseDown?.(event);\n          if (!event.defaultPrevented && event.detail > 1) event.preventDefault();\n        }\n      }\n    );\n  }, \"Label\")\n);\nvar Root = Label;\nexport {\n  Label,\n  Root\n};\n//# sourceMappingURL=index.mjs.map\n",
+    "\"use client\";\n\nimport * as LabelPrimitive from \"@radix-ui/react-label\";\nimport * as React from \"react\";\n\nimport { cn } from \"@/lib/utils\";\n\nfunction Label({ className, ...props }: React.ComponentProps<typeof LabelPrimitive.Root>) {\n  return (\n    <LabelPrimitive.Root\n      data-slot=\"label\"\n      className={cn(\n        \"flex items-center gap-2 text-sm leading-none font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50\",\n        className,\n      )}\n      {...props}\n    />\n  );\n}\n\nexport { Label };\n"
+  ],
+  "mappings": "4JAKA,eAJA,IAAI,EAAY,OAAO,eACnB,EAAS,CAAC,EAAQ,IAAU,EAAU,EAAQ,OAAQ,CAAE,QAAO,aAAc,EAAK,CAAC,EAMnF,EAA8B,aAChB,EAAO,QAAe,CAAC,EAAO,EAAc,CAC1D,OAAuB,EACrB,EAAU,MACV,IACK,EACH,IAAK,EACL,YAAa,CAAC,IAAU,CAEtB,GADe,EAAM,OACV,QAAQ,iCAAiC,EAAG,OAEvD,GADA,EAAM,cAAc,CAAK,EACrB,CAAC,EAAM,kBAAoB,EAAM,OAAS,EAAG,EAAM,eAAe,EAE1E,CACF,GACC,OAAO,CACZ,EACI,EAAO,EClBX,SAAS,CAAK,EAAG,eAAc,GAA2D,CACxF,OACE,EAAgB,EAAhB,CACE,YAAU,QACV,UAAW,EACT,sNACA,CACF,KACI,EACN",
+  "debugId": "2F02ECDF8FECF21F64756E2164756E21",
+  "names": []
+}

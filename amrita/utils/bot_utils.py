@@ -28,10 +28,22 @@ if TYPE_CHECKING:
 class EventRecorder:
     def write(self, message):
         record: Record = message.record
+        exc = record.get("exception")
+        formatted_tb: str | None = None
+        exc_message = ""
+        if exc:
+            # loguru exception 是 (type, value, traceback) 三元组：
+            # traceback/frame 不可序列化 → 先格式化为字符串再存储
+            exc_type, exc_value, exc_tb = exc
+            exc_message = str(exc_value)
+            formatted_tb = "".join(
+                traceback.format_exception(exc_type, exc_value, exc_tb)
+            ).rstrip("\n")
         data = LoggingEvent(
             log_level=record["level"].name,  # type: ignore
             description=record["message"],
-            message=str(record.get("exception", "")),
+            message=exc_message,
+            traceback=formatted_tb,
         )
         logging_data = LoggingData._get_data_sync()
         logging_data.data.append(data)

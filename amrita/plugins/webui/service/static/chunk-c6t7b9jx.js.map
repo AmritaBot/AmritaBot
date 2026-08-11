@@ -1,0 +1,10 @@
+{
+  "version": 3,
+  "sources": ["../../../../../frontend/src/components/shared/PagePlaceholder.tsx"],
+  "sourcesContent": [
+    "import { Card, CardContent, CardDescription, CardHeader, CardTitle } from \"@/components/ui/card\";\n\n/** 菜单中有、但前端尚未注册组件的页面 */\nexport function PagePlaceholder({ name }: { name: string }) {\n  return (\n    <div className=\"flex min-h-[60vh] items-center justify-center\">\n      <Card className=\"w-full max-w-md\">\n        <CardHeader>\n          <CardTitle className=\"text-lg\">页面未接入</CardTitle>\n          <CardDescription>\n            页面「{name}」已在后端注册，但前端尚未实现对应组件。\n            请在 <code className=\"rounded bg-muted px-1.5 py-0.5 font-mono text-xs\">src/pages/registry.tsx</code> 中注册。\n          </CardDescription>\n        </CardHeader>\n        <CardContent>\n          <p className=\"text-sm text-muted-foreground\">\n            第三方插件可通过「后端 on_page + 前端 registry 一行映射」接入 WebUI。\n          </p>\n        </CardContent>\n      </Card>\n    </div>\n  );\n}\n\n/** 404 页面 */\nexport function NotFound() {\n  return (\n    <div className=\"flex min-h-[60vh] flex-col items-center justify-center gap-2\">\n      <p className=\"text-6xl font-bold text-muted-foreground\">404</p>\n      <p className=\"text-muted-foreground\">页面不存在</p>\n    </div>\n  );\n}\n"
+  ],
+  "mappings": "+FAGO,SAAS,CAAe,EAAG,QAA0B,CAC1D,OACE,EAeE,MAfF,CAAK,UAAU,gDAAf,SACE,EAaE,EAbF,CAAM,UAAU,kBAAhB,SAaE,CAZA,EAME,EANF,UAME,CALA,EAAqC,EAArC,CAAW,UAAU,UAArB,iBAAqC,EACrC,EAGE,EAHF,UAGE,CAHF,MACK,EADL,2BAEI,EAA2F,OAA3F,CAAM,UAAU,mDAAhB,kCAA2F,EAF/F,SAGE,GACF,EACF,EAIE,EAJF,UACE,EAEE,IAFF,CAAG,UAAU,gCAAb,4DAEE,EACF,GACF,EACF,EAKC,SAAS,CAAQ,EAAG,CACzB,OACE,EAGE,MAHF,CAAK,UAAU,+DAAf,SAGE,CAFA,EAA6D,IAA7D,CAAG,UAAU,2CAAb,eAA6D,EAC7D,EAA2C,IAA3C,CAAG,UAAU,wBAAb,iBAA2C,GAC3C",
+  "debugId": "59C2C21054E9DE7564756E2164756E21",
+  "names": []
+}

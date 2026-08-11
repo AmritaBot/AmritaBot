@@ -108,3 +108,6 @@ plugins = [
 plugins = ["nonebot_plugin_amrita", "nonebot_plugin_orm"]
 [tool.pyright]
 typeCheckingMode = "standard"
+venvPath = "."
+venv = ".venv"
+executionEnvironments = [{ root = ".", pythonVersion = "3.10" }]

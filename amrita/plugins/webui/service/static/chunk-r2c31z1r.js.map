@@ -1,0 +1,10 @@
+{
+  "version": 3,
+  "sources": ["../../../../../frontend/src/components/ui/badge.tsx"],
+  "sourcesContent": [
+    "import * as React from \"react\";\nimport { cva, type VariantProps } from \"class-variance-authority\";\nimport { cn } from \"@/lib/utils\";\n\nconst badgeVariants = cva(\n  \"inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors focus:outline-none\",\n  {\n    variants: {\n      variant: {\n        default: \"border-transparent bg-primary text-primary-foreground\",\n        secondary: \"border-transparent bg-secondary text-secondary-foreground\",\n        destructive: \"border-transparent bg-destructive text-destructive-foreground\",\n        outline: \"text-foreground\",\n        success: \"border-transparent bg-emerald-600 text-white\",\n        warning: \"border-transparent bg-amber-500 text-white\",\n      },\n    },\n    defaultVariants: { variant: \"default\" },\n  },\n);\n\nexport interface BadgeProps\n  extends React.HTMLAttributes<HTMLDivElement>,\n    VariantProps<typeof badgeVariants> {}\n\nfunction Badge({ className, variant, ...props }: BadgeProps) {\n  return <div className={cn(badgeVariants({ variant }), className)} {...props} />;\n}\n\nexport { Badge, badgeVariants };\n"
+  ],
+  "mappings": "sGAIA,IAAM,EAAgB,EACpB,sHACA,CACE,SAAU,CACR,QAAS,CACP,QAAS,wDACT,UAAW,4DACX,YAAa,gEACb,QAAS,kBACT,QAAS,+CACT,QAAS,4CACX,CACF,EACA,gBAAiB,CAAE,QAAS,SAAU,CACxC,CACF,EAMA,SAAS,CAAK,EAAG,YAAW,aAAY,GAAqB,CAC3D,OAAO,EAAC,MAAD,CAAK,UAAW,EAAG,EAAc,CAAE,SAAQ,CAAC,EAAG,CAAS,KAAO,EAAO",
+  "debugId": "9B965344F4AE114564756E2164756E21",
+  "names": []
+}

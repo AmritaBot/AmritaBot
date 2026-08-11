@@ -24,24 +24,29 @@ __all__ = ["config"]
 webui_config = get_webui_config()
 if webui_config.webui_enable:
     nonebot.logger.info("Mounting webui......")
-    from .service import main
+    from .service import main, ws
     from .service.route import (
         api,
-        bot,
+        auth,
         confedit,
+        config as route_config,
         dbmeta,
-        index,
-        user,
+        events,
+        menu,
+        permissions,
     )
-    from .service.route import config as route_config
+
+    # 所有 API 路由注册完成后，最后注册 SPA catch-all
+    main.mount_spa_fallback_on_startup()
 
     __all__ += [
         "api",
-        "bot",
+        "auth",
         "confedit",
         "dbmeta",
-        "index",
         "main",
+        "menu",
+        "permissions",
         "route_config",
-        "user",
+        "ws",
     ]

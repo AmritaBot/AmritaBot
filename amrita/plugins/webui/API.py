@@ -1,140 +1,93 @@
-from collections.abc import Awaitable, Callable, Mapping
-from copy import deepcopy
-from dataclasses import dataclass, field
+"""
+WebUI 页面注册 API
+
+提供 on_page 装饰器用于注册页面元数据（侧边栏 + 路由注册表）。
+不再渲染服务端模板 —— 页面渲染完全交给前端 SPA，
+后端只负责菜单/路由元数据与 JSON 数据 API。
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 from fastapi import Request
-from fastapi.responses import HTMLResponse, JSONResponse
-from nonebot import logger
-from starlette.templating import _TemplateResponse
 
 from .service.authlib import AuthManager, OnetimeTokenData, TokenData, TokenManager
-from .service.main import TEMPLATES_PATH, TemplatesManager, app, templates
-from .service.sidebar import SideBarCategory, SideBarItem, SideBarManager
+from .service.main import STATIC_PATH, app
+from .service.response import JSONResponse
+from .service.sidebar import RouteRegistry, SideBarCategory, SideBarItem, SideBarManager
 
 
-@dataclass
-class PageResponse:
-    """
-    自定义的响应类，用于处理页面渲染结果
-    """
+def on_page(
+    path: str,
+    page_name: str,
+    category: str = "其他功能",
+    icon: str | None = None,
+    hidden: bool = False,
+):
+    """页面路由注册装饰器。
 
-    name: str
-    context: dict[str, Any] = field(default_factory=dict)
-    status_code: int = field(default=200)
-    headers: Mapping[str, str] | None = None
-    media_type: str | None = None
-
-
-@dataclass
-class PageContext:
-    """Page context
-    A class that holds the context for a page
-    """
-
-    request: Request
-    auth: AuthManager
-    token_manager: TokenManager
-
-
-def on_page(path: str, page_name: str, category: str = "其他功能"):
-    """
-    页面路由装饰器，用于注册Web UI页面
-
-    该装饰器会自动处理页面的侧边栏显示、权限验证等通用功能，
-    并将请求上下文传递给被装饰的处理函数。
+    向侧边栏与路由注册表登记页面元数据，前端 SPA 据此生成菜单与路由。
+    被装饰的处理函数不再执行（数据渲染已由 JSON API 承担），
+    保留该函数体仅为在旧代码中声明页面结构。
 
     Args:
-        path (str): 页面的URL路径
-        page_name (str): 页面名称，将显示在侧边栏中
-        category (str, optional): 页面所属的分类，分类不存在时将创建一个分类，__HIDDEN__则不将该页面添加到侧边栏中。
-
-    Returns:
-        Callable: 返回一个装饰器函数
+        path (str): 页面的 URL 路径模式，如 /system/confedit/{owner_name}
+        page_name (str): 页面名称，显示在侧边栏
+        category (str): 所属分类；__HIDDEN__ 表示不加入侧边栏
+        icon (str | None): 图标标识（前端映射为 lucide 图标名）
+        hidden (bool): 是否为隐藏页面（不出现在侧边栏，但保留前端路由）
     """
+    real_hidden = hidden or category == "__HIDDEN__"
 
-    def decorator(func: Callable[[PageContext], Awaitable[PageResponse]]):
-        # 将当前页面添加到侧边栏对应分类中
-        if category != "__HIDDEN__":
+    def decorator(func: Callable[..., Any]):
+        # 注册到路由注册表（所有页面，含隐藏页）
+        RouteRegistry().register(
+            path=path,
+            name=page_name,
+            category="隐藏页面" if category == "__HIDDEN__" else category,
+            icon=icon,
+            hidden=real_hidden,
+        )
+        # 非隐藏页面加入侧边栏
+        if not real_hidden:
             if all(
-                cate.name != category for cate in SideBarManager().get_sidebar().items
+                cate.name != category
+                for cate in SideBarManager().get_sidebar().items
             ):
                 SideBarManager().add_sidebar_category(
-                    SideBarCategory(name=category, icon="fa fa-question", url="#")
+                    SideBarCategory(
+                        name=category, icon=icon or "fa fa-question", url="#"
+                    )
                 )
             SideBarManager().add_sidebar_item(
-                category, SideBarItem(name=page_name, url=path)
+                category, SideBarItem(name=page_name, url=path, icon=icon)
             )
-        page_path = path
-
-        async def route(request: Request) -> _TemplateResponse:
-            # 深拷贝侧边栏数据，避免修改原始数据
-
-            side_bar = deepcopy(SideBarManager().get_sidebar().items)
-            logger.debug(page_path)
-            # 设置当前分类和页面为激活状态
-            if category != "__HIDDEN__":
-                if request.url.path == page_path:
-                    for bar in side_bar:
-                        if bar.name == category:
-                            bar.active = True
-                            for item in bar.children:
-                                if item.name == page_name:
-                                    item.active = True
-                                    break
-                            break
-                    else:
-                        logger.warning(
-                            f"Invalid page category `{category}` for page {path}"
-                        )
-
-            # 构造页面上下文并调用实际的处理函数
-            ctx = PageContext(request, AuthManager(), TokenManager())
-            page = await func(ctx)
-
-            # 构建模板上下文
-            context = page.context
-            # 更新页面特定的上下文
-            context.update(
-                {
-                    "sidebar_items": [a.model_dump() for a in side_bar],
-                    "debug": app.debug,
-                    "base_html": "base.html",
-                }
-            )
-
-            return TemplatesManager().TemplateResponse(
-                request,
-                page.name,
-                context,
-                status_code=page.status_code,
-                headers=page.headers,
-                media_type=page.media_type,
-            )
-
-        # 将路由添加到FastAPI应用中
-        app.add_route(path, route, methods=["GET"], name=page_name)
+        return func
 
     return decorator
 
 
 def get_templates_dir() -> Path:
-    return TEMPLATES_PATH
+    """兼容占位：模板目录已废弃，返回静态目录。"""
+    return STATIC_PATH
 
 
 __all__ = [
-    "TEMPLATES_PATH",
+    "STATIC_PATH",
     "AuthManager",
-    "HTMLResponse",
     "JSONResponse",
     "OnetimeTokenData",
-    "PageContext",
+    "RouteRegistry",
+    "SideBarCategory",
+    "SideBarItem",
     "SideBarManager",
     "TokenData",
     "TokenManager",
     "app",
     "get_templates_dir",
     "on_page",
-    "templates",
 ]
+

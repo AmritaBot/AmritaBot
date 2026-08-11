@@ -1,7 +1,7 @@
 /**
  * 认证状态管理（Context Provider）
  * - 启动时拉取 /api/auth/me 判断登录态
- * - 401 全局触发 setUnauthorizedHandler → 跳转登录页
+ * - 401 全局触发 setUnauthorizedHandler -> 跳转登录页
  */
 import {
   createContext,

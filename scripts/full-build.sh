@@ -4,8 +4,8 @@
 #
 # 流程：
 #   1. 清理构建产物（scripts/cleanup.sh）
-#   2. 构建前端（scripts/build-frontend.sh，含 typecheck）→ static/
-#   3. 构建后端（uv build）→ dist/（wheel + sdist）
+#   2. 构建前端（scripts/build-frontend.sh，含 typecheck）-> static/
+#   3. 构建后端（uv build）-> dist/（wheel + sdist）
 #
 # 用法：
 #   bash scripts/full-build.sh                  # 完整流程

@@ -40,21 +40,30 @@ Amrita 是一个基于[NoneBot2](https://nonebot.dev/)与[AmritaCore](https://am
 - [uv](https://docs.astral.sh/uv/)（Python 包管理）
 - [Bun](https://bun.sh) 1.x（前端构建）
 
-### 一键开发运行
+### 一键开发运行（后端 + 构建前端）
 
 ```bash
-bash scripts/devrun.sh
+bash scripts/dev-development.sh
 ```
 
-依次执行：清理构建产物 → 构建前端（含类型检查）→ 启动后端（`uv run ambot run`）。
+依次执行：清理构建产物 -> 构建前端（含类型检查）-> 启动后端（`uv run ambot run`）。
 
 常用参数：
 
 ```bash
-bash scripts/devrun.sh --skip-clean       # 跳过清理
-bash scripts/devrun.sh --skip-typecheck   # 构建时跳过类型检查
-bash scripts/devrun.sh --no-restart       # 仅清理 + 构建，不重启后端
+bash scripts/dev-development.sh --skip-clean       # 跳过清理
+bash scripts/dev-development.sh --skip-typecheck   # 构建时跳过类型检查
+bash scripts/dev-development.sh --no-restart       # 仅清理 + 构建，不重启后端
 ```
+
+### 前端开发环境（dev server + 热更新）
+
+```bash
+bash scripts/dev-frontend.sh
+```
+
+依次执行：清理构建产物 -> 后台启动后端 -> 前台启动前端 dev server（`bun run dev`，
+API/WS 自动代理到后端），Ctrl+C 退出时自动停止后端。
 
 ### 完整构建（发布）
 
@@ -62,7 +71,7 @@ bash scripts/devrun.sh --no-restart       # 仅清理 + 构建，不重启后端
 bash scripts/full-build.sh
 ```
 
-依次执行：清理构建产物 → 构建前端（输出到 `amrita/plugins/webui/service/static/`）→ `uv build` 构建后端包（`dist/` 下生成 wheel + sdist）。
+依次执行：清理构建产物 -> 构建前端（输出到 `amrita/plugins/webui/service/static/`）-> `uv build` 构建后端包（`dist/` 下生成 wheel + sdist）。
 
 ### 其他脚本
 

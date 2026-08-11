@@ -308,7 +308,7 @@ class Config(BaseModel):
 
         core_data: dict[str, Any] = {}
 
-        # cookies → core.cookie
+        # cookies -> core.cookie
         if "cookies" in data:
             cookies = data.pop("cookies")
             if isinstance(cookies, dict):
@@ -321,7 +321,7 @@ class Config(BaseModel):
                     if v is not None
                 }
 
-        # llm.* → core.llm (CoreLLMConfig fields)
+        # llm.* -> core.llm (CoreLLMConfig fields)
         if "llm" in data and isinstance(data["llm"], dict):
             llm = data["llm"]
             core_llm: dict[str, Any] = {}
@@ -333,7 +333,7 @@ class Config(BaseModel):
             if core_llm:
                 core_data["llm"] = core_llm
 
-            # llm.tools.* → core.builtin & core.function_config
+            # llm.tools.* -> core.builtin & core.function_config
             if "tools" in llm and isinstance(llm["tools"], dict):
                 tools = llm["tools"]
                 tools.pop("use_minimal_context", None)

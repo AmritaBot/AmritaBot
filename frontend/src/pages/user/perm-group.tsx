@@ -67,7 +67,7 @@ export function PermGroupDetailPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
-            className="min-h-[240px] font-mono text-sm"
+            className="min-h-60 font-mono text-sm"
             value={permissions || data.data.permissions}
             onChange={(e) => setPermissions(e.target.value)}
             spellCheck={false}

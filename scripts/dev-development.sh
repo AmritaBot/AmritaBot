@@ -8,10 +8,10 @@
 #   3. 运行后端（uv run ambot run）
 #
 # 用法：
-#   bash scripts/devrun.sh                    # 完整流程（清理 + 构建 + 运行）
-#   bash scripts/devrun.sh --skip-clean       # 跳过清理，直接构建 + 运行
-#   bash scripts/devrun.sh --skip-typecheck   # 构建时跳过类型检查
-#   bash scripts/devrun.sh --no-restart       # 不重启已运行的后端（仅清理 + 构建）
+#   bash scripts/dev-development.sh                    # 完整流程（清理 + 构建 + 运行）
+#   bash scripts/dev-development.sh --skip-clean       # 跳过清理，直接构建 + 运行
+#   bash scripts/dev-development.sh --skip-typecheck   # 构建时跳过类型检查
+#   bash scripts/dev-development.sh --no-restart       # 不重启已运行的后端（仅清理 + 构建）
 # =============================================================================
 
 set -euo pipefail

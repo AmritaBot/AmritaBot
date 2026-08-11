@@ -8,9 +8,9 @@ from .models import MatcherData, PluginData
 async def _visible(matcher_data: MatcherData, event: MessageEvent, sudo: bool) -> bool:
     """判断某个 matcher 是否对调用者可见
 
-    - show_if 为 None → 总是可见
-    - sudo 模式 → 强制可见（已由调用方校验 lp.admin）
-    - 否则 → 检查调用者是否满足 show_if 权限节点
+    - show_if 为 None -> 总是可见
+    - sudo 模式 -> 强制可见（已由调用方校验 lp.admin）
+    - 否则 -> 检查调用者是否满足 show_if 权限节点
     """
     if matcher_data.show_if is None or sudo:
         return True

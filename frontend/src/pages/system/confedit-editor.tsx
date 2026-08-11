@@ -135,7 +135,7 @@ function FieldEditor({
 }) {
   const type = field.type;
 
-  // Literal 枚举 → Select
+  // Literal 枚举 -> Select
   if (field.literal_values) {
     return (
       <Select
@@ -156,7 +156,7 @@ function FieldEditor({
     );
   }
 
-  // 布尔 → Switch
+  // 布尔 -> Switch
   if (type === "bool") {
     return (
       <Switch
@@ -166,12 +166,12 @@ function FieldEditor({
     );
   }
 
-  // 列表字段 → 条目列表编辑器（逐项可编辑/删除/添加）
+  // 列表字段 -> 条目列表编辑器（逐项可编辑/删除/添加）
   if (type === "list" || Array.isArray(value)) {
     return <ListEditor value={value} onChange={(v) => onChange(v)} />;
   }
 
-  // 字典 → JSON 文本编辑
+  // 字典 -> JSON 文本编辑
   if (type === "dict") {
     const text = JSON.stringify(value);
     return (
@@ -190,7 +190,7 @@ function FieldEditor({
     );
   }
 
-  // 数字 → number input
+  // 数字 -> number input
   if (type === "int" || type === "float") {
     return (
       <Input

@@ -34,9 +34,9 @@ Example:
 }
 
 const toCamelCase = (str: string): string =>
-  str.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+  str.replace(/-([a-z])/g, (g) => (g[1] ?? "").toUpperCase());
 
-const parseValue = (value: string): any => {
+const parseValue = (value: string): string | number | boolean | string[] => {
   if (value === "true") return true;
   if (value === "false") return false;
 
@@ -49,7 +49,7 @@ const parseValue = (value: string): any => {
 };
 
 function parseArgs(): Partial<Bun.BuildConfig> {
-  const config: Partial<Bun.BuildConfig> = {};
+  const config: Record<string, unknown> = {};
   const args = process.argv.slice(2);
 
   for (let i = 0; i < args.length; i++) {
@@ -85,15 +85,17 @@ function parseArgs(): Partial<Bun.BuildConfig> {
     key = toCamelCase(key);
 
     if (key.includes(".")) {
-      const [parentKey, childKey] = key.split(".");
-      config[parentKey] = config[parentKey] || {};
-      config[parentKey][childKey] = parseValue(value);
+      const [parentKey, childKey] = key.split(".") as [string, string];
+      const parent: Record<string, unknown> =
+        (config[parentKey] as Record<string, unknown> | undefined) ?? {};
+      config[parentKey] = parent;
+      parent[childKey] = parseValue(value);
     } else {
       config[key] = parseValue(value);
     }
   }
 
-  return config;
+  return config as Partial<Bun.BuildConfig>;
 }
 
 const formatFileSize = (bytes: number): string => {
@@ -168,7 +170,7 @@ if (
     if (fixed !== html) {
       await Bun.write(indexPath, fixed);
       console.log(
-        `🔧 Fixed index.html script → ${path.basename(htmlEntry.path)}`,
+        `🔧 Fixed index.html script -> ${path.basename(htmlEntry.path)}`,
       );
     }
   }
@@ -187,7 +189,7 @@ if (
     );
     if (fixed !== html) {
       await Bun.write(indexPath, fixed);
-      console.log("🔧 Injected favicon link → /static/images/favicon-48.png");
+      console.log("🔧 Injected favicon link -> /static/images/favicon-48.png");
     }
   }
 }

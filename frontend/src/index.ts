@@ -1,29 +1,82 @@
-import { serve } from "bun";
+import { serve, type Server, type ServerWebSocket } from "bun";
 import tailwindPlugin from "bun-plugin-tailwind";
 import path from "path";
 import index from "./index.html";
 
 /**
- * 开发服务器（serve.static 模式，让 bun-plugin-tailwind 生效）
- * - 托管前端静态资源 + CSS/Tailwind 编译 + HMR
+ * 开发服务器
+ * - 托管前端静态资源 + CSS/Tailwind 按需编译（Bun.build + bun-plugin-tailwind）
  * - /api/* 代理到后端 NoneBot 服务（默认 127.0.0.1:11451，可用 AMRITA_API_TARGET 覆盖）
+ * - /amrita/ui/ws 双向桥接（浏览器 ⇄ 后端 WebSocket）
  */
 
 const API_TARGET = process.env.AMRITA_API_TARGET ?? "http://127.0.0.1:11451";
-const SRC_DIR = path.join(import.meta.dir, "src");
+// index.ts 位于 frontend/src/，import.meta.dir 即 src 目录本身
+const SRC_DIR = import.meta.dir;
 
-/** WebSocket 代理：透传 /amrita/ui/ws 到后端（Bun 的 ws 转发模式） */
-async function proxyWs(
-  req: Request,
-  server: import("bun").Server,
-): Promise<Response> {
-  // Bun 支持通过 fetch 到 ws:// 目标做全双工转发
-  const targetWs = API_TARGET.replace(/^http/, "ws");
-  return fetch(`${targetWs}/amrita/ui/ws`, {
-    headers: req.headers,
-    // @ts-expect-error Bun 扩展：upgrade 标志让 fetch 建立 ws 隧道
-    upgrade: "websocket",
-  });
+/** 升级时附加的数据（后端 WS 认证需要的 cookie） */
+interface WsUpgradeData {
+  cookie: string;
+}
+
+/** 浏览器 WS -> 后端 WS 的桥接映射 */
+const wsBridges = new Map<ServerWebSocket<WsUpgradeData>, WebSocket>();
+
+/** CSS/Tailwind 按需编译：/src/*.css -> 编译产物（bun-plugin-tailwind 管道） */
+const cssCache = new Map<string, { body: string; etag: string }>();
+
+async function compileCss(
+  filePath: string,
+): Promise<{ body: string; etag: string } | null> {
+  const cached = cssCache.get(filePath);
+  if (cached) return cached;
+
+  try {
+    const result = await Bun.build({
+      entrypoints: [filePath],
+      outdir: "/tmp/amrita-css-build",
+      plugins: [tailwindPlugin],
+      minify: false,
+    });
+    // 不依赖 kind 枚举（Bun 版本间不一致）：直接找 .css 输出
+    const output = result.outputs.find((o) => o.path.endsWith(".css"));
+    if (!output) return null;
+    const body = await output.text();
+    const etag = `"${result.outputs.map((o) => o.hash).join("-")}"`;
+    const entry = { body, etag };
+    cssCache.set(filePath, entry);
+    return entry;
+  } catch (e) {
+    console.error(`[css] 编译失败 ${filePath}:`, e);
+    return null;
+  }
+}
+
+/** 静态文件服务：/src/* -> 磁盘文件（.css 走 tailwind 编译管道） */
+async function serveStatic(urlPath: string): Promise<Response | null> {
+  const rel = urlPath.startsWith("/src/")
+    ? urlPath.slice("/src/".length)
+    : null;
+  if (!rel) return null;
+  const filePath = path.join(SRC_DIR, rel);
+  // 防目录穿越
+  if (!filePath.startsWith(SRC_DIR)) return null;
+
+  if (rel.endsWith(".css")) {
+    const compiled = await compileCss(filePath);
+    if (!compiled) return null;
+    return new Response(compiled.body, {
+      headers: {
+        "Content-Type": "text/css;charset=utf-8",
+        "Cache-Control": "no-cache",
+        ETag: compiled.etag,
+      },
+    });
+  }
+
+  const file = Bun.file(filePath);
+  if (!(await file.exists())) return null;
+  return new Response(file);
 }
 
 async function proxyApi(req: Request): Promise<Response> {
@@ -73,31 +126,69 @@ async function proxyApi(req: Request): Promise<Response> {
   }
 }
 
-const server = serve({
-  // serve.static 模式：static 目录下的 .css 走 bun-plugin-tailwind 管道（bunfig [serve.static]）
-  static: {
-    "/src": SRC_DIR,
-  },
-  routes: {
-    // API 代理（通配符，须在 "/*" 之前）
-    "/api/*": proxyApi,
-
-    // SPA fallback
-    "/*": index,
-  },
-  // WebSocket 代理：/amrita/ui/ws → 后端（Bun 原生支持 ws 转发）
+const server = serve<WsUpgradeData>({
+  // 全部在 fetch 里手动分发：/src/* 静态 -> API 代理 -> WS 升级 -> SPA fallback
   async fetch(req, server) {
     const url = new URL(req.url);
-    if (
-      url.pathname === "/amrita/ui/ws" &&
-      req.headers.get("upgrade") === "websocket"
-    ) {
-      return await proxyWs(req, server);
+    // WebSocket：升级浏览器连接，交由 websocket handler 桥接到后端
+    if (url.pathname === "/amrita/ui/ws") {
+      const ok = server.upgrade(req, {
+        data: { cookie: req.headers.get("cookie") ?? "" },
+      });
+      return ok ? undefined : new Response("Upgrade failed", { status: 400 });
     }
-    return server.fetch(req);
+    // API 代理
+    if (url.pathname.startsWith("/api/")) {
+      return await proxyApi(req);
+    }
+    // 静态资源（/src/*，CSS 走 tailwind 编译管道）
+    const staticRes = await serveStatic(url.pathname);
+    if (staticRes) return staticRes;
+    // SPA fallback（仅 GET）
+    if (req.method === "GET") {
+      return new Response(index.index, {
+        headers: { "Content-Type": "text/html;charset=utf-8" },
+      });
+    }
+    return new Response("Not Found", { status: 404 });
   },
-  plugins: [tailwindPlugin],
-
+  // WebSocket 桥接：浏览器 ⇄ 后端（透传消息与关闭）
+  websocket: {
+    open(ws) {
+      const targetWs = API_TARGET.replace(/^http/, "ws");
+      // Bun 扩展：WebSocket 构造支持自定义 headers（透传 cookie 供后端认证）
+      const backend = new WebSocket(
+        `${targetWs}/amrita/ui/ws`,
+        // @ts-expect-error Bun 扩展：第二参数可传 { headers }
+        { headers: { cookie: ws.data.cookie } },
+      );
+      wsBridges.set(ws, backend);
+      backend.addEventListener("message", (e) => {
+        if (ws.readyState === WebSocket.OPEN) ws.send(String(e.data));
+      });
+      // 透传关闭码（如后端 4401 = token 失效），前端据此停止重连
+      backend.addEventListener("close", (e: CloseEvent) => {
+        ws.close(e.code, e.reason);
+        wsBridges.delete(ws);
+      });
+      backend.addEventListener("error", () => {
+        backend.close();
+      });
+    },
+    message(ws, message) {
+      const backend = wsBridges.get(ws);
+      if (backend && backend.readyState === WebSocket.OPEN) {
+        backend.send(String(message));
+      }
+    },
+    close(ws) {
+      const backend = wsBridges.get(ws);
+      if (backend) {
+        backend.close();
+        wsBridges.delete(ws);
+      }
+    },
+  },
   development: process.env.NODE_ENV !== "production" && {
     // Enable browser hot reloading in development
     hmr: true,

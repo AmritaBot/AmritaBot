@@ -59,7 +59,7 @@ interface GlobalState {
     bot: BotState | null;
     logs: LogEvent[];
   };
-  /** 频道 → 订阅回调集合 */
+  /** 频道 -> 订阅回调集合 */
   listeners: Map<WsChannel, Set<() => void>>;
   /** 连接状态监听器（onopen/onclose 时通知 useWs 更新 React state） */
   statusListeners: Set<(connected: boolean) => void>;
@@ -94,7 +94,7 @@ function updateSnapshot<K extends keyof GlobalState["snapshots"]>(
 }
 
 function connect() {
-  // 清理待执行的重连 timer（防止多个 timer 并发 → 多个 WS 连接）
+  // 清理待执行的重连 timer（防止多个 timer 并发 -> 多个 WS 连接）
   if (global.reconnectTimer !== null) {
     clearTimeout(global.reconnectTimer);
     global.reconnectTimer = null;
@@ -162,7 +162,7 @@ function connect() {
     global.connected = false;
     global.ws = null;
     notifyStatus(false);
-    // 未授权（4401：后端重启后内存态 token 失效）→ 停止重连，重连无意义
+    // 未授权（4401：后端重启后内存态 token 失效）-> 停止重连，重连无意义
     if (e.code === 4401) {
       if (global.reconnectToastId !== null) {
         toast.dismiss(global.reconnectToastId);
@@ -171,7 +171,7 @@ function connect() {
       toast.error("登录已过期，请重新登录");
       return;
     }
-    // 曾连上过 → 右下角提示正在重连（仅弹一次，复用 id）
+    // 曾连上过 -> 右下角提示正在重连（仅弹一次，复用 id）
     if (global.everConnected && global.reconnectToastId === null) {
       global.reconnectToastId = toast.loading("正在尝试重连…", {
         duration: Infinity,
@@ -207,7 +207,7 @@ export function useWs({ channels, onStatusChange }: UseWsOptions) {
   const [bot, setBot] = useState<BotState | null>(global.snapshots.bot);
   const [logs, setLogs] = useState<LogEvent[]>(global.snapshots.logs);
 
-  // channels 引用不稳定（调用处每次渲染新建数组）→ 用稳定 key 做 effect 依赖
+  // channels 引用不稳定（调用处每次渲染新建数组）-> 用稳定 key 做 effect 依赖
   const channelsKey = channels.join(",");
   const channelsRef = useRef(channels);
   channelsRef.current = channels;

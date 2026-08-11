@@ -187,7 +187,7 @@ export function PromptsPage() {
                 <Textarea
                   value={newText}
                   onChange={(e) => setNewText(e.target.value)}
-                  className="min-h-[160px]"
+                  className="min-h-40"
                 />
               </div>
             </div>
@@ -262,7 +262,7 @@ function PromptEditor({
       <Textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        className="min-h-[240px]"
+        className="min-h-60"
       />
       <div className="flex justify-end">
         <Button onClick={() => onSubmit(text)} disabled={submitting}>

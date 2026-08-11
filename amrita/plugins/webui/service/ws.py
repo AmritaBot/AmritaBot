@@ -44,7 +44,7 @@ SYSTEM_INTERVAL = 2.0  # system 频道推送间隔（秒）
 BOT_STATE_INTERVAL = 5.0  # bot 状态检查间隔（秒）
 LOG_WINDOW_MAX = 200  # 内存滑动窗口（实时广播用，仅保留最近 N 条）
 
-# 级别 → (icon_color, icon)，与 LoggingEvent.color/icon 保持一致
+# 级别 -> (icon_color, icon)，与 LoggingEvent.color/icon 保持一致
 _LEVEL_META: dict[str, tuple[str, str]] = {
     "WARNING": ("yellow", "exclamation-triangle"),
     "ERROR": ("red", "bug"),
@@ -58,7 +58,7 @@ class ChannelHub:
     def __init__(self) -> None:
         self._subscribers: dict[str, set[WebSocket]] = {}
         # 每个 WS 的发送锁：广播（dispatcher）与回放（订阅时）可能并发 send_json，
-        # 不加锁会导致 FastAPI WebSocket 并发发送抛错 → 连接异常断开 → 无限重连循环
+        # 不加锁会导致 FastAPI WebSocket 并发发送抛错 -> 连接异常断开 -> 无限重连循环
         self._locks: dict[WebSocket, asyncio.Lock] = {}
 
     def lock(self, ws: WebSocket) -> asyncio.Lock:

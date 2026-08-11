@@ -33,7 +33,7 @@ class EventRecorder:
         exc_message = ""
         if exc:
             # loguru exception 是 (type, value, traceback) 三元组：
-            # traceback/frame 不可序列化 → 先格式化为字符串再存储
+            # traceback/frame 不可序列化 -> 先格式化为字符串再存储
             exc_type, exc_value, exc_tb = exc
             exc_message = str(exc_value)
             formatted_tb = "".join(

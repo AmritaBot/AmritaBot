@@ -25,7 +25,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
 import type { MenuCategory } from "@/lib/menu";
 
-/** 后端 icon 名 → lucide 组件映射 */
+/** 后端 icon 名 -> lucide 组件映射 */
 const ICON_MAP: Record<string, LucideIcon> = {
   "layout-dashboard": LayoutDashboard,
   activity: Activity,

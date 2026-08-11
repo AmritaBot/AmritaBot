@@ -32,10 +32,8 @@ const app = (
 );
 
 // Bun 的 HMR 要求直接访问 import.meta.hot（间接访问会抛错）
-// @ts-expect-error - Bun 注入的类型
 if (import.meta.hot) {
   // With hot module reloading, `import.meta.hot.data` is persisted.
-  // @ts-expect-error - Bun 注入的类型
   const root = (import.meta.hot.data.root ??= createRoot(elem));
   root.render(app);
 } else {

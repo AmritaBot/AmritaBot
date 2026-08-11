@@ -81,7 +81,7 @@ export function BotConfigPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
-            className="min-h-[320px] font-mono text-sm"
+            className="min-h-80 font-mono text-sm"
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder={activeFile ? undefined : "先选择文件"}

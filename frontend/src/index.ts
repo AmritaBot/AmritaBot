@@ -1,7 +1,8 @@
 import { serve, type Server, type ServerWebSocket } from "bun";
 import tailwindPlugin from "bun-plugin-tailwind";
 import path from "path";
-import index from "./index.html";
+// ?raw：Bun 1.3.9 的 HTMLBundle.index 字段是源文件路径而非内容，?raw 直接取文件文本
+import indexHtml from "./index.html?raw";
 
 /**
  * 开发服务器
@@ -52,8 +53,38 @@ async function compileCss(
   }
 }
 
-/** 静态文件服务：/src/* -> 磁盘文件（.css 走 tailwind 编译管道） */
+/** 静态文件服务：/src/* -> 磁盘文件；.css/.tsx 走编译管道 */
 async function serveStatic(urlPath: string): Promise<Response | null> {
+  // TSX/TS 入口（如 /frontend.tsx）：Bun.build 编译为 JS
+  if (urlPath.endsWith(".tsx") || urlPath.endsWith(".ts")) {
+    const abs = path.resolve(SRC_DIR, urlPath.replace(/^\//, ""));
+    if (!abs.startsWith(SRC_DIR)) return null;
+    if (!(await Bun.file(abs).exists())) return null;
+    try {
+      const result = await Bun.build({
+        entrypoints: [abs],
+        outdir: "/tmp/amrita-tsx-build",
+        minify: false,
+        target: "browser",
+        define: {
+          "process.env.NODE_ENV": JSON.stringify("development"),
+        },
+      });
+      const output = result.outputs.find((o) => o.kind === "entry-point");
+      if (!output) return null;
+      const code = await output.text();
+      return new Response(code, {
+        headers: {
+          "Content-Type": "text/javascript;charset=utf-8",
+          "Cache-Control": "no-cache",
+        },
+      });
+    } catch (e) {
+      console.error(`[tsx] 编译失败 ${abs}:`, e);
+      return null;
+    }
+  }
+
   const rel = urlPath.startsWith("/src/")
     ? urlPath.slice("/src/".length)
     : null;
@@ -144,9 +175,13 @@ const server = serve<WsUpgradeData>({
     // 静态资源（/src/*，CSS 走 tailwind 编译管道）
     const staticRes = await serveStatic(url.pathname);
     if (staticRes) return staticRes;
-    // SPA fallback（仅 GET）
+    // SPA fallback（仅 GET）：重写相对脚本路径为绝对路径（深层路由下也能加载入口）
     if (req.method === "GET") {
-      return new Response(index.index, {
+      const html = indexHtml.replace(
+        /src="\.\/frontend\.tsx"/,
+        'src="/frontend.tsx"',
+      );
+      return new Response(html, {
         headers: { "Content-Type": "text/html;charset=utf-8" },
       });
     }

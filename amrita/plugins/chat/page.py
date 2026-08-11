@@ -620,6 +620,6 @@ async def get_chat_insights():
 
         logger.opt(exception=e, colors=True, raw=True).error("获取信息统计失败")
         return JSONResponse(
-            {"success": False, "message": f"获取信息统计失败: {e!s}"},
+            {"success": False, "message": "获取信息统计失败"},
             status_code=500,
         )

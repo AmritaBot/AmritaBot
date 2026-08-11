@@ -14,7 +14,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# 仅忽略仓库根目录的 lib/（Python 编译输出），避免误伤 frontend/src/lib/
+/lib/
 lib64/
 parts/
 sdist/

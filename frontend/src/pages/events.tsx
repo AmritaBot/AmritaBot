@@ -135,11 +135,14 @@ export function EventsPage() {
               {events.map((ev, i) => {
                 const isOpen = expanded === i;
                 return (
-                  <button
+                  <div
                     key={`${ev.time}-${i}`}
-                    type="button"
-                    className="flex w-full flex-col gap-1 px-2 py-2.5 text-left transition-colors hover:bg-muted/50"
-                    onClick={() => setExpanded(isOpen ? null : i)}
+                    className="cursor-pointer select-text px-2 py-2.5 transition-colors hover:bg-muted/50"
+                    onClick={() => {
+                      // 存在文本选区（长按复制）时不触发展开/收起
+                      if (window.getSelection()?.toString()) return;
+                      setExpanded(isOpen ? null : i);
+                    }}
                   >
                     <div className="flex items-center gap-2 text-sm">
                       {isOpen ? (
@@ -160,11 +163,11 @@ export function EventsPage() {
                     {isOpen &&
                       (ev.traceback || ev.message) &&
                       ev.message !== "None" && (
-                        <pre className="ml-6 mt-1 overflow-x-auto rounded-md bg-muted/50 p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">
+                        <pre className="ml-6 mt-1 overflow-x-auto rounded-md bg-muted/50 p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap select-text">
                           {ev.traceback ?? ev.message}
                         </pre>
                       )}
-                  </button>
+                  </div>
                 );
               })}
             </div>

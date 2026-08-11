@@ -96,10 +96,15 @@ async def update_model(request: Request, name: str):
             elif hasattr(preset, key) and key != "name":  # 排除不可变的name字段
                 setattr(preset, key, value)
 
-        # 保存模型预设到文件
-        preset_path = config_manager.get_preset_path(name)
-
-        preset.save(preset_path)
+        if name == "default":
+            # default 预设即 config.default_preset（运行时模型配置），
+            # 更新后写回配置并持久化（不能存到预设表文件，那里不生效）
+            config_manager.config.default_preset = preset
+            await config_manager.save_config()
+        else:
+            # 保存模型预设到文件
+            preset_path = config_manager.get_preset_path(name)
+            preset.save(preset_path)
 
         # 重新加载模型列表
         await config_manager.get_all_presets(cache=False)
@@ -120,6 +125,13 @@ async def update_model(request: Request, name: str):
 @router.post("/api/chat/models/{name}/delete")
 async def delete_model(name: str):
     try:
+        # default 预设是运行时配置（config.default_preset），不可删除
+        if name == "default":
+            return JSONResponse(
+                {"success": False, "message": "默认预设不可删除"},
+                status_code=400,
+            )
+
         preset_path = config_manager.get_preset_path(name)
 
         if not preset_path.exists():

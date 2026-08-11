@@ -92,9 +92,6 @@ export function Sidebar({
             <span className="truncate text-lg font-semibold tracking-tight">
               AmritaBot
             </span>
-            <span className="shrink-0 rounded-full bg-sidebar-primary px-2 py-0.5 text-xs font-medium text-sidebar-primary-foreground">
-              WebUI
-            </span>
           </div>
         )}
         <div className="flex items-center gap-1">

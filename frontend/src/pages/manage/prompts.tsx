@@ -18,6 +18,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 type PromptType = "group" | "private";
 
@@ -30,6 +31,7 @@ export function PromptsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createType, setCreateType] = useState<PromptType>("group");
   const [editing, setEditing] = useState<PromptRow | null>(null);
+  const [deleting, setDeleting] = useState<PromptRow | null>(null);
   const [newName, setNewName] = useState("");
   const [newText, setNewText] = useState("");
 
@@ -123,7 +125,7 @@ export function PromptsPage() {
             <Button
               variant="destructive"
               size="sm"
-              onClick={() => deleteMutation.mutate(p)}
+              onClick={() => setDeleting(p)}
               disabled={deleteMutation.isPending}
             >
               删除
@@ -136,6 +138,18 @@ export function PromptsPage() {
 
   return (
     <div className="space-y-6">
+      {/* 删除两步确认 */}
+      <ConfirmDialog
+        open={!!deleting}
+        onOpenChange={(open: boolean) => !open && setDeleting(null)}
+        title={`删除提示词「${deleting?.name ?? ""}」？`}
+        description={`将删除${deleting?.type === "group" ? "群聊" : "私聊"}提示词，删除后无法恢复，请确认。`}
+        loading={deleteMutation.isPending}
+        onConfirm={() => {
+          if (deleting) deleteMutation.mutate(deleting);
+        }}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">提示词预设</h1>
@@ -187,7 +201,7 @@ export function PromptsPage() {
                 <Textarea
                   value={newText}
                   onChange={(e) => setNewText(e.target.value)}
-                  className="min-h-40"
+                  className="h-40 resize-y"
                 />
               </div>
             </div>
@@ -215,7 +229,7 @@ export function PromptsPage() {
             </DialogTitle>
           </DialogHeader>
           {editing && (
-            <div className="space-y-4">
+            <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
               <Label>内容</Label>
               <PromptEditor
                 key={editing.name + editing.type}
@@ -262,7 +276,8 @@ function PromptEditor({
       <Textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        className="min-h-60"
+        // 固定高度：长文本在内部滚动，不撑高 Dialog（保存按钮始终可见）
+        className="h-72 resize-y"
       />
       <div className="flex justify-end">
         <Button onClick={() => onSubmit(text)} disabled={submitting}>

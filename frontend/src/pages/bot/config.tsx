@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -17,6 +17,14 @@ export function BotConfigPage() {
     queryKey: ["bot-config"],
     queryFn: () => api.get<BotConfigListData>("/api/bot/config"),
   });
+
+  // 初次加载：列表接口已返回默认选中文件的完整内容（selected + content），
+  // 无需再走一次单文件接口；用户手动点击文件后由 selectFile 接管
+  useEffect(() => {
+    if (data && data.data.selected && data.data.content) {
+      setContent(data.data.content);
+    }
+  }, [data]);
 
   const selectFile = (name: string | null) => {
     setSelected(name);

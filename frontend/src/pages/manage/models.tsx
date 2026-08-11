@@ -8,21 +8,38 @@ import { DataTable, type Column } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 interface ModelRow extends ChatModel {
   __editing?: boolean;
 }
 
 const KEY_PLACEHOLDER = "••••••••";
+
+/** 思考模式配置（对应后端 ThinkingConfig） */
+const THINKING_EFFORT_OPTIONS = [
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+];
+const CONTENT_MODE_OPTIONS = [
+  { value: "never", label: "never（剥离全部 reasoning_content）" },
+  { value: "by-tool", label: "by-tool（仅工具调用时保留）" },
+  { value: "optional", label: "optional（透传）" },
+];
 
 function ModelForm({
   initial,
@@ -40,6 +57,36 @@ function ModelForm({
     initial && initial.api_key !== KEY_PLACEHOLDER ? initial.api_key : "",
   );
   const [protocol, setProtocol] = useState(initial?.protocol ?? "__main__");
+
+  // 思考模式配置（ThinkingConfig）
+  const tc = initial?.thinking_config ?? {};
+  const [thinkingEnabled, setThinkingEnabled] = useState(
+    !!tc.thinking_type || !!tc.enable_thinking,
+  );
+  const [thinkingType, setThinkingType] = useState(
+    (tc.thinking_type as string) ?? "",
+  );
+  const [enableThinking, setEnableThinking] = useState(
+    (tc.enable_thinking as boolean) ?? false,
+  );
+  const [thinkingEffort, setThinkingEffort] = useState(
+    (tc.thinking_effort as string) ?? "high",
+  );
+  const [contentMode, setContentMode] = useState(
+    (tc.content_mode as string) ?? "optional",
+  );
+
+  /** 收集思考配置：未启用时返回 null（清空） */
+  function buildThinkingConfig(): Record<string, unknown> | null {
+    if (!thinkingEnabled) return null;
+    const cfg: Record<string, unknown> = {
+      thinking_effort: thinkingEffort,
+      content_mode: contentMode,
+    };
+    if (thinkingType) cfg.thinking_type = thinkingType;
+    cfg.enable_thinking = enableThinking;
+    return cfg;
+  }
 
   return (
     <div className="space-y-4">
@@ -71,6 +118,75 @@ function ModelForm({
         <Label>协议</Label>
         <Input value={protocol} onChange={(e) => setProtocol(e.target.value)} />
       </div>
+
+      {/* 思考模式配置 */}
+      <div className="space-y-3 rounded-md border p-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-base font-medium">思考模式</Label>
+          <Switch
+            checked={thinkingEnabled}
+            onCheckedChange={setThinkingEnabled}
+          />
+        </div>
+        {thinkingEnabled && (
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label>thinking_type（请求属性 thinking.type）</Label>
+              <Select value={thinkingType} onValueChange={setThinkingType}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="不设置" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">不设置</SelectItem>
+                  <SelectItem value="enabled">enabled</SelectItem>
+                  <SelectItem value="disabled">disabled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center justify-between">
+              <Label>enable_thinking（请求属性）</Label>
+              <Switch
+                checked={enableThinking}
+                onCheckedChange={setEnableThinking}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>thinking_effort（推理强度）</Label>
+              <Select
+                value={thinkingEffort}
+                onValueChange={setThinkingEffort}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {THINKING_EFFORT_OPTIONS.map((opt) => (
+                    <SelectItem key={opt} value={opt}>
+                      {opt}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>content_mode（reasoning_content 处理）</Label>
+              <Select value={contentMode} onValueChange={setContentMode}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CONTENT_MODE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+      </div>
+
       <DialogFooter>
         <Button
           onClick={() =>
@@ -80,6 +196,7 @@ function ModelForm({
               base_url: baseUrl,
               api_key: apiKey,
               protocol,
+              thinking_config: buildThinkingConfig(),
             })
           }
           disabled={!name || !model || submitting}
@@ -95,6 +212,7 @@ export function ModelsPage() {
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<ChatModel | null>(null);
+  const [deleting, setDeleting] = useState<ChatModel | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["chat-models"],
@@ -171,11 +289,13 @@ export function ModelsPage() {
           <Button variant="outline" size="sm" onClick={() => setEditing(m)}>
             编辑
           </Button>
+          {/* default 是运行时配置（config.default_preset），不可删除 */}
           <Button
             variant="destructive"
             size="sm"
-            onClick={() => deleteMutation.mutate(m.name)}
-            disabled={deleteMutation.isPending}
+            onClick={() => setDeleting(m)}
+            disabled={deleteMutation.isPending || m.name === "default"}
+            title={m.name === "default" ? "默认预设不可删除" : undefined}
           >
             删除
           </Button>
@@ -186,6 +306,17 @@ export function ModelsPage() {
 
   return (
     <div className="space-y-6">
+      {/* 删除两步确认 */}
+      <ConfirmDialog
+        open={!!deleting}
+        onOpenChange={(open: boolean) => !open && setDeleting(null)}
+        title={`删除模型预设「${deleting?.name ?? ""}」？`}
+        description="删除后无法恢复，请确认。"
+        loading={deleteMutation.isPending}
+        onConfirm={() => {
+          if (deleting) deleteMutation.mutate(deleting.name);
+        }}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">模型预设</h1>

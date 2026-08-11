@@ -30,6 +30,7 @@ if webui_config.webui_enable:
         auth,
         confedit,
         dbmeta,
+        events,
         menu,
         permissions,
     )
@@ -45,6 +46,7 @@ if webui_config.webui_enable:
         "auth",
         "confedit",
         "dbmeta",
+        "events",
         "main",
         "menu",
         "permissions",

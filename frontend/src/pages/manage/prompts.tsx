@@ -37,6 +37,7 @@ export function PromptsPage() {
     queryFn: () => api.get<ChatPromptsData>("/api/chat/prompts"),
   });
 
+  // 创建用 mutateAsync：PromptTab 需在成功后才关闭对话框（失败保留输入）
   const createMutation = useMutation({
     mutationFn: ({
       type,
@@ -139,7 +140,9 @@ export function PromptsPage() {
           prompts={data?.data.prompts.group ?? []}
           loading={isLoading}
           onCreate={(name, text) =>
-            createMutation.mutate({ type: "group", name, text })
+            createMutation
+              .mutateAsync({ type: "group", name, text })
+              .then(() => {})
           }
           onEdit={setEditing}
           onDelete={setDeleting}
@@ -151,7 +154,9 @@ export function PromptsPage() {
           prompts={data?.data.prompts.private ?? []}
           loading={isLoading}
           onCreate={(name, text) =>
-            createMutation.mutate({ type: "private", name, text })
+            createMutation
+              .mutateAsync({ type: "private", name, text })
+              .then(() => {})
           }
           onEdit={setEditing}
           onDelete={setDeleting}
@@ -177,7 +182,7 @@ function PromptTab({
   title: string;
   prompts: ChatPrompt[];
   loading: boolean;
-  onCreate: (name: string, text: string) => void;
+  onCreate: (name: string, text: string) => Promise<void>;
   onEdit: (row: PromptRow) => void;
   onDelete: (row: PromptRow) => void;
   deletePending: boolean;
@@ -185,6 +190,22 @@ function PromptTab({
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newText, setNewText] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  /** 创建成功才关闭并清空；失败保留输入（错误 toast 由 mutation onError 处理） */
+  async function handleCreate() {
+    setCreating(true);
+    try {
+      await onCreate(newName, newText);
+      setCreateOpen(false);
+      setNewName("");
+      setNewText("");
+    } catch {
+      // 创建失败：保留表单内容，用户可修正后重试
+    } finally {
+      setCreating(false);
+    }
+  }
 
   const rows: PromptRow[] = prompts.map((p) => ({ ...p, type: value }));
 
@@ -261,16 +282,8 @@ function PromptTab({
                 </div>
               </div>
               <DialogFooter>
-                <Button
-                  onClick={() => {
-                    onCreate(newName, newText);
-                    setCreateOpen(false);
-                    setNewName("");
-                    setNewText("");
-                  }}
-                  disabled={!newName}
-                >
-                  创建
+                <Button onClick={handleCreate} disabled={!newName || creating}>
+                  {creating ? "创建中…" : "创建"}
                 </Button>
               </DialogFooter>
             </DialogContent>

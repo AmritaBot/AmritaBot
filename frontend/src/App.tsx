@@ -73,7 +73,15 @@ export function App() {
   return (
     <Suspense fallback={<Splash />}>
       <Routes>
-        <Route path="/" element={<AppShell categories={categories} />}>
+        <Route
+          path="/"
+          element={
+            <AppShell
+              categories={categories}
+              version={menuData?.data.version ?? ""}
+            />
+          }
+        >
           <Route index element={<Navigate to="/dashboard" replace />} />
           {menuRoutes.map(({ path, Component }) => (
             <Route key={path} path={path} element={<Component />} />

@@ -50,6 +50,7 @@ function resolveIcon(name: string | null | undefined): LucideIcon {
 
 export function Sidebar({
   categories,
+  version,
   activePath,
   collapsed,
   mobileOpen,
@@ -58,6 +59,8 @@ export function Sidebar({
   onNavigate,
 }: {
   categories: MenuCategory[];
+  /** Amrita 版本号（v0.1.0 格式展示） */
+  version: string;
   activePath: string;
   collapsed: boolean;
   /** 移动端抽屉是否打开（仅 <lg 生效） */
@@ -89,9 +92,16 @@ export function Sidebar({
               alt="AmritaBot"
               className="h-7 w-7 shrink-0 rounded-full"
             />
-            <span className="truncate text-lg font-semibold tracking-tight">
-              AmritaBot
-            </span>
+            <div className="flex min-w-0 flex-col leading-tight">
+              <span className="truncate text-lg font-semibold tracking-tight">
+                AmritaBot
+              </span>
+              {version && (
+                <span className="truncate text-[10px] text-sidebar-foreground/60">
+                  v{version}
+                </span>
+              )}
+            </div>
           </div>
         )}
         <div className="flex items-center gap-1">

@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from amrita.utils.utils import get_amrita_version
+
 from ..main import app
 from ..response import ok
 from ..sidebar import RouteRegistry
@@ -145,4 +147,10 @@ _CORE_ROUTES = [
 async def get_menu():
     """获取全部页面路由注册表（含隐藏页），前端据此生成菜单与路由。"""
     routes = list(_CORE_ROUTES) + RouteRegistry().get_routes()
-    return ok("success", data={"routes": routes})
+    return ok(
+        "success",
+        data={
+            "routes": routes,
+            "version": get_amrita_version(),
+        },
+    )

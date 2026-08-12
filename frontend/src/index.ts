@@ -172,6 +172,10 @@ const server = serve<WsUpgradeData>({
     if (url.pathname.startsWith("/api/")) {
       return await proxyApi(req);
     }
+    // 静态资源代理（/static/*）：logo、favicon 等由后端托管
+    if (url.pathname.startsWith("/static/")) {
+      return await proxyApi(req);
+    }
     // 静态资源（/src/*，CSS 走 tailwind 编译管道）
     const staticRes = await serveStatic(url.pathname);
     if (staticRes) return staticRes;

@@ -1,11 +1,10 @@
-import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import type { PermissionsDetailData } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { PermissionEditor } from "@/components/shared/PermissionEditor";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Card,
@@ -18,7 +17,6 @@ import {
 export function PermGroupDetailPage() {
   const { name } = useParams<{ name: string }>();
   const navigate = useNavigate();
-  const [permissions, setPermissions] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["perm-group", name],
@@ -30,7 +28,7 @@ export function PermGroupDetailPage() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (permissions: string) =>
       api.post(`/api/permissions/groups/${encodeURIComponent(name ?? "")}`, {
         permissions,
       }),
@@ -60,30 +58,21 @@ export function PermGroupDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">权限字符串</CardTitle>
+          <CardTitle className="text-base">权限列表</CardTitle>
           <CardDescription>
-            每行一条权限，格式如 node.permission
+            每行一条权限：节点路径 + 允许/拒绝开关
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Textarea
-            className="min-h-60 font-mono text-sm"
-            value={permissions || data.data.permissions}
-            onChange={(e) => setPermissions(e.target.value)}
-            spellCheck={false}
+          <PermissionEditor
+            key={name}
+            initial={data.data.permissions}
+            onSubmit={(permissions) => saveMutation.mutate(permissions)}
+            submitting={saveMutation.isPending}
           />
-          <div className="flex justify-between">
-            <Button
-              variant="outline"
-              onClick={() => navigate("/permissions/groups")}
-            >
+          <div className="flex justify-start">
+            <Button variant="outline" onClick={() => navigate(-1)}>
               返回
-            </Button>
-            <Button
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-            >
-              {saveMutation.isPending ? "保存中…" : "保存"}
             </Button>
           </div>
         </CardContent>

@@ -45,9 +45,9 @@ jobs:
         with:
           args: check . --exit-non-zero-on-fix
 
-      # - name: Frontend typecheck
-      #   run: |
-      #     bash scripts/typecheck.sh
+      - name: Frontend typecheck
+        run: |
+          bash scripts/typecheck.sh
 
       - name: Full build (frontend + package)
         run: |

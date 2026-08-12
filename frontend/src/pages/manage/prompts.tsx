@@ -18,6 +18,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 type PromptType = "group" | "private";
@@ -28,40 +29,27 @@ interface PromptRow extends ChatPrompt {
 
 export function PromptsPage() {
   const qc = useQueryClient();
-  const [createOpen, setCreateOpen] = useState(false);
-  const [createType, setCreateType] = useState<PromptType>("group");
   const [editing, setEditing] = useState<PromptRow | null>(null);
   const [deleting, setDeleting] = useState<PromptRow | null>(null);
-  const [newName, setNewName] = useState("");
-  const [newText, setNewText] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["chat-prompts"],
     queryFn: () => api.get<ChatPromptsData>("/api/chat/prompts"),
   });
 
-  const rows: PromptRow[] = [
-    ...(data?.data.prompts.group.map((p) => ({
-      ...p,
-      type: "group" as const,
-    })) ?? []),
-    ...(data?.data.prompts.private.map((p) => ({
-      ...p,
-      type: "private" as const,
-    })) ?? []),
-  ];
-
+  // 创建用 mutateAsync：PromptTab 需在成功后才关闭对话框（失败保留输入）
   const createMutation = useMutation({
-    mutationFn: () =>
-      api.post(`/api/chat/prompts/${createType}`, {
-        name: newName,
-        text: newText,
-      }),
+    mutationFn: ({
+      type,
+      name,
+      text,
+    }: {
+      type: PromptType;
+      name: string;
+      text: string;
+    }) => api.post(`/api/chat/prompts/${type}`, { name, text }),
     onSuccess: (res) => {
       toast.success(res.message);
-      setCreateOpen(false);
-      setNewName("");
-      setNewText("");
       void qc.invalidateQueries({ queryKey: ["chat-prompts"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -88,53 +76,12 @@ export function PromptsPage() {
       ),
     onSuccess: (res) => {
       toast.success(res.message);
+      // 关闭确认框：删除成功后立即收起（否则对话框残留已删除的条目）
+      setDeleting(null);
       void qc.invalidateQueries({ queryKey: ["chat-prompts"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
-
-  const columns: Column<PromptRow>[] = [
-    {
-      key: "type",
-      header: "类型",
-      render: (p) => (p.type === "group" ? "群聊" : "私聊"),
-    },
-    {
-      key: "name",
-      header: "名称",
-      render: (p) => <span className="font-medium">{p.name}</span>,
-    },
-    {
-      key: "text",
-      header: "内容",
-      render: (p) => (
-        <span className="line-clamp-1 max-w-lg text-muted-foreground">
-          {p.text}
-        </span>
-      ),
-    },
-    {
-      key: "actions",
-      header: "操作",
-      render: (p) => (
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setEditing(p)}>
-            编辑
-          </Button>
-          {p.name !== "default" && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => setDeleting(p)}
-              disabled={deleteMutation.isPending}
-            >
-              删除
-            </Button>
-          )}
-        </div>
-      ),
-    },
-  ];
 
   return (
     <div className="space-y-6">
@@ -150,71 +97,9 @@ export function PromptsPage() {
         }}
       />
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">提示词预设</h1>
-          <p className="text-sm text-muted-foreground">群聊 / 私聊提示词管理</p>
-        </div>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-1 h-4 w-4" />
-              新建提示词
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>新建提示词</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>类型</Label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant={createType === "group" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setCreateType("group")}
-                  >
-                    群聊
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={createType === "private" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setCreateType("private")}
-                  >
-                    私聊
-                  </Button>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>名称</Label>
-                <Input
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="如：default"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>内容</Label>
-                <Textarea
-                  value={newText}
-                  onChange={(e) => setNewText(e.target.value)}
-                  className="h-40 resize-y"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                onClick={() => createMutation.mutate()}
-                disabled={!newName || createMutation.isPending}
-              >
-                {createMutation.isPending ? "创建中…" : "创建"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">提示词预设</h1>
+        <p className="text-sm text-muted-foreground">群聊 / 私聊提示词管理</p>
       </div>
 
       <Dialog
@@ -244,20 +129,176 @@ export function PromptsPage() {
         </DialogContent>
       </Dialog>
 
+      <Tabs defaultValue="group">
+        <TabsList>
+          <TabsTrigger value="group">群聊提示词</TabsTrigger>
+          <TabsTrigger value="private">私聊提示词</TabsTrigger>
+        </TabsList>
+        <PromptTab
+          value="group"
+          title="群聊提示词"
+          prompts={data?.data.prompts.group ?? []}
+          loading={isLoading}
+          onCreate={(name, text) =>
+            createMutation
+              .mutateAsync({ type: "group", name, text })
+              .then(() => {})
+          }
+          onEdit={setEditing}
+          onDelete={setDeleting}
+          deletePending={deleteMutation.isPending}
+        />
+        <PromptTab
+          value="private"
+          title="私聊提示词"
+          prompts={data?.data.prompts.private ?? []}
+          loading={isLoading}
+          onCreate={(name, text) =>
+            createMutation
+              .mutateAsync({ type: "private", name, text })
+              .then(() => {})
+          }
+          onEdit={setEditing}
+          onDelete={setDeleting}
+          deletePending={deleteMutation.isPending}
+        />
+      </Tabs>
+    </div>
+  );
+}
+
+/** 单个 tab 版块：提示词列表 + 该类型的新建入口 */
+function PromptTab({
+  value,
+  title,
+  prompts,
+  loading,
+  onCreate,
+  onEdit,
+  onDelete,
+  deletePending,
+}: {
+  value: PromptType;
+  title: string;
+  prompts: ChatPrompt[];
+  loading: boolean;
+  onCreate: (name: string, text: string) => Promise<void>;
+  onEdit: (row: PromptRow) => void;
+  onDelete: (row: PromptRow) => void;
+  deletePending: boolean;
+}) {
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newText, setNewText] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  /** 创建成功才关闭并清空；失败保留输入（错误 toast 由 mutation onError 处理） */
+  async function handleCreate() {
+    setCreating(true);
+    try {
+      await onCreate(newName, newText);
+      setCreateOpen(false);
+      setNewName("");
+      setNewText("");
+    } catch {
+      // 创建失败：保留表单内容，用户可修正后重试
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  const rows: PromptRow[] = prompts.map((p) => ({ ...p, type: value }));
+
+  const columns: Column<PromptRow>[] = [
+    {
+      key: "name",
+      header: "名称",
+      render: (p) => <span className="font-medium">{p.name}</span>,
+    },
+    {
+      key: "text",
+      header: "内容",
+      render: (p) => (
+        <span className="line-clamp-1 max-w-lg text-muted-foreground">
+          {p.text}
+        </span>
+      ),
+    },
+    {
+      key: "actions",
+      header: "操作",
+      render: (p) => (
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => onEdit(p)}>
+            编辑
+          </Button>
+          {p.name !== "default" && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => onDelete(p)}
+              disabled={deletePending}
+            >
+              删除
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <TabsContent value={value}>
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">提示词列表</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
+          <CardTitle className="text-base">{title}</CardTitle>
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="mr-1 h-4 w-4" />
+                新建
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>新建{title}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>名称</Label>
+                  <Input
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="如：default"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>内容</Label>
+                  <Textarea
+                    value={newText}
+                    onChange={(e) => setNewText(e.target.value)}
+                    className="h-40 resize-y"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={handleCreate} disabled={!newName || creating}>
+                  {creating ? "创建中…" : "创建"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </CardHeader>
         <CardContent>
           <DataTable
             columns={columns}
             data={rows}
-            loading={isLoading}
-            emptyText="还没有提示词"
+            loading={loading}
+            emptyText={`还没有${title}`}
           />
         </CardContent>
       </Card>
-    </div>
+    </TabsContent>
   );
 }
 

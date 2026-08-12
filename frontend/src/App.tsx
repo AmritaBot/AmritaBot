@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { AppShell } from "@/components/layout/AppShell";
 import { NotFound } from "@/components/shared/PagePlaceholder";
 import { LoginPage } from "@/pages/login";
+import { ForgotPasswordPage } from "@/pages/forgot-password";
 import { PasswordLockedPage } from "@/pages/password-locked";
 import { UiSecLockedPage } from "@/pages/ui-sec-locked";
 
@@ -58,13 +59,29 @@ export function App() {
   // 安全锁：后端检测到默认密码（423），拒绝所有 API 访问，强制更换密码
   if (passwordLocked) return <PasswordLockedPage />;
 
-  // 未登录：首页（/）即登录面板，登录 API 为 POST /api/auth/login
-  if (!user) return <LoginPage />;
+  // 未登录：登录面板 + 忘记密码指导页（登录 API 为 POST /api/auth/login）
+  if (!user) {
+    return (
+      <Routes>
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="*" element={<LoginPage />} />
+      </Routes>
+    );
+  }
 
   return (
     <Suspense fallback={<Splash />}>
       <Routes>
-        <Route path="/" element={<AppShell categories={categories} />}>
+        <Route
+          path="/"
+          element={
+            <AppShell
+              categories={categories}
+              version={menuData?.data.version ?? ""}
+            />
+          }
+        >
           <Route index element={<Navigate to="/dashboard" replace />} />
           {menuRoutes.map(({ path, Component }) => (
             <Route key={path} path={path} element={<Component />} />

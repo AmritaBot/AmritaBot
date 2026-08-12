@@ -1,13 +1,10 @@
 include README.md
 include LICENSE
-recursive-exclude amrita/plugins/webui/service/static/css *
-recursive-include amrita/plugins/webui/service/static/css dist.css
-recursive-include amrita/plugins/webui/service/static/js *
-recursive-include amrita/plugins/webui/service/static/images *
+# WebUI 前端构建产物（index.html / chunk-*.js / chunk-*.css / images）
+# 用目录精确包含，避免 global-include 递归卷进 frontend/node_modules
+recursive-include amrita/plugins/webui/service/static *
 recursive-exclude data *
 recursive-exclude example *
-global-include *.html
-global-include *.js
 global-exclude __pycache__
 global-exclude *.pyc
 global-exclude *.pyo

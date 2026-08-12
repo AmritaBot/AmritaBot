@@ -21,7 +21,14 @@ function useMediaQuery(query: string): boolean {
 }
 
 /** 应用框架：可折叠侧边栏（移动端抽屉）+ 内容区 */
-export function AppShell({ categories }: { categories: MenuCategory[] }) {
+export function AppShell({
+  categories,
+  version,
+}: {
+  categories: MenuCategory[];
+  /** Amrita 版本号（菜单接口附带） */
+  version: string;
+}) {
   const location = useLocation();
   const navigate = useNavigate();
   // 桌面端折叠状态（localStorage 持久化）
@@ -61,6 +68,7 @@ export function AppShell({ categories }: { categories: MenuCategory[] }) {
       )}
       <Sidebar
         categories={categories}
+        version={version}
         activePath={location.pathname}
         collapsed={collapsed}
         mobileOpen={isMobile && mobileOpen}

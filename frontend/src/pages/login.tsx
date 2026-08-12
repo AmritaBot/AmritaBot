@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Github, HelpCircle } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { ApiError } from "@/lib/api";
@@ -79,19 +79,13 @@ export function LoginPage() {
             </Button>
           </form>
           <div className="flex items-center justify-between pt-1 text-xs text-muted-foreground">
-            <button
-              type="button"
+            <Link
+              to="/forgot-password"
               className="inline-flex items-center gap-1 hover:text-foreground"
-              onClick={() =>
-                window.open(
-                  "https://github.com/AmritaBot/AmritaBot#Amrita 自定义配置",
-                  "_blank",
-                )
-              }
             >
               <HelpCircle className="h-3.5 w-3.5" />
               忘记密码？
-            </button>
+            </Link>
             <a
               href="https://github.com/AmritaBot/AmritaBot"
               target="_blank"

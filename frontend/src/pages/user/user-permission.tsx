@@ -1,11 +1,10 @@
-import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import type { PermissionsDetailData } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { PermissionEditor } from "@/components/shared/PermissionEditor";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Card,
@@ -26,7 +25,6 @@ function PermissionScope({
   endpoint: string;
 }) {
   const navigate = useNavigate();
-  const [permissions, setPermissions] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: [endpoint, id],
@@ -35,7 +33,7 @@ function PermissionScope({
   });
 
   const saveMutation = useMutation({
-    mutationFn: () => api.post(endpoint, { permissions }),
+    mutationFn: (permissions: string) => api.post(endpoint, { permissions }),
     onSuccess: (res) => toast.success(res.message),
     onError: (e: Error) => toast.error(e.message),
   });
@@ -62,27 +60,21 @@ function PermissionScope({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">权限字符串</CardTitle>
+          <CardTitle className="text-base">权限列表</CardTitle>
           <CardDescription>
-            每行一条权限，格式如 node.permission
+            每行一条权限：节点路径 + 允许/拒绝开关
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Textarea
-            className="min-h-60 font-mono text-sm"
-            value={permissions || data.data.permissions}
-            onChange={(e) => setPermissions(e.target.value)}
-            spellCheck={false}
+          <PermissionEditor
+            key={id}
+            initial={data.data.permissions}
+            onSubmit={(permissions) => saveMutation.mutate(permissions)}
+            submitting={saveMutation.isPending}
           />
-          <div className="flex justify-between">
+          <div className="flex justify-start">
             <Button variant="outline" onClick={() => navigate(-1)}>
               返回
-            </Button>
-            <Button
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-            >
-              {saveMutation.isPending ? "保存中…" : "保存"}
             </Button>
           </div>
         </CardContent>

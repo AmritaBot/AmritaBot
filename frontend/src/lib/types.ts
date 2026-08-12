@@ -11,6 +11,8 @@ export interface MenuRoute {
 
 export interface MenuData {
   routes: MenuRoute[];
+  /** Amrita 版本号（如 0.1.0），用于侧边栏等展示 */
+  version: string;
 }
 
 /** 认证 */

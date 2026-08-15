@@ -270,11 +270,14 @@ def _install_log_capture() -> None:
 _install_log_capture()
 
 
-async def _channel_snapshot(channel: str) -> dict:
+async def _channel_snapshot(channel: str) -> dict | None:
     """订阅时立即推送的当前状态快照。
 
     bot/system 是事件驱动频道（状态变化才广播）：新订阅者若只等广播，
     会永远拿不到当前值（首次广播时订阅者往往还没上线）。
+
+    返回 ``None`` 表示该频道没有快照，调用方应跳过推送——避免新增
+    频道时因未实现快照而抛异常导致 WebSocket 连接被关闭。
     """
     if channel == "bot":
         from .main import try_get_bot
@@ -286,7 +289,7 @@ async def _channel_snapshot(channel: str) -> dict:
         }
     if channel == "system":
         return {"channel": "system", "data": _system_payload()}
-    raise ValueError(f"不支持快照的频道: {channel}")
+    return None
 
 
 async def _send_log_replay(ws: WebSocket) -> None:
@@ -391,8 +394,11 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                             await _send_log_replay(ws)
                         elif ch not in channels:
                             # 首次订阅 bot/system：立即推当前状态快照，
-                            # 避免新订阅者要等下一次变化才能拿到数据
-                            await _send_json_locked(ws, await _channel_snapshot(ch))
+                            # 避免新订阅者要等下一次变化才能拿到数据；
+                            # 无快照的频道跳过推送
+                            snapshot = await _channel_snapshot(ch)
+                            if snapshot is not None:
+                                await _send_json_locked(ws, snapshot)
                         hub.subscribe(ch, ws)
                         channels.add(ch)
                 await ws.send_json(

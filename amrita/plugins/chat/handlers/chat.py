@@ -7,13 +7,13 @@ from datetime import datetime
 
 from amrita_core import (
     PresetManager,
-    StateContext,
     TextContent,
     UniResponseUsage,
     debug_log,
     logger,
     text_generator,
 )
+from amrita_core.base.backend import BackendSlots
 from amrita_core.builtins.agent import (
     HybridReActAgentStrategy,
     NoActionAgentStrategy,
@@ -25,9 +25,10 @@ from amrita_core.chatmanager import (
 from amrita_core.chatmanager import (
     _step_workflow_rendered,
 )
-from amrita_core.chatmanager.chat_object import DatabackendOptions, gather_usage
+from amrita_core.chatmanager.chat_object import DatabackendOptions
 from amrita_core.tokenizer import hybrid_token_count
 from amrita_core.types import USER_INPUT, Content, ImageContent, ImageUrl
+from amrita_core.utils import gather_usage
 from amrita_sense.hook.exception import MatcherException as ChatException
 from beartype.typing import Sequence
 from nonebot import get_driver
@@ -46,6 +47,7 @@ from nonebot_plugin_amrita.database import (
 )
 from nonebot_plugin_amrita.memory import CachedUserDataRepository, MemorySchema
 
+from amrita.plugins.chat.backends import ChatMemoryBackend, NoopAbilityBackend
 from amrita.plugins.chat.config import ConfigManager, config_manager
 from amrita.plugins.chat.runtime import (
     AMRITA_CTX_KEY,
@@ -362,12 +364,10 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         "event": event,
         "bot_config": ConfigManager().config,
     }
-    core_ctx = StateContext(session_id, memory=memory.memory_json)
     chat: CoreChatObject = CoreChatObject(
         train=train_dict,
         user_input=content,
-        context=core_ctx,
-        session_id=None,
+        session_id=session_id,
         preset=await ConfigManager().get_preset(config.preset),
         hook_args=(event, matcher, bot),
         hook_kwargs={AMRITA_CTX_KEY: ctx},
@@ -379,9 +379,11 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
             else None
         ),
         chat_man=bot_chat_manager,
+        backend=BackendSlots(
+            NoopAbilityBackend(),
+            ChatMemoryBackend(memory),
+        ),
         backend_options=DatabackendOptions(
-            skip_memory_fetch=True,
-            skip_memory_commit=True,
             skip_mcp_fetch=True,
             skip_tools_fetch=True,
             skip_presets_fetch=True,
@@ -459,8 +461,6 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
                             await monitor_task
 
                 response_received = True
-                memory.memory_json = chat.data
-                await cudr.update_memory_data(memory)
                 if chat._di_resp.response is not None:
                     # 钩子可能抛出 NoMessageSendError 静默拦截，不发送、不报错
                     with contextlib.suppress(NoMessageSendError):

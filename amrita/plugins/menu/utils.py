@@ -63,7 +63,10 @@ async def generate_menu(
                     continue
                 plugin_markdown += f" {matcher_data.name}: {matcher_data.description}"
                 if matcher_data.usage:
-                    plugin_markdown += f"\n - 用法: {matcher_data.usage}"
+                    if isinstance(matcher_data.usage, list):
+                        plugin_markdown += f"\n - 用法:\n{matcher_data.usage_text}"
+                    else:
+                        plugin_markdown += f"\n - 用法: {matcher_data.usage}"
                 plugin_markdown += "\n"
         if plugin_markdown == plugin_title:
             # 该插件所有项均不可见，跳过空插件块

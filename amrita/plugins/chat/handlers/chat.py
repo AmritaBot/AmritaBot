@@ -7,13 +7,13 @@ from datetime import datetime
 
 from amrita_core import (
     PresetManager,
-    StateContext,
     TextContent,
     UniResponseUsage,
     debug_log,
     logger,
     text_generator,
 )
+from amrita_core.base.backend import BackendSlots
 from amrita_core.builtins.agent import (
     HybridReActAgentStrategy,
     NoActionAgentStrategy,
@@ -22,10 +22,15 @@ from amrita_core.builtins.agent import (
 from amrita_core.chatmanager import (
     ChatObject as CoreChatObject,
 )
-from amrita_core.chatmanager.chat_object import DatabackendOptions, gather_usage
+from amrita_core.chatmanager import (
+    _step_workflow_rendered,
+)
+from amrita_core.chatmanager.chat_object import DatabackendOptions
 from amrita_core.tokenizer import hybrid_token_count
 from amrita_core.types import USER_INPUT, Content, ImageContent, ImageUrl
+from amrita_core.utils import gather_usage
 from amrita_sense.hook.exception import MatcherException as ChatException
+from amrita_sense.hook.matcher import MatcherFactory
 from beartype.typing import Sequence
 from nonebot import get_driver
 from nonebot.adapters.onebot.v11 import (
@@ -43,7 +48,9 @@ from nonebot_plugin_amrita.database import (
 )
 from nonebot_plugin_amrita.memory import CachedUserDataRepository, MemorySchema
 
+from amrita.plugins.chat.backends import ChatMemoryBackend, NoopAbilityBackend
 from amrita.plugins.chat.config import ConfigManager, config_manager
+from amrita.plugins.chat.panic_recover import ChatPanicRecoverEvent
 from amrita.plugins.chat.runtime import (
     AMRITA_CTX_KEY,
     AmritaBotContext,
@@ -359,21 +366,26 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         "event": event,
         "bot_config": ConfigManager().config,
     }
-    core_ctx = StateContext(session_id, memory=memory.memory_json)
     chat: CoreChatObject = CoreChatObject(
         train=train_dict,
         user_input=content,
-        context=core_ctx,
-        session_id=None,
+        session_id=session_id,
         preset=await ConfigManager().get_preset(config.preset),
         hook_args=(event, matcher, bot),
         hook_kwargs={AMRITA_CTX_KEY: ctx},
         exception_ignored=(ProcessException, MatcherException),
         agent_strategy=strategy,
+        workflow=(
+            _step_workflow_rendered
+            if config.llm.agent_workflow == "step-react"
+            else None
+        ),
         chat_man=bot_chat_manager,
+        backend=BackendSlots(
+            NoopAbilityBackend(),
+            ChatMemoryBackend(memory),
+        ),
         backend_options=DatabackendOptions(
-            skip_memory_fetch=True,
-            skip_memory_commit=True,
             skip_mcp_fetch=True,
             skip_tools_fetch=True,
             skip_presets_fetch=True,
@@ -451,8 +463,6 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
                             await monitor_task
 
                 response_received = True
-                memory.memory_json = chat.data
-                await cudr.update_memory_data(memory)
                 if chat._di_resp.response is not None:
                     # 钩子可能抛出 NoMessageSendError 静默拦截，不发送、不报错
                     with contextlib.suppress(NoMessageSendError):
@@ -468,6 +478,41 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
 
         if isinstance(e, CancelledError):
             return
+
+        # Panic-Recover：解释器已 dump（panic 现场保留在 interpreter 上），
+        # 触发事件让外部处理器决定是否恢复。恢复成功则继续执行剩余管线
+        # （含 COMMIT_MEMORY 记忆提交）；未恢复则走旧路径，不提交记忆。
+        panic_event = ChatPanicRecoverEvent(
+            chat=chat,
+            interpreter=chat._interpreter,
+            exception=e,
+            context_wrap=chat._di_working.context_wrap,
+        )
+        await MatcherFactory.trigger_event(
+            panic_event,
+            config,
+            chat,
+            slot=chat.slot,
+            exception_ignored=(ProcessException, MatcherException),
+        )
+        if panic_event.should_continue:
+            try:
+                # Sense 原生 panic-recover：再次驱动解释器，从崩溃节点继续
+                await chat._interpreter.run()
+            except BaseException as e2:
+                if not isinstance(e2, CancelledError):
+                    logger.opt(exception=e2, colors=True, raw=True).exception(
+                        "Panic-Recover 后解释器再次异常，已放弃本次任务"
+                    )
+                return
+            # 恢复成功：走正常收尾（send_final；usage 统计由外层 finally 完成）
+            response_received = True
+            if chat._di_resp.response is not None:
+                # 钩子可能抛出 NoMessageSendError 静默拦截，不发送、不报错
+                with contextlib.suppress(NoMessageSendError):
+                    await stream_sender.send_final(chat._di_resp.response.content)
+            return
+
         await matcher.send("出错了稍后试试吧（错误已反馈）")
         logger.opt(exception=e, colors=True, raw=True).exception(
             "程序发生了未捕获的异常"

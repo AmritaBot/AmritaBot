@@ -6,9 +6,20 @@ from nonebot.adapters.onebot.v11 import MessageEvent
 from nonebot.matcher import Matcher
 
 from amrita.config import get_amrita_config
+from amrita.plugins.menu.models import MatcherData
 from amrita.utils.utils import get_amrita_version, get_core_version, get_sense_version
 
-amrita = on_command("amrita", aliases={"Amrita"}, priority=10, block=True)
+amrita = on_command(
+    "amrita",
+    aliases={"Amrita", "版本", "关于"},
+    priority=10,
+    block=True,
+    state=MatcherData(
+        name="Amrita 信息",
+        description="查看 Amrita 版本与环境信息",
+        usage="/amrita",
+    ).model_dump(),
+)
 
 
 @amrita.handle()

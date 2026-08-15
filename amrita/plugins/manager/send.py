@@ -33,21 +33,21 @@ user = send.command(
 async def _(bot: Bot, args: Message = CommandArg()):
     arg_list = args.extract_plain_text().strip().split(maxsplit=1)
     if len(arg_list) < 2:
-        await group.finish("请输入群号和消息")
+        await group.finish("❌ 请输入群号和消息")
     try:
         assert arg_list[0].isdigit(), "群号只能为数字"
         await bot.send_group_msg(group_id=int(arg_list[0]), message=arg_list[1])
     except Exception as e:
-        await group.finish(f"{e}发送失败。")
+        await group.finish(f"❌ {e}发送失败。")
 
 
 @user.handle()
 async def _(bot: Bot, args: Message = CommandArg()):
     arg_list = args.extract_plain_text().strip().split(maxsplit=1)
     if len(arg_list) < 2:
-        await user.finish("请输入用户ID和消息")
+        await user.finish("❌ 请输入用户ID和消息")
     try:
         assert arg_list[0].isdigit(), "用户ID只能为数字"
         await bot.send_private_msg(user_id=int(arg_list[0]), message=arg_list[1])
     except Exception as e:
-        await user.finish(f"{e}发送失败。")
+        await user.finish(f"❌ {e}发送失败。")

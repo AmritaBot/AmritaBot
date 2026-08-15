@@ -14,7 +14,7 @@ ban_group = ban.command(
     state=MatcherData(
         name="封禁群",
         usage="/ban.group",
-        description="封禁聊群",
+        description="封禁群聊",
         show_if="lp.admin",
     ).model_dump(),
 )
@@ -32,26 +32,26 @@ ban_user = ban.command(
 @ban_group.handle()
 async def _(args: Message = CommandArg()):
     arg_list = args.extract_plain_text().strip().split(maxsplit=1)
-    if not arg_list and len(arg_list) <= 2:
-        await ban_group.finish("请提供要封禁的群ID！")
+    if not arg_list:
+        await ban_group.finish("❌ 请提供要封禁的群ID！")
     if await bl_manager.is_group_black(arg_list[0]):
-        await ban_group.finish("该群已被封禁！")
+        await ban_group.finish("❌ 该群已被封禁！")
     else:
         await bl_manager.group_append(arg_list[0], arg_list[1]) if len(
             arg_list
         ) > 1 else await bl_manager.group_append(arg_list[0])
-        await ban_group.finish(f"封禁群{arg_list[0]}成功！")
+        await ban_group.finish(f"✅ 封禁群{arg_list[0]}成功！")
 
 
 @ban_user.handle()
 async def ban_user_handle(args: Message = CommandArg()):
     arg_list = args.extract_plain_text().strip().split(maxsplit=1)
-    if not arg_list and len(arg_list) <= 2:
-        await ban_group.finish("请提供要封禁的用户ID！")
+    if not arg_list:
+        await ban_user.finish("❌ 请提供要封禁的用户ID！")
     if await bl_manager.is_private_black(arg_list[0]):
-        await ban_user.finish("该用户已被封禁！")
+        await ban_user.finish("❌ 该用户已被封禁！")
     else:
         await bl_manager.private_append(arg_list[0], arg_list[1]) if len(
             arg_list
         ) > 1 else await bl_manager.private_append(arg_list[0])
-        await ban_user.finish(f"封禁用户{arg_list[0]}成功！")
+        await ban_user.finish(f"✅ 封禁用户{arg_list[0]}成功！")

@@ -178,9 +178,13 @@ async def lp_group_perm_group(
     "chat_group",
     permission=is_lp_admin,
     state=MatcherData(
-        name="lp聊群权限配置",
+        name="lp群聊权限配置",
         description="配置特定群权限",
-        usage="/lp.chat_group.[perm_group|parent|permission]",
+        usage=[
+            "/lp.chat_group.permission <群号> <add|del|set|check|list> <权限节点> [值]",
+            "/lp.chat_group.parent <群号> <add|del|set> <权限组名>",
+            "/lp.chat_group.perm_group <群号> <add|del> <权限组名>",
+        ],
         show_if="lp.admin",
     ).model_dump(),
 ).handle()
@@ -188,6 +192,9 @@ async def lp_group(
     event: MessageEvent,
     matcher: Matcher,
 ):
-    await matcher.send(
-        "请使用 /lp.chat_group.[perm_group|parent|permission] 指令进行操作。"
+    await matcher.finish(
+        "请使用以下指令操作：\n"
+        "/lp.chat_group.permission <群号> <add|del|set|check|list> <权限节点> [值]\n"
+        "/lp.chat_group.parent <群号> <add|del|set> <权限组名>\n"
+        "/lp.chat_group.perm_group <群号> <add|del> <权限组名>"
     )

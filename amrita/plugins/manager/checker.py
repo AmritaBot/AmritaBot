@@ -126,26 +126,28 @@ async def _(event: GroupBanNoticeEvent):
 @on_command(
     "set_enable",
     priority=2,
+    permission=is_lp_admin,
     state=MatcherData(
         name="Bot可用状态设置",
-        usage="/set_enable <true/false>",
+        usage="/set_enable <true|false>",
         description="设置Bot状态",
         show_if="lp.admin",
     ).model_dump(),
 ).handle()
 async def _(event: MessageEvent, matcher: Matcher, args: Message = CommandArg()):
-    if not await is_lp_admin(event):
-        return
     arg = args.extract_plain_text().strip()
+    if not arg:
+        state = "已启用" if StatusManager().ready else "已关闭"
+        await matcher.finish(f"当前状态：{state}（用法：/set_enable <true|false>）")
     if arg in ("true", "yes", "1", "on"):
         StatusManager().set_disable(False)
         StatusManager().set_unready(False)
-        await matcher.finish("已启用")
+        await matcher.finish("✅ 已启用")
     elif arg in ("false", "no", "0", "off"):
         StatusManager().set_disable(True)
-        await matcher.finish("已关闭")
+        await matcher.finish("✅ 已关闭")
     else:
-        await matcher.finish("请输入正确的参数，true/yes/1/on/false/no/0/off")
+        await matcher.finish("❌ 参数无效，用法：/set_enable <true|false>")
 
 
 @on_message(priority=1, block=False).handle()

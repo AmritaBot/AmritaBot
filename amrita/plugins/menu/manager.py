@@ -54,11 +54,11 @@ class MenuManager:
                         logger.info(
                             f"  - {matcher_data.name}: {matcher_data.description}"
                         )
-                        if matcher_data.usage:
+                        if matcher_data.usage_text:
                             logger.info(
-                                f"    └─ 用法:{matcher_data.usage}"
-                                if matcher_data.usage != ""
-                                else ""
+                                f"    └─ 用法:\n{matcher_data.usage_text}"
+                                if isinstance(matcher_data.usage, list)
+                                else f"    └─ 用法:{matcher_data.usage_text}"
                             )
 
             # 然后打印有子菜单的顶级菜单
@@ -80,11 +80,11 @@ class MenuManager:
                     for matcher in matchers:
                         if matcher.related is None:
                             logger.info(f"  - {matcher.name}: {matcher.description}")
-                            if matcher.usage != "":
+                            if matcher.usage_text:
                                 logger.info(
-                                    f"    └─ 用法:{matcher.usage}"
-                                    if matcher.usage != ""
-                                    else ""
+                                    f"    └─ 用法:\n{matcher.usage_text}"
+                                    if isinstance(matcher.usage, list)
+                                    else f"    └─ 用法:{matcher.usage_text}"
                                 )
 
                     # 然后打印子菜单
@@ -95,11 +95,11 @@ class MenuManager:
                                     f"  └─ {matcher.name}: {matcher.description}"
                                 )
 
-                                if matcher.usage != "":
+                                if matcher.usage_text:
                                     logger.info(
-                                        f"      └─ 用法:{matcher.usage}"
-                                        if matcher.usage != ""
-                                        else ""
+                                        f"      └─ 用法:\n{matcher.usage_text}"
+                                        if isinstance(matcher.usage, list)
+                                        else f"      └─ 用法:{matcher.usage_text}"
                                     )
             logger.info(f"\n{'=' * 40}")
         logger.info("菜单打印完成")

@@ -7,9 +7,9 @@
   - 退订：{"action":"unsubscribe","channels":["system"]}
   - 心跳：{"action":"ping"}
 - 频道：
-  - system: 系统资源（CPU/内存/磁盘/网络），默认 2s 间隔
-  - bot:    Bot 连接状态变化
-  - logs:   实时日志（劫持 loguru sink；仅本次 Bot 启动以来的日志，不混入 event.json 历史）
+  - system: 系统资源（CPU/内存/磁盘/网络），默认 2s 间隔，订阅即推快照
+  - bot:    Bot 连接状态（变化时广播 + 订阅即推快照）
+  - logs:   实时日志（劫持 loguru sink；仅本次 Bot 启动以来的日志，不混入 event.json 历史；订阅即回放）
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 
 SYSTEM_INTERVAL = 2.0  # system 频道推送间隔（秒）
 BOT_STATE_INTERVAL = 5.0  # bot 状态检查间隔（秒）
-LOG_WINDOW_MAX = 200  # 内存滑动窗口（实时广播用，仅保留最近 N 条）
+_LOG_PENDING_MAX = 5000  # 待广播日志队列上限（sink 线程写、dispatcher 消费）
 
 # 级别 -> (icon_color, icon)，与 LoggingEvent.color/icon 保持一致
 _LEVEL_META: dict[str, tuple[str, str]] = {
@@ -112,19 +112,22 @@ async def _broadcast(channel: str, data: dict) -> None:
         hub.remove_ws(ws)
 
 
+def _system_payload() -> dict:
+    usage = calculate_system_usage()
+    return {
+        "status": "online",  # 具体状态由 bot 频道负责
+        "cpu_usage": usage.get("cpu_usage"),
+        "memory_usage": usage.get("memory_usage"),
+        "disk_usage": usage.get("disk_usage"),
+        "network_io": usage.get("network_io"),
+        "logical_cores": usage.get("logical_cores"),
+    }
+
+
 async def _system_loop() -> None:
     while True:
         try:
-            usage = calculate_system_usage()
-            data = {
-                "status": "online",  # 具体状态由 bot 频道负责
-                "cpu_usage": usage.get("cpu_usage"),
-                "memory_usage": usage.get("memory_usage"),
-                "disk_usage": usage.get("disk_usage"),
-                "network_io": usage.get("network_io"),
-                "logical_cores": usage.get("logical_cores"),
-            }
-            await _broadcast("system", data)
+            await _broadcast("system", _system_payload())
         except Exception:
             logger.exception("system 频道推送失败")
         await asyncio.sleep(SYSTEM_INTERVAL)
@@ -148,28 +151,34 @@ async def _bot_loop() -> None:
 
 
 async def _log_dispatcher() -> None:
-    """事件驱动日志分发：sink 写入后按游标广播滑动窗口增量，不轮询文件。
+    """事件驱动日志分发：sink 写入后按入队顺序逐条广播，不轮询文件。
 
-    _log_window 是内存滑动窗口（实时广播用）；_broadcast_cursor 记录已广播
-    位置，dispatcher 只广播新条目。完整日志持久化在 jsonl 文件（回放用）。
+    _pending_logs 是待广播队列：sink（loguru 后台线程）append，
+    dispatcher（事件循环线程）popleft 逐条广播，先到先发。
+    不用「滑动窗口 + 游标」——窗口满后 len 不再增长，游标越过后
+    while 条件恒假，实时推送会永久停止。
+    完整日志持久化在 jsonl 文件（订阅回放用）。
     loop/Event 在此补齐（sink 在模块加载时安装，彼时无事件循环）。
     """
-    global _wake, _main_loop, _broadcast_cursor
+    global _wake, _main_loop
     _main_loop = asyncio.get_running_loop()
     _wake = asyncio.Event()
     while True:
         await _wake.wait()
         _wake.clear()
-        while _broadcast_cursor < len(_log_window):
-            await _broadcast("logs", _log_window[_broadcast_cursor])
-            _broadcast_cursor += 1
+        while True:
+            try:
+                item = _pending_logs.popleft()
+            except IndexError:
+                break
+            await _broadcast("logs", item)
 
 
 class _LogSink:
     """loguru sink：劫持实时日志。
 
     每条日志同时：
-    1. 入内存滑动窗口（实时广播增量）
+    1. 入待广播队列（dispatcher 消费后实时广播，先到先发）
     2. 追加到 jsonl 临时文件（本次启动完整日志，一行一个 JSON：time/level/payload）
     文件在每次 Bot 启动时删除重建（见 _init_log_file），不读不写 event.json。
     """
@@ -185,7 +194,8 @@ class _LogSink:
             "icon_color": color,
             "icon": icon,
         }
-        _log_window.append(item)
+        # deque 的 append/popleft 是原子的：sink 线程写、dispatcher 线程读安全
+        _pending_logs.append(item)
         # 持久化到文件（sink 在 loguru 后台线程执行，同步写即可）
         _append_log_file(level, record["message"], item["time"])
         # 线程安全唤醒事件循环
@@ -193,8 +203,7 @@ class _LogSink:
             _main_loop.call_soon_threadsafe(_wake.set)
 
 
-_log_window: deque[dict] = deque(maxlen=LOG_WINDOW_MAX)
-_broadcast_cursor = 0  # 已广播条数游标（dispatcher 推进；sink 只 append 窗口）
+_pending_logs: deque[dict] = deque(maxlen=_LOG_PENDING_MAX)
 _wake: asyncio.Event | None = None
 _main_loop: asyncio.AbstractEventLoop | None = None
 _sink_id: int | None = None
@@ -259,6 +268,28 @@ def _install_log_capture() -> None:
 
 # 模块加载即安装：保证「本次启动以来」的完整日志都在内存窗口 + jsonl 文件里
 _install_log_capture()
+
+
+async def _channel_snapshot(channel: str) -> dict | None:
+    """订阅时立即推送的当前状态快照。
+
+    bot/system 是事件驱动频道（状态变化才广播）：新订阅者若只等广播，
+    会永远拿不到当前值（首次广播时订阅者往往还没上线）。
+
+    返回 ``None`` 表示该频道没有快照，调用方应跳过推送——避免新增
+    频道时因未实现快照而抛异常导致 WebSocket 连接被关闭。
+    """
+    if channel == "bot":
+        from .main import try_get_bot
+
+        connected = try_get_bot() is not None
+        return {
+            "channel": "bot",
+            "data": {"status": "online" if connected else "offline"},
+        }
+    if channel == "system":
+        return {"channel": "system", "data": _system_payload()}
+    return None
 
 
 async def _send_log_replay(ws: WebSocket) -> None:
@@ -361,6 +392,13 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                         if ch == "logs" and ch not in channels:
                             # 首次订阅 logs：回放本次启动以来的日志
                             await _send_log_replay(ws)
+                        elif ch not in channels:
+                            # 首次订阅 bot/system：立即推当前状态快照，
+                            # 避免新订阅者要等下一次变化才能拿到数据；
+                            # 无快照的频道跳过推送
+                            snapshot = await _channel_snapshot(ch)
+                            if snapshot is not None:
+                                await _send_json_locked(ws, snapshot)
                         hub.subscribe(ch, ws)
                         channels.add(ch)
                 await ws.send_json(

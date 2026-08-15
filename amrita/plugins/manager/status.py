@@ -74,9 +74,30 @@ def create_system_info_image(system_info: list[str]):
         header_font = ImageFont.truetype("arial.ttf", 24)
         content_font = ImageFont.truetype("arial.ttf", 20)
     except Exception:
-        title_font = ImageFont.load_default(40)
-        header_font = ImageFont.load_default(24)
-        content_font = ImageFont.load_default(20)
+        # 中文 fallback：按平台探测 CJK 字体，避免位图字体渲染中文乱码
+        font_path = next(
+            (
+                p
+                for p in (
+                    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                    "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+                    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                    "C:/Windows/Fonts/msyh.ttc",
+                    "C:/Windows/Fonts/simhei.ttf",
+                    "/System/Library/Fonts/PingFang.ttc",
+                )
+                if os.path.isfile(p)
+            ),
+            None,
+        )
+        if font_path:
+            title_font = ImageFont.truetype(font_path, 40)
+            header_font = ImageFont.truetype(font_path, 24)
+            content_font = ImageFont.truetype(font_path, 20)
+        else:
+            title_font = ImageFont.load_default(40)
+            header_font = ImageFont.load_default(24)
+            content_font = ImageFont.load_default(20)
 
     title = f"{get_amrita_config().bot_name}@Amrita[BOT]"
     title_bbox = draw.textbbox((0, 0), title, font=title_font)

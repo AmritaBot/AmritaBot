@@ -190,7 +190,12 @@ async def _(matcher: Matcher):
     state=MatcherData(
         name="lp权限组配置",
         description="配置权限组权限",
-        usage="/lp.perm_group.[to|parent|permission|list]",
+        usage=[
+            "/lp.perm_group.permission <权限组ID> <add|del|set|check|list> <权限节点> [值]",
+            "/lp.perm_group.parent <权限组ID> <add|del|set> <权限组名>",
+            "/lp.perm_group.to <create|remove> <权限组名>",
+            "/lp.perm_group.list — 列出所有权限组",
+        ],
         show_if="lp.admin",
     ).model_dump(),
 ).handle()
@@ -198,6 +203,10 @@ async def lp_perm_group(
     event: MessageEvent,
     matcher: Matcher,
 ):
-    await matcher.send(
-        "请使用 /lp.perm_group.[to|parent|permission|list] 指令进行操作。"
+    await matcher.finish(
+        "请使用以下指令操作：\n"
+        "/lp.perm_group.permission <权限组ID> <add|del|set|check|list> <权限节点> [值]\n"
+        "/lp.perm_group.parent <权限组ID> <add|del|set> <权限组名>\n"
+        "/lp.perm_group.to <create|remove> <权限组名>\n"
+        "/lp.perm_group.list — 列出所有权限组"
     )

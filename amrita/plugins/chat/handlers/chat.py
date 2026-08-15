@@ -22,6 +22,9 @@ from amrita_core.builtins.agent import (
 from amrita_core.chatmanager import (
     ChatObject as CoreChatObject,
 )
+from amrita_core.chatmanager import (
+    _step_workflow_rendered,
+)
 from amrita_core.chatmanager.chat_object import DatabackendOptions, gather_usage
 from amrita_core.tokenizer import hybrid_token_count
 from amrita_core.types import USER_INPUT, Content, ImageContent, ImageUrl
@@ -370,6 +373,11 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         hook_kwargs={AMRITA_CTX_KEY: ctx},
         exception_ignored=(ProcessException, MatcherException),
         agent_strategy=strategy,
+        workflow=(
+            _step_workflow_rendered
+            if config.llm.agent_workflow == "step-react"
+            else None
+        ),
         chat_man=bot_chat_manager,
         backend_options=DatabackendOptions(
             skip_memory_fetch=True,

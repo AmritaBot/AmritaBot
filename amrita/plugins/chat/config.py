@@ -241,6 +241,14 @@ class LLM_Config(BaseModel):
         default="react",
         description="代理策略：react(仅使用ReAct) / hybrid-react(使用混合ReAct) / no-action(跳过Agent运行)",
     )
+    agent_workflow: Literal["react", "step-react"] = Field(
+        default="react",
+        description=(
+            "推理工作流：react(普通ReAct循环，一轮工具调用内完成推理与执行) / "
+            "step-react(Step驱动的ReAct循环：LLM先分解计划，框架逐Step走完，"
+            "支持计划修订update_step、停滞检测、Step间压缩，需模型支持结构化输出)"
+        ),
+    )
 
 
 class Config(BaseModel):

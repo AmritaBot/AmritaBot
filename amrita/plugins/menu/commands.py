@@ -53,7 +53,7 @@ async def show_menu(
     # --sudo 需要 lp.admin 权限
     sudo = "--sudo" in args.extract_plain_text().split()
     if sudo and not await is_lp_admin(event):
-        await matcher.finish("Permission Denied")
+        await matcher.finish("❌ 无权限查看管理员菜单（需要 lp.admin 权限）")
 
     menu_datas = await generate_menu(
         menu_mamager.plugins,

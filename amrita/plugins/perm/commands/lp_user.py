@@ -185,7 +185,11 @@ async def lp_user_perm_group(
     state=MatcherData(
         name="lp用户权限配置",
         description="配置特定用户权限",
-        usage="/lp.user.[perm_group|parent|permission]",
+        usage=[
+            "/lp.user.permission <用户ID> <add|del|set|check|list> <权限节点> [值]",
+            "/lp.user.parent <用户ID> <add|del|set> <权限组名>",
+            "/lp.user.perm_group <用户ID> <add|del> <权限组名>",
+        ],
         show_if="lp.admin",
     ).model_dump(),
 ).handle()
@@ -193,4 +197,9 @@ async def lp_user(
     event: MessageEvent,
     matcher: Matcher,
 ):
-    await matcher.send("请使用 /lp.user.[perm_group|parent|permission] 指令进行操作。")
+    await matcher.finish(
+        "请使用以下指令操作：\n"
+        "/lp.user.permission <用户ID> <add|del|set|check|list> <权限节点> [值]\n"
+        "/lp.user.parent <用户ID> <add|del|set> <权限组名>\n"
+        "/lp.user.perm_group <用户ID> <add|del> <权限组名>"
+    )

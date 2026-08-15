@@ -85,12 +85,15 @@ async def model_test(
         )
     ok = len([r for r in results if r.status])
     if detailed:
-        msg = [
+        # summary 只出现一次，各预设仅展示自身细节
+        summary = (
+            f"测试结果：\n"
+            f"测试完成，共测试{len(results)}个预设，成功{ok}个，失败{len(results) - ok}个。\n"
+        )
+        detail_msgs = [
             MessageSegment.text(
-                f"测试结果：\n"
-                f"测试完成，共测试{len(results)}个预设，成功{ok}个，失败{len(results) - ok}个。\n"
                 f"预设：{result.preset_name}\n"
-                f"测试输入：{json.dumps(result.test_input[0].model_dump(), ensure_ascii=False), json.dumps(result.test_input[1].model_dump(), ensure_ascii=False)}\n"
+                f"测试输入：{json.dumps(result.test_input[0].model_dump(), ensure_ascii=False)} | {json.dumps(result.test_input[1].model_dump(), ensure_ascii=False)}\n"
                 f"测试输出：{json.dumps(result.test_output.model_dump(), ensure_ascii=False) if result.test_output else None}\n"
                 f"输入token消耗：{result.token_prompt}\n"
                 f"输出token消耗：{result.token_completion}\n"
@@ -99,7 +102,13 @@ async def model_test(
             )
             for result in results
         ]
-        await send_forward_msg(bot, event, "Amrita-测试结果", str(event.self_id), msg)
+        await send_forward_msg(
+            bot,
+            event,
+            "Amrita-测试结果",
+            str(event.self_id),
+            [MessageSegment.text(summary), *detail_msgs],
+        )
     else:
         msg = (
             f"测试完成，共测试{len(results)}个预设，成功{ok}个，失败{len(results) - ok}个。\n"

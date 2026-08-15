@@ -6,13 +6,22 @@ class MatcherData(pydantic.BaseModel):
     """功能模型"""
 
     name: str = pydantic.Field(..., description="功能名称")
-    usage: str | None = pydantic.Field(default=None, description="功能用法")
+    usage: str | list[str] | None = pydantic.Field(
+        default=None, description="功能用法（str 单行或 list[str] 逐行展示）"
+    )
     description: str = pydantic.Field(..., description="功能描述")
     related: str | None = pydantic.Field(description="父级菜单", default=None)
     show_if: str | None = pydantic.Field(
         default=None,
         description="权限节点，调用者不满足该节点则不展示该功能（None=总是展示）",
     )
+
+    @property
+    def usage_text(self) -> str:
+        """渲染后的用法文本：list 逐行缩进展示，str 原样"""
+        if isinstance(self.usage, list):
+            return "\n".join(f"   {line}" for line in self.usage)
+        return self.usage or ""
 
 
 class PluginData:

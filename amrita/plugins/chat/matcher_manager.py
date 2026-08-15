@@ -64,13 +64,13 @@ base_matcher.on_command(
         name="模型管理",
         description="查看、切换与测试模型",
         show_if="lp.admin",
-        usage=(
-            "/model — 查看当前模型；"
-            "/model list — 可用模型；"
-            "/model switch <名> — 切换；"
-            "/model info — 当前详情；"
-            "/model test [名] [-d] — 测试"
-        ),
+        usage=[
+            "/model — 查看当前模型",
+            "/model list — 可用模型",
+            "/model switch <名> — 切换",
+            "/model info — 当前详情",
+            "/model test [名] [-d] — 测试",
+        ],
     ).model_dump(),
 ).append_handler(model)
 
@@ -83,12 +83,12 @@ base_matcher.on_command(
     state=MatcherData(
         name="提示词管理",
         description="设置自定义提示词与切换模板",
-        usage=(
-            "/prompt — 查看；"
-            "/prompt set <文本> — 设置；"
-            "/prompt clear — 清空；"
-            "/prompt template [group|private] [名称] — 模板"
-        ),
+        usage=[
+            "/prompt — 查看",
+            "/prompt set <文本> — 设置",
+            "/prompt clear — 清空",
+            "/prompt template [group|private] [名称] — 模板",
+        ],
     ).model_dump(),
 ).append_handler(prompt)
 
@@ -103,17 +103,17 @@ base_matcher.on_command(
     state=MatcherData(
         name="会话管理",
         description="会话信息、历史、压缩与记忆管理",
-        usage=(
-            "/session info — 元信息；"
-            "/session list — 历史；"
-            "/session use <编号> — 恢复；"
-            "/session del <编号> — 删除；"
-            "/session archive — 归档；"
-            "/session clear — 清空；"
-            "/session compact [force] — 压缩；"
-            "/session forget — 清除记忆；"
-            "/session abstract [clear] — 摘要"
-        ),
+        usage=[
+            "/session info — 元信息",
+            "/session list — 历史",
+            "/session use <编号> — 恢复",
+            "/session del <编号> — 删除",
+            "/session archive — 归档",
+            "/session clear — 清空",
+            "/session compact [force] — 压缩",
+            "/session forget — 清除记忆",
+            "/session abstract [clear] — 摘要",
+        ],
     ).model_dump(),
 ).append_handler(session)
 
@@ -127,12 +127,12 @@ base_matcher.on_command(
     state=MatcherData(
         name="聊天开关",
         description="开启/关闭聊天与自动回复",
-        usage=(
-            "/chat — 状态；"
-            "/chat on|off — 聊天开关；"
-            "/chat auto <on|off> — 自动回复；"
-            "/chat status — 状态"
-        ),
+        usage=[
+            "/chat — 状态",
+            "/chat on|off — 聊天开关",
+            "/chat auto <on|off> — 自动回复",
+            "/chat status — 状态",
+        ],
     ).model_dump(),
 ).append_handler(chat_switch)
 
@@ -184,12 +184,12 @@ base_matcher.on_command(
     state=MatcherData(
         name="chatobj",
         description="管理聊天对话",
-        usage=(
-            "/chatobj - 显示所有会话状态;"
-            "/chatobj status - 显示所有会话状态;"
-            "/chatobj terminate <ID前缀> - 终止指定会话;"
-            "/chatobj kill <ID前缀> - 终止指定会话;"
-            "/chatobj clear - 清除已完成的会话;"
-        ),
+        usage=[
+            "/chatobj - 显示所有会话状态",
+            "/chatobj status - 显示所有会话状态",
+            "/chatobj terminate <ID前缀> - 终止指定会话",
+            "/chatobj kill <ID前缀> - 终止指定会话",
+            "/chatobj clear - 清除已完成的会话",
+        ],
     ).model_dump(),
 ).append_handler(chatobj_manage)

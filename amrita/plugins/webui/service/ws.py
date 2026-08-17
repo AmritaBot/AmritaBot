@@ -238,7 +238,7 @@ def _init_log_file() -> None:
 
 
 def _append_log_file(level: str, payload: str, time_str: str) -> None:
-    """追加一行 JSON（{time, level, payload}）。线程安全，失败静默。
+    """追加一行 JSON（{time, level, payload}）。线程安全，失败仅记录 debug 日志。
 
     懒加载：首次调用时才 open 文件句柄（append 模式）。
     """
@@ -256,7 +256,9 @@ def _append_log_file(level: str, payload: str, time_str: str) -> None:
             _file_handle.write(line + "\n")
             _file_handle.flush()
     except Exception:
-        pass
+        # 失败不阻塞实时日志流（sink 线程内）；留 debug 线索便于排查 IO/序列化问题。
+        # 注意：此处用 stdlib logging（模块 logger），不经 loguru sink，不会递归。
+        logger.debug("写入实时日志文件失败", exc_info=True)
 
 
 def _install_log_capture() -> None:
@@ -330,9 +332,13 @@ async def _read_log_tail(limit: int) -> list[dict[str, Any]]:
             try:
                 items.append(json.loads(line))
             except json.JSONDecodeError:
+                # 尾部块边界处的半行是并发追加的正常现象，静默跳过；
+                # 其他 JSON 损坏会在外层兜底记录
                 continue
         return items[-limit:]
     except Exception:
+        # 文件被删除/IO 错误等：不打断订阅流程，留 debug 线索便于排查
+        logger.debug("读取实时日志尾部失败", exc_info=True)
         return []
 
 

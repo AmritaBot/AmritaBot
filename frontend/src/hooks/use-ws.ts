@@ -56,7 +56,7 @@ type ChannelData = {
   meta: WsMeta;
 };
 
-/* ---------------- 全局单连接管理 ---------------- */
+/* 全局单连接管理 */
 
 interface GlobalState {
   ws: WebSocket | null;
@@ -71,8 +71,6 @@ interface GlobalState {
     bot: BotState | null;
     logs: LogEvent[];
   };
-  /** 当前生效的日志回放条数（取所有订阅者传入 logLimit 的最大值） */
-  logLimit: number;
   /** 频道 -> 订阅回调集合 */
   listeners: Map<WsChannel, Set<() => void>>;
   /** 连接状态监听器（onopen/onclose 时通知 useWs 更新 React state） */
@@ -87,10 +85,24 @@ const global: GlobalState = {
   reconnectTimer: null,
   reconnectToastId: null,
   snapshots: { system: null, bot: null, logs: [] },
-  logLimit: LOG_REPLAY_LIMIT,
   listeners: new Map(),
   statusListeners: new Set(),
 };
+
+/** 活动订阅者的日志回放条数登记表（token -> limit，仅在订阅 logs 且显式指定时登记）。
+ *  连接级回放条数取所有活动订阅者的最大值；订阅者卸载时注销，条数随之回落，
+ *  不会因某个订阅者请求过大值而永久抬高后续订阅者的回放量。 */
+const logLimitSubscribers = new Map<number, number>();
+let nextLogLimitToken = 0;
+
+/** 当前连接生效的回放条数：所有活动订阅者的最大值，下限为默认值 LOG_REPLAY_LIMIT */
+function effectiveLogLimit(): number {
+  let limit = LOG_REPLAY_LIMIT;
+  for (const l of logLimitSubscribers.values()) {
+    if (l > limit) limit = l;
+  }
+  return limit;
+}
 
 function notifyStatus(connected: boolean) {
   global.statusListeners.forEach((cb) => cb(connected));
@@ -108,15 +120,20 @@ function updateSnapshot<K extends keyof GlobalState["snapshots"]>(
   emit(channel);
 }
 
-/** 发送订阅消息（logs 频道附带回放条数，后端按 tail 语义只回放最新 N 条） */
+/** 发送订阅消息（订阅 logs 时附带连接级回放条数，后端按 tail 语义只回放最新 N 条） */
 function sendSubscribe(ws: WebSocket, channels: WsChannel[]) {
-  ws.send(
-    JSON.stringify({
-      action: "subscribe",
-      channels,
-      opts: { logs: { limit: global.logLimit } },
-    }),
-  );
+  const msg: {
+    action: string;
+    channels: WsChannel[];
+    opts?: { logs: { limit: number } };
+  } = {
+    action: "subscribe",
+    channels,
+  };
+  if (channels.includes("logs")) {
+    msg.opts = { logs: { limit: effectiveLogLimit() } };
+  }
+  ws.send(JSON.stringify(msg));
 }
 
 function connect() {
@@ -219,12 +236,12 @@ function connect() {
   };
 }
 
-/* ---------------- React hook ---------------- */
+/* hook */
 
 interface UseWsOptions {
   /** 订阅的频道 */
   channels: WsChannel[];
-  /** 订阅 logs 时请求的回放条数（tail 语义；全局取所有订阅者的最大值） */
+  /** 订阅 logs 时请求的回放条数（tail 语义；仅对当前订阅生效，连接级取活动订阅者的最大值） */
   logLimit?: number;
   /** 连接状态变化回调 */
   onStatusChange?: (connected: boolean) => void;
@@ -238,13 +255,6 @@ export function useWs({ channels, logLimit, onStatusChange }: UseWsOptions) {
   const [bot, setBot] = useState<BotState | null>(global.snapshots.bot);
   const [logs, setLogs] = useState<LogEvent[]>(global.snapshots.logs);
 
-  // 提升全局回放条数（取最大值，保证回放满足所有 logs 订阅者）
-  useEffect(() => {
-    if (logLimit !== undefined && logLimit > global.logLimit) {
-      global.logLimit = logLimit;
-    }
-  }, [logLimit]);
-
   // channels 引用不稳定（调用处每次渲染新建数组）-> 用稳定 key 做 effect 依赖
   const channelsKey = channels.join(",");
   const channelsRef = useRef(channels);
@@ -252,6 +262,19 @@ export function useWs({ channels, logLimit, onStatusChange }: UseWsOptions) {
 
   const onStatusChangeRef = useRef(onStatusChange);
   onStatusChangeRef.current = onStatusChange;
+
+  // 登记/注销本订阅者的回放条数：仅订阅 logs 且显式指定时生效；
+  // 卸载或 channels 变化时自动注销，避免请求过大值后永久抬高后续订阅者的回放量
+  useEffect(() => {
+    const token = ++nextLogLimitToken;
+    if (channels.includes("logs") && logLimit !== undefined) {
+      logLimitSubscribers.set(token, logLimit);
+    }
+    return () => {
+      logLimitSubscribers.delete(token);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelsKey, logLimit]);
 
   useEffect(() => {
     // 注册连接状态监听（onopen/onclose 时同步 connected state）

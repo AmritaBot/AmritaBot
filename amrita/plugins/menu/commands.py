@@ -50,7 +50,7 @@ async def show_menu(
     if not menu_mamager.plugins:
         await matcher.finish("菜单加载失败，请检查日志")
 
-    # --sudo 需要 lp.admin 权限
+    # sudo 需要 lp.admin 权限
     sudo = "--sudo" in args.extract_plain_text().split()
     if sudo and not await is_lp_admin(event):
         await matcher.finish("❌ 无权限查看管理员菜单（需要 lp.admin 权限）")

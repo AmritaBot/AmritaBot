@@ -460,7 +460,11 @@ class ConfigManager(EnvfulConfigManager[Config]):
         os.makedirs(self.group_prompts, exist_ok=True)
         os.makedirs(self.custom_models_dir, exist_ok=True)
 
-        await UniConfigManager().add_directory("models", lambda *_: models_callback())
+        await UniConfigManager().add_directory(
+            "models",
+            lambda *_: models_callback(),
+            owner_name="chat",
+        )
         self.validate_presets()
         ps = await self.get_all_presets(cache=False)
         logger.info(f"加载了{len(ps)}个模型 (包含默认)")
@@ -474,6 +478,7 @@ class ConfigManager(EnvfulConfigManager[Config]):
                 (change[1].startswith(str(self.group_prompts)))
                 and change[1].endswith(".txt")
             ),
+            owner_name="chat",
         )
         await UniConfigManager().add_directory(
             "private_prompts",
@@ -482,6 +487,7 @@ class ConfigManager(EnvfulConfigManager[Config]):
                 change[1].startswith(str(self.private_prompts))
                 and change[1].endswith(".txt")
             ),
+            owner_name="chat",
         )
 
     @property

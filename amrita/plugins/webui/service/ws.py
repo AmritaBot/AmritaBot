@@ -7,9 +7,9 @@
   - 退订：{"action":"unsubscribe","channels":["system"]}
   - 心跳：{"action":"ping"}
 - 频道：
-  - system: 系统资源（CPU/内存/磁盘/网络），默认 2s 间隔，订阅即推快照
+  - system: 系统资源（CPU/内存/磁盘/网络），按 WsConfig.system_interval 间隔推送，订阅即推快照
   - bot:    Bot 连接状态（变化时广播 + 订阅即推快照）
-  - logs:   实时日志（劫持 loguru sink；仅本次 Bot 启动以来的日志，不混入 event.json 历史；订阅即回放）
+  - logs:   实时日志（劫持 loguru sink；仅本次 Bot 启动以来的日志，不混入 event.json 历史；订阅时按 tail 语义回放最新 N 条，N 由 WsConfig.log_replay_limit / 前端 opts 控制）
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from collections import deque
 from collections.abc import Coroutine
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 
 import aiofiles
 import nonebot
@@ -36,13 +36,11 @@ from amrita.config import get_amrita_config
 from amrita.utils.system_health import calculate_system_usage
 
 from .authlib import TOKEN_KEY, TokenManager
+from .config import WsConfig, data_manager, register_ws_config_reload_hook
 from .main import app
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_INTERVAL = 2.0  # system 频道推送间隔（秒）
-BOT_STATE_INTERVAL = 5.0  # bot 状态检查间隔（秒）
-_LOG_PENDING_MAX = 5000  # 待广播日志队列上限（sink 线程写、dispatcher 消费）
 
 # 级别 -> (icon_color, icon)，与 LoggingEvent.color/icon 保持一致
 _LEVEL_META: dict[str, tuple[str, str]] = {
@@ -130,7 +128,8 @@ async def _system_loop() -> None:
             await _broadcast("system", _system_payload())
         except Exception:
             logger.exception("system 频道推送失败")
-        await asyncio.sleep(SYSTEM_INTERVAL)
+        cfg = await data_manager.safe_get_config()
+        await asyncio.sleep(cfg.system_interval)
 
 
 async def _bot_loop() -> None:
@@ -147,7 +146,8 @@ async def _bot_loop() -> None:
                 )
         except Exception:
             logger.exception("bot 频道推送失败")
-        await asyncio.sleep(BOT_STATE_INTERVAL)
+        cfg = await data_manager.safe_get_config()
+        await asyncio.sleep(cfg.bot_state_interval)
 
 
 async def _log_dispatcher() -> None:
@@ -159,6 +159,7 @@ async def _log_dispatcher() -> None:
     while 条件恒假，实时推送会永久停止。
     完整日志持久化在 jsonl 文件（订阅回放用）。
     loop/Event 在此补齐（sink 在模块加载时安装，彼时无事件循环）。
+    每次循环重新读取全局队列：配置热重载会整体重建队列（_rebuild_pending_logs）。
     """
     global _wake, _main_loop
     _main_loop = asyncio.get_running_loop()
@@ -167,8 +168,11 @@ async def _log_dispatcher() -> None:
         await _wake.wait()
         _wake.clear()
         while True:
+            pending = _pending_logs
+            if pending is None:
+                break
             try:
-                item = _pending_logs.popleft()
+                item = pending.popleft()
             except IndexError:
                 break
             await _broadcast("logs", item)
@@ -194,8 +198,11 @@ class _LogSink:
             "icon_color": color,
             "icon": icon,
         }
-        # deque 的 append/popleft 是原子的：sink 线程写、dispatcher 线程读安全
-        _pending_logs.append(item)
+        # deque 的 append/popleft 是原子的：sink 线程写、dispatcher 线程读安全。
+        # 队列在首次 WS 连接时才创建（见 _ensure_loops），之前产生的日志
+        # 只落 jsonl 文件不排队——无人消费，广播无意义，回放可覆盖。
+        if _pending_logs is not None:
+            _pending_logs.append(item)
         # 持久化到文件（sink 在 loguru 后台线程执行，同步写即可）
         _append_log_file(level, record["message"], item["time"])
         # 线程安全唤醒事件循环
@@ -203,18 +210,18 @@ class _LogSink:
             _main_loop.call_soon_threadsafe(_wake.set)
 
 
-_pending_logs: deque[dict] = deque(maxlen=_LOG_PENDING_MAX)
+_pending_logs: deque[dict] | None = None
 _wake: asyncio.Event | None = None
 _main_loop: asyncio.AbstractEventLoop | None = None
 _sink_id: int | None = None
 
-# ---- jsonl 临时文件持久化（本次启动完整日志，永不丢弃；每次启动删除重建） ----
+# jsonl 临时文件持久化（本次启动完整日志，永不丢弃；每次启动删除重建）
 # 懒加载：模块加载时只删除旧文件 + 计算路径（轻量）；
 # 文件句柄在首次写入日志时才打开；回放读取在订阅 logs 时才进行。
 
 _log_path: Path | None = None
 _file_lock = threading.Lock()
-_file_handle: object | None = None
+_file_handle: TextIO | None = None
 
 
 def _init_log_file() -> None:
@@ -246,8 +253,8 @@ def _append_log_file(level: str, payload: str, time_str: str) -> None:
                 {"time": time_str, "level": level, "payload": payload},
                 ensure_ascii=False,
             )
-            _file_handle.write(line + "\n")  # type: ignore
-            _file_handle.flush()  # type: ignore
+            _file_handle.write(line + "\n")
+            _file_handle.flush()
     except Exception:
         pass
 
@@ -292,41 +299,70 @@ async def _channel_snapshot(channel: str) -> dict | None:
     return None
 
 
-async def _send_log_replay(ws: WebSocket) -> None:
-    """订阅 logs 时回放本次启动以来的完整日志（读 jsonl 文件，不读 event.json）。"""
+async def _read_log_tail(limit: int) -> list[dict[str, Any]]:
+    """从 jsonl 文件尾部读取最后 limit 条日志（tail -n limit 语义）。
+
+    按块从文件末尾向前 seek，只解析所需的尾部行——长运行的 Bot
+    日志文件可能很大，全量读取会浪费 IO 与内存。返回时间正序
+    （文件顺序）的原始记录，最多 limit 条。文件不存在时返回空列表。
+    """
     if _log_path is None:
-        return
+        return []
     try:
-        if not os.path.exists(_log_path):  # noqa: ASYNC240
-            return
-        async with aiofiles.open(_log_path, encoding="utf-8") as f:
-            async for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    item = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                level = item.get("level", "INFO")
-                color, icon = _LEVEL_META.get(level, ("blue", "code"))
-                # 持锁发送：与 dispatcher 广播串行，避免并发 send 导致连接异常
-                await _send_json_locked(
-                    ws,
-                    {
-                        "channel": "logs",
-                        "data": {
-                            "title": level,
-                            "desc": item.get("payload", ""),
-                            "time": item.get("time", ""),
-                            "icon_color": color,
-                            "icon": icon,
-                        },
-                    },
-                )
+        cfg = await data_manager.safe_get_config()
+        chunk_size = cfg.log_tail_chunk_size
+        async with aiofiles.open(_log_path, "rb") as f:
+            await f.seek(0, os.SEEK_END)
+            pos = await f.tell()
+            buf = b""
+            lines: list[str] = []
+            while pos > 0 and len(lines) < limit:
+                read_size = min(chunk_size, pos)
+                pos -= read_size
+                await f.seek(pos)
+                buf = (await f.read(read_size)) + buf
+                lines = buf.decode("utf-8", errors="ignore").splitlines()
+        items: list[dict[str, Any]] = []
+        for line in lines[-limit:]:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                items.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+        return items[-limit:]
     except Exception:
-        # 客户端中途断开或文件读取失败：静默
-        pass
+        return []
+
+
+async def _send_log_replay(ws: WebSocket, limit: int | None = None) -> None:
+    """订阅 logs 时回放本次启动以来**最后 limit 条**日志（tail 语义）。
+
+    不全量回放：长运行的 Bot 可能产生数万条日志，全量回放会一次性
+    压垮前端（UI 卡死）。只发送文件尾部最新 limit 条，按时间正序发送。
+    limit 为 None 时使用配置 log_replay_limit。
+    """
+    if limit is None:
+        cfg = await data_manager.safe_get_config()
+        limit = cfg.log_replay_limit
+    for item in await _read_log_tail(limit):
+        level = item.get("level", "INFO")
+        color, icon = _LEVEL_META.get(level, ("blue", "code"))
+        # 持锁发送：与 dispatcher 广播串行，避免并发 send 导致连接异常
+        await _send_json_locked(
+            ws,
+            {
+                "channel": "logs",
+                "data": {
+                    "title": level,
+                    "desc": item.get("payload", ""),
+                    "time": item.get("time", ""),
+                    "icon_color": color,
+                    "icon": icon,
+                },
+            },
+        )
 
 
 _started = False
@@ -352,15 +388,45 @@ async def _cancel_background_tasks() -> None:
 
 
 async def _ensure_loops() -> None:
-    global _started
+    global _started, _pending_logs
     if _started:
         return
+    # 待广播队列依赖配置（maxlen），只能在事件循环里异步初始化；
+    # 首次 WS 连接前 sink 产生的日志已全部落 jsonl，回放可覆盖，不丢失。
+    # 初始化失败不置 _started，下次连接可重试。
+    if _pending_logs is None:
+        cfg = await data_manager.safe_get_config()
+        _pending_logs = deque(maxlen=cfg.log_pending_max)
     _started = True
     # 注意：不再调用 _install_log_capture() —— sink 在模块加载时已安装，
     # 重复安装会重建 jsonl 文件（unlink 旧文件），导致「本次启动」日志丢失
     _spawn_background(_system_loop())
     _spawn_background(_bot_loop())
     _spawn_background(_log_dispatcher())
+
+
+def _rebuild_pending_logs(cfg: WsConfig) -> None:
+    """配置热重载后按新的 log_pending_max 重建待广播队列。
+
+    保留旧队列中尚未广播的日志（超出新上限的丢弃最旧，tail 语义）。
+    在事件循环内执行：dispatcher 每次循环重新读取全局队列，无需担心
+    引用悬挂；sink 线程在重建瞬间并发写入的少量日志仍会落 jsonl
+    文件（回放可覆盖），不丢失。
+    """
+    global _pending_logs
+    new_queue: deque[dict] = deque(maxlen=cfg.log_pending_max)
+    if _pending_logs is not None:
+        new_queue.extend(_pending_logs)
+    _pending_logs = new_queue
+
+
+async def _on_ws_config_reloaded(cfg: WsConfig) -> None:
+    """webui/config.toml 热重载钩子：按新参数重建待广播队列。"""
+    _rebuild_pending_logs(cfg)
+
+
+# 注册重载钩子：修改配置文件后自动按新 log_pending_max 重建队列
+register_ws_config_reload_hook(_on_ws_config_reloaded)
 
 
 @app.websocket("/amrita/ui/ws")
@@ -387,11 +453,22 @@ async def websocket_endpoint(ws: WebSocket) -> None:
             raw = await ws.receive_json()
             action = raw.get("action")
             if action == "subscribe":
+                # 前端可控制日志回放条数：{"action":"subscribe","channels":["logs"],"opts":{"logs":{"limit":N}}}
+                cfg = await data_manager.safe_get_config()
+                opts = raw.get("opts") or {}
+                logs_opts = opts.get("logs") or {}
+                try:
+                    logs_limit = int(
+                        logs_opts.get("limit", cfg.log_replay_limit)
+                    )
+                except (TypeError, ValueError):
+                    logs_limit = cfg.log_replay_limit
+                logs_limit = min(max(logs_limit, 1), cfg.log_replay_limit_max)
                 for ch in raw.get("channels", []):
                     if ch in ("system", "bot", "logs"):
                         if ch == "logs" and ch not in channels:
-                            # 首次订阅 logs：回放本次启动以来的日志
-                            await _send_log_replay(ws)
+                            # 首次订阅 logs：回放本次启动以来最后 logs_limit 条
+                            await _send_log_replay(ws, logs_limit)
                         elif ch not in channels:
                             # 首次订阅 bot/system：立即推当前状态快照，
                             # 避免新订阅者要等下一次变化才能拿到数据；

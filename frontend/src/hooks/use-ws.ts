@@ -5,11 +5,23 @@
  * - 连接在模块级持有，整个应用共享一条 WS（切换页面不重连）
  * - 按频道订阅：system（系统资源 2s）/ bot（连接状态）/ logs（日志流）
  * - 断线自动重连（指数退避），断线/恢复时右下角 toast 提示
+ *
+ * logs 频道约定：
+ * - 后端订阅时只回放最新 N 条（tail 语义，非全量），N 由本模块
+ *   LOG_REPLAY_LIMIT / useWs 的 logLimit 决定，随订阅消息发送
+ * - 快照按时间正序存储（最新在尾部），并截断到 MAX_LOG_SNAPSHOT，
+ *   防止长运行下数组无限增长拖垮 UI（去重只查尾部：回放与实时
+ *   推送的重叠只会出现在边界）
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 export type WsChannel = "system" | "bot" | "logs";
+
+/** 订阅 logs 时请求的回放条数（后端 tail 语义） */
+export const LOG_REPLAY_LIMIT = 500;
+/** 前端内存中保留的日志快照上限（超过则丢弃最旧） */
+const MAX_LOG_SNAPSHOT = 1000;
 
 export interface SystemUsage {
   status: string;
@@ -59,6 +71,8 @@ interface GlobalState {
     bot: BotState | null;
     logs: LogEvent[];
   };
+  /** 当前生效的日志回放条数（取所有订阅者传入 logLimit 的最大值） */
+  logLimit: number;
   /** 频道 -> 订阅回调集合 */
   listeners: Map<WsChannel, Set<() => void>>;
   /** 连接状态监听器（onopen/onclose 时通知 useWs 更新 React state） */
@@ -73,6 +87,7 @@ const global: GlobalState = {
   reconnectTimer: null,
   reconnectToastId: null,
   snapshots: { system: null, bot: null, logs: [] },
+  logLimit: LOG_REPLAY_LIMIT,
   listeners: new Map(),
   statusListeners: new Set(),
 };
@@ -91,6 +106,17 @@ function updateSnapshot<K extends keyof GlobalState["snapshots"]>(
 ) {
   global.snapshots[channel] = data;
   emit(channel);
+}
+
+/** 发送订阅消息（logs 频道附带回放条数，后端按 tail 语义只回放最新 N 条） */
+function sendSubscribe(ws: WebSocket, channels: WsChannel[]) {
+  ws.send(
+    JSON.stringify({
+      action: "subscribe",
+      channels,
+      opts: { logs: { limit: global.logLimit } },
+    }),
+  );
 }
 
 function connect() {
@@ -126,7 +152,7 @@ function connect() {
     // 重新订阅所有频道
     const channels = [...global.listeners.keys()];
     if (channels.length > 0) {
-      ws.send(JSON.stringify({ action: "subscribe", channels }));
+      sendSubscribe(ws, channels);
     }
     emit("system");
     emit("bot");
@@ -143,14 +169,17 @@ function connect() {
       else if (msg.channel === "bot")
         updateSnapshot("bot", msg.data as BotState);
       else if (msg.channel === "logs") {
-        // 按 (time,title,desc) 去重（后端订阅回放 + 实时推送可能重叠），不截断
+        // 正序存储（最新在尾部，渲染即最早在上/最新在下，配合
+        // 自动滚动到底 = tail -f 直觉）；去重只查尾部几条——后端
+        // 回放与实时推送的重叠只会出现在边界；截断防无限增长
         const ev = msg.data as LogEvent;
-        const exists = global.snapshots.logs.some(
+        const logs = global.snapshots.logs;
+        const dup = logs.slice(-10).some(
           (l) =>
             l.time === ev.time && l.title === ev.title && l.desc === ev.desc,
         );
-        if (!exists) {
-          updateSnapshot("logs", [ev, ...global.snapshots.logs]);
+        if (!dup) {
+          updateSnapshot("logs", [...logs, ev].slice(-MAX_LOG_SNAPSHOT));
         }
       }
     } catch {
@@ -195,17 +224,26 @@ function connect() {
 interface UseWsOptions {
   /** 订阅的频道 */
   channels: WsChannel[];
+  /** 订阅 logs 时请求的回放条数（tail 语义；全局取所有订阅者的最大值） */
+  logLimit?: number;
   /** 连接状态变化回调 */
   onStatusChange?: (connected: boolean) => void;
 }
 
-export function useWs({ channels, onStatusChange }: UseWsOptions) {
+export function useWs({ channels, logLimit, onStatusChange }: UseWsOptions) {
   const [connected, setConnected] = useState(global.connected);
   const [system, setSystem] = useState<SystemUsage | null>(
     global.snapshots.system,
   );
   const [bot, setBot] = useState<BotState | null>(global.snapshots.bot);
   const [logs, setLogs] = useState<LogEvent[]>(global.snapshots.logs);
+
+  // 提升全局回放条数（取最大值，保证回放满足所有 logs 订阅者）
+  useEffect(() => {
+    if (logLimit !== undefined && logLimit > global.logLimit) {
+      global.logLimit = logLimit;
+    }
+  }, [logLimit]);
 
   // channels 引用不稳定（调用处每次渲染新建数组）-> 用稳定 key 做 effect 依赖
   const channelsKey = channels.join(",");
@@ -247,9 +285,7 @@ export function useWs({ channels, onStatusChange }: UseWsOptions) {
 
     // 订阅（若连接已开）
     if (global.ws?.readyState === WebSocket.OPEN) {
-      global.ws.send(
-        JSON.stringify({ action: "subscribe", channels: current }),
-      );
+      sendSubscribe(global.ws, current);
     }
 
     // 建立连接

@@ -89,9 +89,9 @@ async def load():
                         logger.opt(colors=True, exception=e, raw=True).error(e)
         logger.info(f"更新权限成功，共{count}条数据完成迁移。")
         shutil.rmtree(dm.plugin_data_dir)
-        conf: Config = await UniConfigManager().get_config()
+        conf: Config = await UniConfigManager().get_config("perm")
         conf.update_from_json = False
-        await UniConfigManager().save_config()
+        await UniConfigManager().save_config("perm")
     await store.init_cache_from_database()
     await store.get_permission_group("default", True)  # 隐式创建默认组
     await store.get_permission_group("default_group", True)

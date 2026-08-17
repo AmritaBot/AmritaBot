@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
-import { useWs, type LogEvent } from "@/hooks/use-ws";
+import { useWs, LOG_REPLAY_LIMIT, type LogEvent } from "@/hooks/use-ws";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,8 +40,11 @@ function LevelBadge({ level }: { level: string }) {
 }
 
 export function LogsPage() {
-  // 订阅 logs 频道（全局单连接，切页不重连）
-  const { logs, connected } = useWs({ channels: ["logs"] });
+  // 订阅 logs 频道（全局单连接，切页不重连）；logLimit 控制后端回放条数
+  const { logs, connected } = useWs({
+    channels: ["logs"],
+    logLimit: LOG_REPLAY_LIMIT,
+  });
 
   const [level, setLevel] = useState<Level>("ALL");
   const [keyword, setKeyword] = useState("");
@@ -141,7 +144,7 @@ export function LogsPage() {
         <CardHeader className="pb-2">
           <CardTitle className="text-base">日志流</CardTitle>
           <CardDescription>
-            本次 Bot 启动以来的日志 · 滚轮上滑暂停自动跟随
+            最近 {LOG_REPLAY_LIMIT} 条日志（本次启动）· 滚轮上滑暂停自动跟随
           </CardDescription>
         </CardHeader>
         <CardContent>

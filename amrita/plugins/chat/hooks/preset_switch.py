@@ -1,4 +1,3 @@
-from amrita_core import PresetManager
 from amrita_core.hook.event import FallbackContext
 from amrita_core.hook.on import on_preset_fallback
 
@@ -11,6 +10,6 @@ async def _(ctx: FallbackContext):
     count = ctx.term
     if count > len(config.preset_extension.backup_preset_list):
         ctx.fail("No more preset available!")
-    ctx.preset = PresetManager().get_preset(
+    ctx.preset = await dm.get_preset(
         config.preset_extension.backup_preset_list[count - 1]
     )

@@ -6,7 +6,8 @@ import asyncio
 import json
 
 from aiologic import Lock
-from amrita_core import PresetManager, PresetReport
+from amrita_core import PresetReport
+from amrita_core.preset import MultiPresetManager
 from nonebot.adapters.onebot.v11 import Bot, Message, MessageEvent, MessageSegment
 from nonebot.matcher import Matcher
 from nonebot.params import CommandArg
@@ -42,7 +43,6 @@ async def model_switch(
         if model.name == name:
             config_manager.ins_config.preset = model.name
             await config_manager.save_config()
-            PresetManager().set_default_preset(model)
             await matcher.finish(f"✅ 已切换到：{model.name}（{model.model}）")
     await matcher.finish(f"未找到模型 {name}，请输入 /model list 查看可用模型。")
 
@@ -66,7 +66,7 @@ async def model_test(
     event: MessageEvent, matcher: Matcher, bot: Bot, name: str, detailed: bool
 ) -> None:
     """测试指定模型（不指定则测试全部）"""
-    pm = PresetManager()
+    pm = MultiPresetManager()
     if name:
         try:
             presets = [await config_manager.get_preset(name)]

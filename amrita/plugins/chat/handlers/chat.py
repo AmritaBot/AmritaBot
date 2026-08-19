@@ -6,7 +6,6 @@ from asyncio import CancelledError
 from datetime import datetime
 
 from amrita_core import (
-    PresetManager,
     TextContent,
     UniResponseUsage,
     debug_log,
@@ -198,7 +197,7 @@ async def get_user_role(bot: Bot, group_id: int, user_id: int) -> str:
     return role_str
 
 
-def synthesize_message_to_msg(
+async def synthesize_message_to_msg(
     event: MessageEvent,
     role: str,
     user_name: str,
@@ -221,20 +220,14 @@ def synthesize_message_to_msg(
     Returns:
         转换后的消息内容
     """
-    is_multimodal: bool = (
-        any(
-            (
-                (PresetManager().get_preset(preset)).config.multimodal
-                if preset != "default"
-                else ConfigManager().config.default_preset.config.multimodal
-            )
-            for preset in [
-                config_manager.config.preset,
-                *config_manager.config.preset_extension.backup_preset_list,
-            ]
-        )
-        # or len(config_manager.config.preset_extension.multi_modal_preset_list) > 0
-    )
+    presets = [
+        await config_manager.get_preset(preset)
+        for preset in [
+            config_manager.config.preset,
+            *config_manager.config.preset_extension.backup_preset_list,
+        ]
+    ]
+    is_multimodal: bool = any(p.config.multimodal for p in presets)
 
     if config_manager.config.parse_segments:
         if config_manager.config.function.message_type == "xml":
@@ -339,7 +332,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         debug_log("处理私聊消息")
         user_name = await get_friend_name(event.user_id, bot=bot)
     role = await get_user_role(bot, event.group_id, event.user_id) if is_group else ""
-    content = synthesize_message_to_msg(
+    content = await synthesize_message_to_msg(
         event, role, str(user_name), str(event.user_id), content
     )
     if isinstance(content, list):
@@ -388,7 +381,6 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         backend_options=DatabackendOptions(
             skip_mcp_fetch=True,
             skip_tools_fetch=True,
-            skip_presets_fetch=True,
         ),
     )
 

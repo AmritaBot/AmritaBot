@@ -27,6 +27,7 @@ from ..utils.functions import (
 )
 from ..utils.libchat import add_usage, get_tokens, usage_enough
 from ..utils.lock import get_group_lock, get_private_lock
+from ..utils.preset import resolve_preset
 
 
 class PokeSendError(BaseException):
@@ -229,9 +230,7 @@ async def process_poke_event(
     async for response_item in call_completion(
         messages=send_messages,
         config=config_manager.config.core,
-        preset=await config_manager.get_preset(
-            config_manager.config.preset, cache=True
-        ),
+        preset=await resolve_preset(),
     ):
         if isinstance(response_item, UniResponse):
             response = response_item

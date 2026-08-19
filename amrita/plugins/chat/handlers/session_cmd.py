@@ -23,6 +23,7 @@ from amrita.plugins.chat.utils.libchat import add_usage
 from ..check_rule import is_group_admin_if_is_in_group
 from ..config import config_manager
 from ..utils.context import build_train_dict, estimate_tokens
+from ..utils.preset import resolve_preset
 from ..utils.sql import get_uni_user_id
 
 # 上下文占用低于 MaxTokens 该比例时拒绝压缩
@@ -141,7 +142,7 @@ async def _session_info(event: MessageEvent, matcher: Matcher) -> None:
     memory = await repo.get_memory(get_uni_user_id(event))
     data = memory.memory_json
 
-    preset = await config_manager.get_preset(config.preset)
+    preset = await resolve_preset()
     train = build_train_dict(event, memory, config)
     max_tokens = config.core.llm.session_tokens_windows
     total = await asyncio.to_thread(estimate_tokens, train, memory, config)

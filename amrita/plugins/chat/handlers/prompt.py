@@ -77,7 +77,7 @@ async def _template_set(matcher: Matcher, prompt_type: str, name: str) -> None:
                 config_manager.ins_config.group_prompt_character = p.name
             else:
                 config_manager.ins_config.private_prompt_character = p.name
-            await config_manager.load_prompt()
+            config_manager.load_prompt()
             await config_manager.save_config()
             await matcher.finish(
                 f"✅ 已设置{'群组' if prompt_type == 'group' else '私聊'}模板为：{p.name}"

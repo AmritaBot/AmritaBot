@@ -36,6 +36,7 @@ from ..utils.llm_tools.builtin_tools import (
     REPORT_TOOL_MEDIUM,
     report,
 )
+from ..utils.preset import resolve_preset
 
 checkhook = on_precompletion(1, False)
 BUILTIN_TOOLS_NAME.add(REPORT_TOOL_MEDIUM.function.name)
@@ -77,7 +78,7 @@ async def text_check(
         logger.warning("Message list is empty, skipping content check")
         return
     response: UniResponse[None, list[ToolCall] | None] = await tools_caller(
-        msg, tool_list, preset=await config_manager.get_preset(config.preset, cache=True)
+        msg, tool_list, preset=await resolve_preset()
     )
     if tool_calls := response.tool_calls:
         for tool_call in tool_calls:

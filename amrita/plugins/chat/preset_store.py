@@ -58,7 +58,21 @@ class PresetStore:
             self._loaded.append(lp)
             PresetManager().add_preset(model_preset)
 
+        self._sync_default_preset()
+
         return [lp.preset for lp in self._loaded]
+
+    def _sync_default_preset(self) -> None:
+        """把配置选中的预设同步为 PresetManager 的默认预设。
+
+        在此项目中，选中的预设只有一个：default 是且仅能是 config 已选中的
+        预设（config.default_preset）。若未显式设置，PresetManager
+        的 get_default_preset() 会随机挑选一个预设，导致运行时模型随机漂移
+        （未预期行为）。每次加载预设后都重新指定，与配置保持一致。
+        """
+        from .config import config_manager
+
+        PresetManager().set_default_preset(config_manager.config.default_preset)
 
     async def find(self, name: str, *, cache: bool = False) -> ModelPreset | None:
         """按名查找预设"""

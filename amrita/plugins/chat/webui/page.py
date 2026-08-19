@@ -368,13 +368,13 @@ async def get_prompts():
         # 获取群组提示词列表
         group_prompts = [
             {"name": prompt.name, "text": prompt.text}
-            for prompt in config_manager.prompts.group
+            for prompt in config_manager.prompts.prompts.group
         ]
 
         # 获取私聊提示词列表
         private_prompts = [
             {"name": prompt.name, "text": prompt.text}
-            for prompt in config_manager.prompts.private
+            for prompt in config_manager.prompts.prompts.private
         ]
 
         return JSONResponse(

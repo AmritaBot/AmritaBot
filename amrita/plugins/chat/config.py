@@ -24,6 +24,7 @@ from typing_extensions import final, override
 from .preset_store import PresetStore
 from .prompt_store import Prompt as Prompt
 from .prompt_store import Prompts, PromptStore
+from .services import ModelConfigService, PresetService, PromptService
 
 __kernel_version__ = "unknown"
 
@@ -431,6 +432,24 @@ class ConfigManager(EnvfulConfigManager[Config]):
     _owner_name: str = "chat"
     __lateinit__ = True
 
+    def __init__(self) -> None:
+        # 领域服务（阶段 3）：配置读写与业务语义解耦。
+        # 服务构造只依赖惰性回调，配置加载前后均可安全初始化。
+        self.presets = PresetService(
+            self.preset_store,
+            get_config=lambda: self.config,
+            get_ins_config=lambda: self.ins_config,
+            save_config=lambda: self.save_config(),
+        )
+        self.prompts = PromptService(
+            self.prompt_store,
+            get_ins_config=lambda: self.ins_config,
+        )
+        self.models = ModelConfigService(
+            self.preset_store,
+            get_ins_config=lambda: self.ins_config,
+        )
+
     @override
     def _update_cache(self, value: Config | None = None):
         super()._update_cache(value)
@@ -445,7 +464,7 @@ class ConfigManager(EnvfulConfigManager[Config]):
         async def prompt_callback():
             logger.info("正在重载插件提示词文件...")
             await self.get_prompts(False, True)
-            await self.load_prompt()
+            self.load_prompt()
             logger.success("提示词文件已重载")
 
         async def models_callback():
@@ -470,7 +489,7 @@ class ConfigManager(EnvfulConfigManager[Config]):
         logger.info(f"加载了{len(ps)}个模型 (包含默认)")
         p = await self.get_prompts(cache=False)
         logger.info(f"加载了{len(p.group) + len(p.private)}个提示词")
-        await self.load_prompt()
+        self.load_prompt()
         await UniConfigManager().add_directory(
             "group_prompts",
             lambda *_: prompt_callback(),
@@ -490,72 +509,56 @@ class ConfigManager(EnvfulConfigManager[Config]):
             owner_name="chat",
         )
 
-    @property
-    def prompts(self) -> Prompts:
-        return self.prompt_store.prompts
-
     async def get_prompts(
         self, cache: bool = False, load_only: bool = False
     ) -> Prompts:
-        """获取提示词"""
-        return await self.prompt_store.load(cache=cache, load_only=load_only)
+        """获取提示词（委托 PromptService）"""
+        return await self.prompts.get_prompts(cache=cache, load_only=load_only)
 
-    async def load_prompt(self):
-        """加载提示词，匹配预设"""
-        self.prompt_store.apply(
-            self.ins_config.group_prompt_character,
-            self.ins_config.private_prompt_character,
-        )
+    def load_prompt(self):
+        """加载提示词，匹配预设（委托 PromptService，纯内存操作）"""
+        self.prompts.load_prompt()
 
     @property
     def private_train(self) -> dict[str, str]:
-        """获取私聊提示词"""
-        return self.prompt_store.private_train
+        """获取私聊提示词（委托 PromptService）"""
+        return self.prompts.private_train
 
     @property
     def group_train(self) -> dict[str, str]:
-        """获取群聊提示词"""
-        return self.prompt_store.group_train
+        """获取群聊提示词（委托 PromptService）"""
+        return self.prompts.group_train
 
     def validate_presets(self):
-        self.preset_store.validate()
+        """校验所有预设文件（委托 PresetService）"""
+        self.presets.validate()
 
-    async def get_all_presets(self, cache: bool = False) -> list[ModelPreset]:
-        """获取模型列表"""
-        return [
-            self.config.default_preset,
-            *(await self.preset_store.load_all(cache=cache)),
-        ]
+    async def get_all_presets(self, cache: bool = True) -> list[ModelPreset]:
+        """获取模型列表（委托 PresetService，默认走缓存）"""
+        return await self.presets.get_all_presets(cache=cache)
 
     async def get_preset(
-        self, preset: str, fix: bool = False, cache: bool = False
+        self, preset: str, fix: bool = False, cache: bool = True
     ) -> ModelPreset:
-        """_获取预设配置_
+        """获取预设配置（委托 PresetService，默认走缓存）
 
         Args:
             preset (str): _预设的字符串名称_
             fix (bool, optional): _是否修正不存在的预设_. Defaults to False.
-            cache (bool, optional): _是否使用缓存_. Defaults to False.
+            cache (bool, optional): _是否使用缓存_. Defaults to True.
 
         Returns:
             ModelPreset: _模型预设对象_
         """
-        if preset == "default":
-            return self.config.default_preset
-        if (model := await self.preset_store.find(preset, cache=cache)) is not None:
-            return model
-        if fix:
-            self.ins_config.preset = "default"
-            await self.save_config()
-        return await self.get_preset("default", fix, cache)
+        return await self.presets.get_preset(preset, fix=fix, cache=cache)
 
     def get_preset_path(self, name: str) -> Path:
-        """预设名对应的文件路径"""
-        return self.preset_store.path_of(name)
+        """预设名对应的文件路径（委托 PresetService）"""
+        return self.presets.get_preset_path(name)
 
     def forget_preset(self, name: str) -> None:
-        """移除预设名到路径的记录"""
-        self.preset_store.forget(name)
+        """移除预设名到路径的记录（委托 PresetService）"""
+        self.presets.forget_preset(name)
 
     async def save_config(self):
         """保存配置"""
@@ -599,16 +602,12 @@ class ConfigManager(EnvfulConfigManager[Config]):
 
     def reg_model_config(self, key: str, default_value=None):
         """
-        注册模型配置项
+        注册模型配置项（委托 ModelConfigService）
 
         :param key: 配置项的名称
 
         """
-        if default_value is None:
-            default_value = "null"
-        if key not in self.ins_config.default_preset.extra:
-            self.ins_config.default_preset.extra.setdefault(key, default_value)
-        self.preset_store.register_extra(key, default_value)
+        self.models.reg_model_config(key, default_value)
 
 
 config_manager = ConfigManager()

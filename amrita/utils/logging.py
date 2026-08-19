@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 import aiofiles
 from aiologic import Lock
@@ -12,9 +12,28 @@ from amrita.config import get_amrita_config
 
 _lock = Lock()
 
+# loguru 默认级别（TRACE/DEBUG/INFO/SUCCESS/WARNING/ERROR/CRITICAL）
+# + FATAL（历史 event.json 兼容）。
+LogLevel = Literal[
+    "TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL", "FATAL"
+]
+
+_LOG_LEVEL_NAMES = frozenset(LogLevel.__args__)
+
+
+def normalize_log_level(name: str) -> LogLevel:
+    """将任意字符串级别名收敛到 LogLevel 值域。
+
+    loguru 允许自定义级别名，EventRecorder sink 可能收到任意名字；
+    未知级别一律降级为 WARNING，避免 pydantic 校验失败导致事件丢失。
+    """
+    if name in _LOG_LEVEL_NAMES:
+        return cast(LogLevel, name)
+    return "WARNING"
+
 
 class LoggingEvent(BaseModel):
-    log_level: Literal["WARNING", "ERROR", "FATAL", "INFO", "DEBUG"]
+    log_level: LogLevel
     description: str
     message: str
     # 格式化后的完整堆栈（traceback.format_exception 产物，纯字符串，可 JSON 序列化）。
@@ -29,12 +48,18 @@ class LoggingEvent(BaseModel):
                 return "yellow"
             case "ERROR":
                 return "red"
+            case "CRITICAL":
+                return "darkred"
             case "FATAL":
                 return "purple"
             case "INFO":
                 return "green"
             case "DEBUG":
                 return "blue"
+            case "TRACE":
+                return "gray"
+            case "SUCCESS":
+                return "teal"
 
     @property
     def icon(self):
@@ -43,12 +68,18 @@ class LoggingEvent(BaseModel):
                 return "exclamation-triangle"
             case "ERROR":
                 return "bug"
+            case "CRITICAL":
+                return "skull"
             case "FATAL":
                 return "times"
             case "INFO":
                 return "info"
             case "DEBUG":
                 return "code"
+            case "TRACE":
+                return "code"
+            case "SUCCESS":
+                return "check"
 
 
 class LoggingData(BaseModel):

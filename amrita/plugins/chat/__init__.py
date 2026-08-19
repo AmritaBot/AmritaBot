@@ -11,16 +11,16 @@ from . import (
     config,
     hooks,
     matcher_manager,
-    page,
     preprocess,
+    webui,
 )
 
 __all__ = [
     "config",
     "hooks",
     "matcher_manager",
-    "page",
     "preprocess",
+    "webui",
 ]
 
 __plugin_meta__ = PluginMetadata(

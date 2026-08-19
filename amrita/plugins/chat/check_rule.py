@@ -11,17 +11,16 @@ from nonebot.adapters.onebot.v11.event import (
     GroupMessageEvent,
     MessageEvent,
 )
-from nonebot_plugin_amrita.memory import CachedUserDataRepository as CURD
 from nonebot_plugin_amrita.memory import MemorySchema
 from typing_extensions import override
 
-from amrita.plugins.chat.utils.app import CachedGroupDataRepository as CGDR
 from amrita.plugins.chat.utils.libchat import usage_enough
 from amrita.plugins.chat.utils.lock import get_group_lock, get_private_lock
 from amrita.plugins.chat.utils.sql import make_uni_id
 from amrita.plugins.perm.API.admin import is_lp_admin
 
 from .config import config_manager
+from .utils.data_access import get_group_config, get_memory, update_memory
 from .utils.functions import (
     get_current_datetime_timestamp,
     synthesize_message,
@@ -66,9 +65,7 @@ async def is_bot_enabled(event: Event) -> bool:
     if not await is_bot_globally_enabled(event):
         return False
     if gid is not None:
-        data = await CGDR().get_group_config(
-            gid,
-        )
+        data = await get_group_config(gid)
         return data.enable
     return True
 
@@ -110,8 +107,6 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
         if isinstance(event, GroupMessageEvent)
         else get_private_lock(event.user_id)
     )
-    dm = CURD()
-    gm = CGDR()
     async with lock:
         message = event.get_message()
         message_text = message.extract_plain_text().strip()
@@ -144,14 +139,12 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
             # 获取记忆数据
             is_group = bool(getattr(event, "group_id", None))
             ins_id: int = getattr(event, "group_id", event.user_id)
-            memory_data: MemorySchema = await dm.get_memory(
-                make_uni_id(ins_id, is_group)
-            )
-            fk = (await gm.get_group_config(ins_id)).autoreply
+            memory_data: MemorySchema = await get_memory(make_uni_id(ins_id, is_group))
+            fk = (await get_group_config(ins_id)).autoreply
 
             if rand <= rate and (config_manager.config.autoreply.global_enable or fk):
                 memory_data.memory_json.time = time.time()
-                await dm.update_memory_data(memory_data)
+                await update_memory(memory_data)
                 return True
             # 合成消息内容
             content = await synthesize_message(message, bot)
@@ -218,7 +211,7 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
                 memory_data.memory_json.messages[-1].content.append(
                     TextContent(type="text", text=content_message)
                 )
-            await dm.update_memory_data(memory_data)
+            await update_memory(memory_data)
         # 默认返回 False
         return False
 

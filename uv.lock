@@ -249,7 +249,7 @@ wheels = [
 
 [[package]]
 name = "amrita"
-version = "1.6.2"
+version = "1.6.4"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },

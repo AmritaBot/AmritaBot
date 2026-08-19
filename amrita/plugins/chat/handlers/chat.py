@@ -221,7 +221,7 @@ async def synthesize_message_to_msg(
         转换后的消息内容
     """
     presets = [
-        await config_manager.get_preset(preset)
+        await config_manager.get_preset(preset, cache=True)
         for preset in [
             config_manager.config.preset,
             *config_manager.config.preset_extension.backup_preset_list,

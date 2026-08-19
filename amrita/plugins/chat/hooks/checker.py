@@ -77,7 +77,7 @@ async def text_check(
         logger.warning("Message list is empty, skipping content check")
         return
     response: UniResponse[None, list[ToolCall] | None] = await tools_caller(
-        msg, tool_list
+        msg, tool_list, preset=await config_manager.get_preset(config.preset, cache=True)
     )
     if tool_calls := response.tool_calls:
         for tool_call in tool_calls:

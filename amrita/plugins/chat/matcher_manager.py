@@ -10,6 +10,7 @@ from ..menu.models import MatcherData
 from .check_rule import (
     is_bot_admin,
     is_bot_enabled,
+    is_bot_globally_enabled,
     is_group_admin,
     is_group_admin_if_is_in_group,
     should_respond_with_usage_check,
@@ -29,6 +30,10 @@ from .handlers.session_cmd import session
 
 # 创建基础匹配器组，所有匹配器都需满足is_bot_enabled规则
 base_matcher = MatcherGroup(rule=is_bot_enabled)
+
+# 聊天开关匹配器组：仅检查全局开关，不受每群 enable 标记影响，
+# 避免 /chat off 关闭群聊后无法再次执行 /chat on
+chat_switch_matcher = MatcherGroup(rule=is_bot_globally_enabled)
 
 # 添加通知事件处理器
 base_matcher.on_notice(
@@ -118,7 +123,7 @@ base_matcher.on_command(
 ).append_handler(session)
 
 # 聊天开关域
-base_matcher.on_command(
+chat_switch_matcher.on_command(
     "chat",
     aliases={"聊天开关", "chat_switch"},
     priority=10,
@@ -146,7 +151,11 @@ base_matcher.on_command(
         name="调试模式",
         description="调试模式开关（on/off/status）",
         show_if="lp.admin",
-        usage="/debug <on|off|status>",
+        usage=[
+            "/debug on — 开启调试",
+            "/debug off — 关闭调试",
+            "/debug status — 查看状态",
+        ],
     ).model_dump(),
 ).append_handler(debug_switchs)
 
@@ -159,7 +168,11 @@ base_matcher.on_command(
     state=MatcherData(
         name="用量统计",
         description="查看今日AI用量统计",
-        usage="/insights [global|top10 <--group|private|all>]]",
+        usage=[
+            "/insights — 查看今日用量",
+            "/insights global — 全局用量",
+            "/insights top10 <--group|private|all> — Top10 排名",
+        ],
     ).model_dump(),
 ).append_handler(insights)
 
@@ -172,7 +185,13 @@ base_matcher.on_command(
         name="mcp",
         description="管理MCP服务",
         show_if="lp.admin",
-        usage="/mcp <stats [-d|--details];add <server_script>;del <server_script>;reload>",
+        usage=[
+            "/mcp stats [-d|--details] — 服务统计",
+            "/mcp add <server_script> — 添加服务",
+            "/mcp del <server_script> — 删除服务",
+            "/mcp reload — 重载服务",
+            "/mcp deep-reload — 深度重载",
+        ],
     ).model_dump(),
 ).append_handler(mcp_command)
 

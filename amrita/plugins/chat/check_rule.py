@@ -40,7 +40,12 @@ class FakeEvent(Event):
         return str(self.user_id)
 
 
-async def is_bot_enabled(event: Event) -> bool:
+async def is_bot_globally_enabled(event: Event) -> bool:
+    """仅检查全局开关与功能开关，不检查每群的 enable 标记。
+
+    供聊天开关（/chat）等命令使用，避免 /chat off 关闭群聊后
+    is_bot_enabled 失效，导致无法再次执行 /chat on。
+    """
     gid = getattr(event, "group_id", None)
     is_in_group = gid is not None
     if not config_manager.config.enable:
@@ -53,6 +58,13 @@ async def is_bot_enabled(event: Event) -> bool:
         bots = nonebot.get_bots()
         if event.get_user_id() in bots:
             return False
+    return True
+
+
+async def is_bot_enabled(event: Event) -> bool:
+    gid = getattr(event, "group_id", None)
+    if not await is_bot_globally_enabled(event):
+        return False
     if gid is not None:
         data = await CGDR().get_group_config(
             gid,

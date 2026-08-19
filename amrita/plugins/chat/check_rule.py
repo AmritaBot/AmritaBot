@@ -139,9 +139,7 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
             # 获取记忆数据
             is_group = bool(getattr(event, "group_id", None))
             ins_id: int = getattr(event, "group_id", event.user_id)
-            memory_data: MemorySchema = await get_memory(
-                make_uni_id(ins_id, is_group)
-            )
+            memory_data: MemorySchema = await get_memory(make_uni_id(ins_id, is_group))
             fk = (await get_group_config(ins_id)).autoreply
 
             if rand <= rate and (config_manager.config.autoreply.global_enable or fk):

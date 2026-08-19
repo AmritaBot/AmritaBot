@@ -46,9 +46,12 @@ logger = logging.getLogger(__name__)
 _LEVEL_META: dict[str, tuple[str, str]] = {
     "WARNING": ("yellow", "exclamation-triangle"),
     "ERROR": ("red", "bug"),
+    "CRITICAL": ("darkred", "skull"),
     "FATAL": ("purple", "times"),
     "INFO": ("green", "info"),
     "DEBUG": ("blue", "code"),
+    "TRACE": ("gray", "code"),
+    "SUCCESS": ("teal", "check"),
 }
 
 

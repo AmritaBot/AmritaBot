@@ -14,7 +14,7 @@ from amrita_sense.logging import default_format as CUSTOM_FORMAT
 from nonebot.log import default_format
 
 from amrita.config import get_amrita_config
-from amrita.utils.logging import LoggingData, LoggingEvent
+from amrita.utils.logging import LoggingData, LoggingEvent, normalize_log_level
 from amrita.utils.utils import get_amrita_version
 
 _loop_running: bool = False
@@ -40,7 +40,7 @@ class EventRecorder:
                 traceback.format_exception(exc_type, exc_value, exc_tb)
             ).rstrip("\n")
         data = LoggingEvent(
-            log_level=record["level"].name,  # type: ignore
+            log_level=normalize_log_level(record["level"].name),
             description=record["message"],
             message=exc_message,
             traceback=formatted_tb,
@@ -80,13 +80,13 @@ def init():
                 record: Record = message.record
                 if record["level"].name == "ERROR":
                     # 处理异常 traceback
-                    if record["exception"]:
-                        exc_info = record["exception"]
+                    exc_info = record["exception"]
+                    if exc_info:
                         traceback_str = "".join(
                             traceback.format_exception(
-                                exc_info.type,  # type: ignore
-                                exc_info.value,  # type: ignore
-                                exc_info.traceback,  # type: ignore
+                                exc_info.type,
+                                exc_info.value,
+                                exc_info.traceback,
                             )
                         )
                     else:

@@ -35,7 +35,14 @@ class ChatMemoryBackend(MemoryBackend):
 
 
 class NoopAbilityBackend(AbilityBackend):
-    """空能力后端占位符：本插件的全部能力 fetch 均由 ``DatabackendOptions`` 跳过。"""
+    """能力后端：构建本插件的实际能力容器。
+
+    其中 ``load_presets`` 构建并返回一个以配置选中预设为默认预设的
+    ``MultiPresetManager``，由 Core 在 ``LOAD_STATE`` 节点抓取，从而
+    彻底脱离全局单例 ``PresetManager``（其默认预设受热重载 / 脏状态影响，
+    且 Core 已改为 FailFast）。其余能力（MCP / tools / ability）由
+    ``DatabackendOptions`` 决定是否抓取。
+    """
 
     async def load_ability_all(self, session_id: str) -> AbilityContext:
         del session_id
@@ -51,4 +58,10 @@ class NoopAbilityBackend(AbilityBackend):
 
     async def load_presets(self, session_id: str) -> MultiPresetManager:
         del session_id
-        return MultiPresetManager()
+        # 延迟导入避免与 config 模块产生循环依赖
+        from .config import config_manager
+
+        manager = MultiPresetManager()
+        # 配置选中的预设即默认预设；set_default_preset 会自动登记进管理器
+        manager.set_default_preset(config_manager.config.default_preset)
+        return manager

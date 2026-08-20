@@ -196,24 +196,28 @@ async def _session_compact(event: MessageEvent, matcher: Matcher, force: bool) -
             f"未达到 {COMPACT_MIN_RATIO:.0%} 的压缩阈值，暂不需要压缩。"
         )
 
-    # 执行压缩：force 时收紧长度上限确保触发摘要
-    work_config = deepcopy(config.core)
+    work_config = config.core
+    llm = work_config.llm
+    saved_llm: tuple[bool, int] | None = None
     if force:
-        work_config.llm.enable_memory_abstract = True
-        keep = max(
+        saved_llm = (llm.enable_memory_abstract, llm.memory_length_limit)
+        llm.enable_memory_abstract = True
+        llm.memory_length_limit = max(
             1,
-            int(len(data.messages) * (1 - work_config.llm.memory_abstract_proportion)),
+            int(len(data.messages) * (1 - llm.memory_abstract_proportion)),
         )
-        work_config.llm.memory_length_limit = keep
 
     try:
         async with repo.make_lock(uni_id):
-            async with MemoryLimiter(data, train, config=work_config) as lim:
+            async with MemoryLimiter(data, train, config=work_config,preset=await resolve_preset(config.preset)) as lim:
                 await lim.run_enforce()
                 usage = lim.usage
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).exception("压缩会话上下文失败。")
         await matcher.finish("压缩失败，会话已回滚。")
+    finally:
+        if saved_llm is not None:
+            llm.enable_memory_abstract, llm.memory_length_limit = saved_llm
 
     after_tokens = await asyncio.to_thread(estimate_tokens, train, memory, config)
     await repo.update_memory_data(memory)

@@ -249,7 +249,7 @@ wheels = [
 
 [[package]]
 name = "amrita"
-version = "1.6.7"
+version = "1.6.7.1"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
@@ -338,7 +338,7 @@ dev = [
 
 [[package]]
 name = "amrita-core"
-version = "0.13.6"
+version = "0.13.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -354,9 +354,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "pytz" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3e/23/b44dbaf4af05cb4daeb46b7dc7145f9b7a49f1f2da770343d653581031d3/amrita_core-0.13.6.tar.gz", hash = "sha256:a03178cdc646c7d98dea8b4c3d0bfde0aff1bce981a2f90194310d52199da9ef", size = 184896, upload-time = "2026-08-19T10:28:30.994Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6c/93/61affe6161125ca9615a441a1ab16ac53744f77bbb2aa2d5f6ffd40ebbd0/amrita_core-0.13.7.tar.gz", hash = "sha256:41085d20b92e7fe4b4e5499e44cca1558daa63f67c6600cbeef044f56729ceeb", size = 184960, upload-time = "2026-08-19T14:37:28.01Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d0/88/051e8625aded024e0daf56aa8e306abece434a5eb2da93bd41404342e37c/amrita_core-0.13.6-py3-none-any.whl", hash = "sha256:95a70a34134f12ebee268e34e4e40a19509655de5e1b1e498b82ef5c217f26d4", size = 151380, upload-time = "2026-08-19T10:28:29.736Z" },
+    { url = "https://files.pythonhosted.org/packages/dc/00/ea3b5d436c51ad3781969ea6cbf0cca52112a39614a656f58a14a1ae1d1d/amrita_core-0.13.7-py3-none-any.whl", hash = "sha256:7a08c21859f89dffa9be0aca93969e55d2297f584077766f5b9023e3cf6236ff", size = 151480, upload-time = "2026-08-19T14:37:26.657Z" },
 ]
 
 [package.optional-dependencies]
@@ -905,15 +905,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/c9/02/bd72be9134d25ed783ecbbc38a539ffaefbf90c78418c7fb7229600dbac7/distlib-0.4.3.tar.gz", hash = "sha256:f152097224a0ae24be5a0f6bae1b9359af82133bce63f98a95f86cae1aede9ed", size = 615141, upload-time = "2026-06-12T08:04:52.847Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/02/08/9c41fb51ab5b43eb21674aff13df270e8ba6c4b29c8624e328dc7a9482af/distlib-0.4.3-py2.py3-none-any.whl", hash = "sha256:4b0ce306c966eb73bc3a7b6abad017c556dadd92c44701562cd528ac7fde4d5b", size = 470628, upload-time = "2026-06-12T08:04:50.506Z" },
-]
-
-[[package]]
-name = "distro"
-version = "1.9.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/fc/f8/98eea607f65de6527f8a2e8885fc8015d3e6f5775df186e443e0964a11c3/distro-1.9.0.tar.gz", hash = "sha256:2fa77c6fd8940f116ee1d6b94a2f90b13b5ea8d019b98bc8bafdcabcdd9bdbed", size = 60722, upload-time = "2023-12-24T09:54:32.31Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/12/b3/231ffd4ab1fc9d679809f356cebee130ac7daa00d6d6f3206dd4fd137e9e/distro-1.9.0-py3-none-any.whl", hash = "sha256:7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2", size = 20277, upload-time = "2023-12-24T09:54:30.421Z" },
 ]
 
 [[package]]
@@ -2082,20 +2073,19 @@ wheels = [
 
 [[package]]
 name = "openai"
-version = "3.3.0"
+version = "3.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
-    { name = "distro" },
     { name = "httpx2" },
     { name = "jiter" },
     { name = "pydantic" },
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e6/6c/670271205379061112bf5ed900b78a68e21bf11733de829772c5322f92aa/openai-3.3.0.tar.gz", hash = "sha256:28f904a9fbff15288e9dd67bc0f7020d4f576d37786383a480db02fe5d8139d3", size = 1166178, upload-time = "2026-08-18T21:17:53.419Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7d/9c/ba0c292b4032ede74c249ca314ad64eb1bb5a03a843f6e01facb02f80cd8/openai-3.3.1.tar.gz", hash = "sha256:6f22807de1a976c932cecda620e8172a8c3fdbaeed29c7f21564e0c2410edf56", size = 1282113, upload-time = "2026-08-19T16:31:35.006Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/82/83/d44980712bf51dddaca090cd772b3102e75377ddac877eaa4b2cb58d886a/openai-3.3.0-py3-none-any.whl", hash = "sha256:ded6b2112e6d299c7a2573ff6f165dc92fb64ceaa4d7daa42345f091157bd373", size = 1690265, upload-time = "2026-08-18T21:17:51.351Z" },
+    { url = "https://files.pythonhosted.org/packages/6a/db/2b7a1b3de659bb82aef979116c74e809982b13e42c057759767552b5155f/openai-3.3.1-py3-none-any.whl", hash = "sha256:9652df7fdf8ee6f5bd58e0a12f2b1d414a18e0f06bb7a9a57c8643a5f5469bd3", size = 1690337, upload-time = "2026-08-19T16:31:32.812Z" },
 ]
 
 [[package]]

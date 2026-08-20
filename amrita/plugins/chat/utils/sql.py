@@ -37,6 +37,14 @@ def get_uni_user_id(event: Event) -> str:
         return f"user_{event.get_user_id()!s}"
 
 
+async def get_user_metadata_or_none(uni_user_id: str) -> UserMetadata | None:
+    """只读查询指定 uni_user_id 的元数据，不存在时返回 None（不会创建记录）"""
+    async with get_session() as session:
+        stmt = select(UserMetadata).where(UserMetadata.user_id == uni_user_id)
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+
 def get_any_id(event: Event) -> tuple[int, bool]:
     if uid := getattr(event, "group_id", None):
         return uid, True

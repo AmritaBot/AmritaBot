@@ -212,7 +212,8 @@ MATCHERS: list[MatcherSpec] = [
             usage=[
                 "/insights — 查看今日用量",
                 "/insights global — 全局用量",
-                "/insights top10 <--group|private|all> — Top10 排名",
+                "/insights top<N> — TopN 排名",
+                "/insights inspect [group|user] <id> — 查询指定群/用户用量",
             ],
         ).model_dump(),
     ),

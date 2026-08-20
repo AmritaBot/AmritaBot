@@ -1,3 +1,4 @@
+import re
 from collections.abc import Sequence
 
 from nonebot.adapters.onebot.v11 import (
@@ -15,7 +16,33 @@ from amrita.plugins.perm.API.rules import any_has_permission
 
 from ..check_rule import is_bot_admin
 from ..config import config_manager
-from ..utils.sql import get_uni_user_id
+from ..utils.sql import get_uni_user_id, get_user_metadata_or_none
+
+_TOP_RE = re.compile(r"^top(\d+)$", re.IGNORECASE)
+_TOP_MAX = 50  # 排名数量上限，防止刷屏
+
+
+def _format_user_entry(i: int, user: UserMetadata, label: str) -> str:
+    """格式化排名条目"""
+    user_id = (
+        user.user_id.split("_", 1)[1] if "_" in user.user_id else user.user_id
+    )
+    total_tokens = user.tokens_input + user.tokens_output
+    return f"{i}. {label}{user_id}: {user.called_count}次, {total_tokens}tokens\n"
+
+
+def _parse_inspect(arg: str) -> tuple[str, str] | None:
+    """解析 /insights inspect [group|user] <id>，非法输入返回 None"""
+    parts = arg.split()
+    if len(parts) == 2:
+        kind, target = "user", parts[1]
+    elif len(parts) == 3 and parts[1] in ("group", "user"):
+        kind, target = parts[1], parts[2]
+    else:
+        return None
+    if not target.isdigit():
+        return None
+    return kind, target
 
 
 async def insights(event: MessageEvent, matcher: Matcher, args: Message = CommandArg()):
@@ -58,50 +85,60 @@ async def insights(event: MessageEvent, matcher: Matcher, args: Message = Comman
             + f"\n总使用token为：{data.token_input + data.token_output}/{total_token_limit}tokens"
             + "\n(您的限制：♾)"
         )
-    elif arg.startswith("top10"):
+    elif arg.startswith("inspect"):
+        if not await is_bot_admin(event):
+            await matcher.finish("你没有权限查看其他用户/群组数据")
+        parsed = _parse_inspect(arg)
+        if parsed is None:
+            msg = "用法：/insights inspect [group|user] <id>"
+        else:
+            kind, target = parsed
+            uni_id = f"{kind}_{target}"
+            data = await get_user_metadata_or_none(uni_id)
+            if data is None:
+                msg = f"未找到{kind} {target} 的使用数据。"
+            else:
+                label = "群组" if kind == "group" else "用户"
+                total_tokens = data.tokens_input + data.tokens_output
+                total_history = data.total_input_token + data.total_output_token
+                msg = (
+                    f"\n📊 {label} {target} 使用情况："
+                    f"\n今日调用次数：{data.called_count}次"
+                    f"\n今日token：{data.tokens_input}输入 / {data.tokens_output}输出（共{total_tokens}）"
+                    f"\n历史累计：{data.total_called_count}次，{total_history} tokens"
+                )
+    elif match := _TOP_RE.match(arg):
         if not await is_bot_admin(event):
             await matcher.finish("你没有权限查看排名数据")
 
-        # 获取top10数据
+        # 获取 topN 数据（群/私聊各取前 N，最多 2N 条）
+        n = min(int(match.group(1)), _TOP_MAX)
         top_users: Sequence[UserMetadata] = await UserDataExecutor.get_top_users(
-            limit=20
+            limit=n * 2
         )
 
         if not top_users:
             msg = "暂无使用数据。"
         else:
-            # 按group/private分类
-            group_users: Sequence[UserMetadata] = []
-            private_users: Sequence[UserMetadata] = []
-            for user in top_users:
-                if user.user_id.startswith("group_"):
-                    group_users.append(user)
-                else:
-                    private_users.append(user)
+            # 按 group/private 分类
+            group_users: Sequence[UserMetadata] = [
+                u for u in top_users if u.user_id.startswith("group_")
+            ]
+            private_users: Sequence[UserMetadata] = [
+                u for u in top_users if not u.user_id.startswith("group_")
+            ]
 
-            msg = "今日使用量Top10：\n"
+            msg = f"今日使用量Top{n}：\n"
 
             if group_users:
                 msg += "\n📢 群组排名：\n"
-                for i, user in enumerate(group_users[:10], 1):
-                    user_id = (
-                        user.user_id.split("_", 1)[1]
-                        if "_" in user.user_id
-                        else user.user_id
-                    )
-                    total_tokens = user.tokens_input + user.tokens_output
-                    msg += f"{i}. 群{user_id}: {user.called_count}次, {total_tokens}tokens\n"
+                for i, user in enumerate(group_users[:n], 1):
+                    msg += _format_user_entry(i, user, "群")
 
             if private_users:
                 msg += "\n💬 私聊排名：\n"
-                for i, user in enumerate(private_users[:10], 1):
-                    user_id = (
-                        user.user_id.split("_", 1)[1]
-                        if "_" in user.user_id
-                        else user.user_id
-                    )
-                    total_tokens = user.tokens_input + user.tokens_output
-                    msg += f"{i}. 用户{user_id}: {user.called_count}次, {total_tokens}tokens\n"
+                for i, user in enumerate(private_users[:n], 1):
+                    msg += _format_user_entry(i, user, "用户")
 
     if isinstance(event, GroupMessageEvent):
         await matcher.finish(

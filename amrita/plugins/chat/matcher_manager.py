@@ -60,7 +60,7 @@ class MatcherSpec:
     # command 专用
     command: str | None = None
     aliases: set[str] | None = None
-    force_whitespace: bool = False
+    force_whitespace: bool | None = None
     # 通用
     priority: int | None = None
     block: bool | None = None
@@ -212,7 +212,8 @@ MATCHERS: list[MatcherSpec] = [
             usage=[
                 "/insights — 查看今日用量",
                 "/insights global — 全局用量",
-                "/insights top10 <--group|private|all> — Top10 排名",
+                "/insights top<N> — TopN 排名",
+                "/insights inspect [group|user] <id> — 查询指定群/用户用量",
             ],
         ).model_dump(),
     ),
@@ -276,7 +277,11 @@ def _register(spec: MatcherSpec) -> None:
     else:
         assert spec.command is not None, "command 类匹配器必须提供 command"
         kwargs["aliases"] = spec.aliases
-        kwargs["force_whitespace"] = spec.force_whitespace
+        # 仅当显式指定时才传入，避免 False 覆盖 NoneBot 默认的 None
+        # （NoneBot 中 force_whitespace=False 表示命令后必须无空白，
+        #  会导致 `/chat on` 这类带空格参数的命令静默失配）
+        if spec.force_whitespace is not None:
+            kwargs["force_whitespace"] = spec.force_whitespace
         kwargs["state"] = spec.state
         matcher = group.on_command(spec.command, **kwargs)
     matcher.append_handler(spec.handler)

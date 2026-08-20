@@ -11,7 +11,6 @@ from amrita_core.chatmanager import MemoryLimiter
 from amrita_core.types import MemoryModel as AwaredMemory
 from nonebot import logger
 from nonebot.adapters.onebot.v11 import Bot, Message, MessageEvent
-from nonebot.exception import NoneBotException
 from nonebot.matcher import Matcher
 from nonebot.params import CommandArg
 from nonebot_plugin_amrita.database import UserDataExecutor
@@ -54,20 +53,22 @@ async def _session_use(event: MessageEvent, matcher: Matcher, index: str) -> Non
     try:
         session_index = int(index)
         user_sessions = await repo.get_sesssions(get_uni_user_id(event))
-        if session_index < 0 or session_index >= len(user_sessions):
-            await matcher.finish("请输入正确的编号")
-        target = user_sessions[session_index]
-        memory_data = await repo.get_memory(get_uni_user_id(event))
-        memory_data.memory_json.messages = deepcopy(target.data.messages)
-        await repo.update_memory_data(memory_data)
-        await matcher.send("✅ 已完成记忆覆盖。")
-    except (ValueError, IndexError):
+    except ValueError:
         await matcher.finish("请输入正确的编号")
-    except NoneBotException:
-        raise
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).exception("覆盖记忆文件失败。")
         await matcher.finish("覆盖记忆文件失败，这个对话可能损坏了。")
+    if not 0 <= session_index < len(user_sessions):
+        await matcher.finish("请输入正确的编号")
+    target = user_sessions[session_index]
+    try:
+        memory_data = await repo.get_memory(get_uni_user_id(event))
+        memory_data.memory_json.messages = deepcopy(target.data.messages)
+        await repo.update_memory_data(memory_data)
+    except Exception as e:
+        logger.opt(exception=e, colors=True, raw=True).exception("覆盖记忆文件失败。")
+        await matcher.finish("覆盖记忆文件失败，这个对话可能损坏了。")
+    await matcher.send("✅ 已完成记忆覆盖。")
 
 
 async def _session_del(event: MessageEvent, matcher: Matcher, index: str) -> None:
@@ -77,22 +78,26 @@ async def _session_del(event: MessageEvent, matcher: Matcher, index: str) -> Non
     try:
         session_index = int(index)
         user_sessions = await repo.get_sesssions(uni_id)
-        if session_index < 0 or session_index >= len(user_sessions):
-            await matcher.finish("请输入正确的编号")
-        removed = list(user_sessions).pop(session_index)
-        async with get_session() as session:
-            async with UserDataExecutor(uni_id, session) as executor:
-                await executor.remove_session(removed.id)
-        await matcher.send("✅ 已删除对应的会话。")
-    except (ValueError, IndexError):
+    except ValueError:
         await matcher.finish("请输入正确的编号")
-    except NoneBotException:
-        raise
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).exception(
             "删除指定编号会话失败。"
         )
         await matcher.finish("删除指定编号会话失败。")
+    if not 0 <= session_index < len(user_sessions):
+        await matcher.finish("请输入正确的编号")
+    removed = list(user_sessions).pop(session_index)
+    try:
+        async with get_session() as session:
+            async with UserDataExecutor(uni_id, session) as executor:
+                await executor.remove_session(removed.id)
+    except Exception as e:
+        logger.opt(exception=e, colors=True, raw=True).exception(
+            "删除指定编号会话失败。"
+        )
+        await matcher.finish("删除指定编号会话失败。")
+    await matcher.send("✅ 已删除对应的会话。")
 
 
 async def _session_archive(event: MessageEvent, matcher: Matcher) -> None:
@@ -101,23 +106,25 @@ async def _session_archive(event: MessageEvent, matcher: Matcher) -> None:
     uni_id = get_uni_user_id(event)
     try:
         memory_data = await repo.get_memory(uni_id)
-        if not memory_data.memory_json.messages:
-            await matcher.finish("当前对话为空！")
-        new_session = AwaredMemory(
-            messages=deepcopy(memory_data.memory_json.messages),
-            abstract=memory_data.memory_json.abstract,
-        )
+    except Exception as e:
+        logger.opt(exception=e, colors=True, raw=True).exception("归档当前会话失败。")
+        await matcher.finish("归档当前会话失败。")
+    if not memory_data.memory_json.messages:
+        await matcher.finish("当前对话为空！")
+    new_session = AwaredMemory(
+        messages=deepcopy(memory_data.memory_json.messages),
+        abstract=memory_data.memory_json.abstract,
+    )
+    try:
         async with get_session() as session:
             async with UserDataExecutor(uni_id, session) as executor:
                 await executor.add_session(new_session)
         memory_data.memory_json.messages = []
         await repo.update_memory_data(memory_data)
-        await matcher.finish("✅ 当前会话已归档。")
-    except NoneBotException:
-        raise
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).exception("归档当前会话失败。")
         await matcher.finish("归档当前会话失败。")
+    await matcher.finish("✅ 当前会话已归档。")
 
 
 async def _session_clear(event: MessageEvent, matcher: Matcher) -> None:

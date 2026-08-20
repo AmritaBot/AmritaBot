@@ -141,8 +141,8 @@ async def insights(event: MessageEvent, matcher: Matcher, args: Message = Comman
                     msg += _format_user_entry(i, user, "用户")
 
     if isinstance(event, GroupMessageEvent):
-        await matcher.finish(
-            MessageSegment.at(event.user_id) + MessageSegment.text(f"\n{msg}")
-        )
-    # 私聊不支持 at 段（协议约束），仅发送文本
-    await matcher.finish(MessageSegment.text(f"\n{msg}"))
+        content = MessageSegment.at(event.user_id) + MessageSegment.text(f"\n{msg}")
+    else:
+        # 私聊不支持 at 段（协议约束），仅发送文本
+        content = MessageSegment.text(f"\n{msg}")
+    await matcher.finish(content)

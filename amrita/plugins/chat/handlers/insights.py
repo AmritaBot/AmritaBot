@@ -103,6 +103,9 @@ async def insights(event: MessageEvent, matcher: Matcher, args: Message = Comman
                     total_tokens = user.tokens_input + user.tokens_output
                     msg += f"{i}. 用户{user_id}: {user.called_count}次, {total_tokens}tokens\n"
 
-    await matcher.finish(
-        MessageSegment.at(event.user_id) + MessageSegment.text(f"\n{msg}")
-    )
+    if isinstance(event, GroupMessageEvent):
+        await matcher.finish(
+            MessageSegment.at(event.user_id) + MessageSegment.text(f"\n{msg}")
+        )
+    # 私聊不支持 at 段（协议约束），仅发送文本
+    await matcher.finish(MessageSegment.text(f"\n{msg}"))

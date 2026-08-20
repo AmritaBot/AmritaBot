@@ -174,7 +174,9 @@ async def handle_group_poke(
     if not config_manager.config.function.nature_chat_style:
         await matcher.send(message)
     else:
-        await send_split_messages(message.extract_plain_text(), event.user_id, matcher)
+        await send_split_messages(
+            message.extract_plain_text(), event.user_id, matcher, is_group=True
+        )
 
 
 async def handle_private_poke(
@@ -216,7 +218,9 @@ async def handle_private_poke(
     if not config_manager.config.function.nature_chat_style:
         await matcher.send(message)
     else:
-        await send_split_messages(message.extract_plain_text(), event.user_id, matcher)
+        await send_split_messages(
+            message.extract_plain_text(), event.user_id, matcher, is_group=False
+        )
 
 
 async def process_poke_event(
@@ -263,12 +267,20 @@ async def process_poke_event(
     return response.content
 
 
-async def send_split_messages(response: str, user_id: int, matcher: Matcher):
-    """发送分段消息"""
+async def send_split_messages(
+    response: str, user_id: int, matcher: Matcher, *, is_group: bool = True
+):
+    """发送分段消息
+
+    私聊不支持 at 段（协议约束），is_group=False 时剥离 at。
+    """
     if response_list := split_message_into_chats(response):  # 将消息分段
-        first_message = (
-            MessageSegment.at(user_id) + MessageSegment.text(" ") + response_list[0]
-        )
+        if is_group:
+            first_message = (
+                MessageSegment.at(user_id) + MessageSegment.text(" ") + response_list[0]
+            )
+        else:
+            first_message = MessageSegment.text(response_list[0])
         await matcher.send(first_message)
 
         # 逐条发送分段消息

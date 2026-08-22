@@ -62,6 +62,17 @@ class NoopAbilityBackend(AbilityBackend):
         from .config import config_manager
 
         manager = MultiPresetManager()
-        # 配置选中的预设即默认预设；set_default_preset 会自动登记进管理器
-        manager.set_default_preset(config_manager.config.default_preset)
+        # 磁盘预设即唯一来源（default 与普通预设无差别）；重名预设跳过
+        registered: set[str] = set()
+        for preset in await config_manager.get_all_presets(cache=True):
+            if preset.name in registered:
+                continue
+            manager.add_preset(preset)
+            registered.add(preset.name)
+        # 默认预设：配置选中的预设（fix 回退保证存在）
+        default = await config_manager.get_preset(
+            config_manager.config.preset, fix=True, cache=True
+        )
+        if default is not None:
+            manager.set_default_preset(default)
         return manager

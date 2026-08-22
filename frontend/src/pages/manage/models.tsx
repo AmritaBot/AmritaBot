@@ -319,13 +319,12 @@ export function ModelsPage() {
           <Button variant="outline" size="sm" onClick={() => setEditing(m)}>
             编辑
           </Button>
-          {/* default 是运行时配置（config.default_preset），不可删除 */}
+          {/* default 与普通预设一致，可编辑可删除；仅当删除后预设目录为空时才会自动重建 */}
           <Button
             variant="destructive"
             size="sm"
             onClick={() => setDeleting(m)}
-            disabled={deleteMutation.isPending || m.name === "default"}
-            title={m.name === "default" ? "默认预设不可删除" : undefined}
+            disabled={deleteMutation.isPending}
           >
             删除
           </Button>

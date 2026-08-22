@@ -93,15 +93,9 @@ async def update_model(request: Request, name: str):
                 # 前端未修改 api_key 时不会提交该键，因此不会误清空
                 setattr(preset, key, value)
 
-        if name == "default":
-            # default 预设即 config.default_preset（运行时模型配置），
-            # 更新后写回配置并持久化（不能存到预设表文件，那里不生效）
-            config_manager.config.default_preset = preset
-            await config_manager.save_config()
-        else:
-            # 保存模型预设到文件
-            preset_path = config_manager.get_preset_path(name)
-            preset.save(preset_path)
+        # 所有预设（含 default）统一以磁盘预设文件承载
+        preset_path = config_manager.get_preset_path(name)
+        preset.save(preset_path)
 
         # 重新加载模型列表
         await config_manager.get_all_presets(cache=False)
@@ -122,13 +116,8 @@ async def update_model(request: Request, name: str):
 @router.post("/api/chat/models/{name}/delete")
 async def delete_model(name: str):
     try:
-        # default 预设是运行时配置（config.default_preset），不可删除
-        if name == "default":
-            return JSONResponse(
-                {"success": False, "message": "默认预设不可删除"},
-                status_code=400,
-            )
-
+        # default 预设与普通预设一致（磁盘文件），可删除；
+        # 若删除的是配置选中的预设，重置选中到剩余的第一个预设。
         preset_path = config_manager.get_preset_path(name)
 
         if not preset_path.exists():
@@ -141,6 +130,13 @@ async def delete_model(name: str):
         # 重新加载模型列表
         await config_manager.get_all_presets(cache=False)
         config_manager.forget_preset(name)
+
+        # 删除的是当前选中的预设 → 重置选中到剩余第一个可用预设
+        if config_manager.config.preset == name:
+            remaining = await config_manager.get_all_presets(cache=False)
+            if remaining:
+                config_manager.ins_config.preset = remaining[0].name
+                await config_manager.save_config()
 
         return JSONResponse(
             {"success": True, "message": f"模型预设 {name} 删除成功"}, status_code=200

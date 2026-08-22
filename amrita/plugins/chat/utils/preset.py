@@ -12,15 +12,26 @@ from ..config import config_manager
 
 
 async def resolve_preset(
-    name: str | None = None, *, fix: bool = False, cache: bool = True
+    name: str | None = None, *, fix: bool = True, cache: bool = True
 ) -> ModelPreset:
     """解析预设名 → ``ModelPreset``。
 
     Args:
         name: 预设名；``None`` 时取配置选中的预设（``config.preset``）
-        fix: 找不到时修正为 ``default`` 并持久化
+        fix: 找不到时回退（default → 首个可用预设）并持久化选中。
+            默认 ``True``：热路径自动修正失效的选中预设（如 default 被删除）
         cache: 是否走磁盘预设缓存（默认 ``True``，热路径友好）
+
+    Returns:
+        ``ModelPreset``：解析到的预设。``fix=True`` 时回退链保证非空
+        （预设目录为空会自动创建 ``default``）。
+
+    Raises:
+        LookupError: ``fix=False`` 且目标预设不存在
     """
     if name is None:
         name = config_manager.config.preset
-    return await config_manager.presets.get_preset(name, fix=fix, cache=cache)
+    preset = await config_manager.presets.get_preset(name, fix=fix, cache=cache)
+    if preset is None:
+        raise LookupError(f"预设 {name} 不存在")
+    return preset

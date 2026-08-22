@@ -263,9 +263,6 @@ class Config(BaseModel):
     preset_extension: PresetSwitch = Field(
         default=PresetSwitch(), description="预设模型扩展配置"
     )
-    default_preset: ModelPreset = Field(
-        default=ModelPreset(), description="默认预设配置"
-    )
     session: SessionConfig = Field(default=SessionConfig(), description="会话管理配置")
     meta: MetaInfoConfig = Field(
         default=MetaInfoConfig(), description="元信息消息显示开关"
@@ -312,6 +309,21 @@ class Config(BaseModel):
         """
         if not isinstance(data, dict):
             return data
+
+        # 迁移内嵌 default_preset → models/default.json（若目标不存在），
+        # 随后移除该键：default 预设一律由磁盘承载，配置不再内嵌模型预设。
+        if isinstance(data.get("default_preset"), dict):
+            try:
+                default_json = CONFIG_DIR / "models" / "default.json"
+                if not default_json.exists():
+                    default_json.parent.mkdir(parents=True, exist_ok=True)
+                    ModelPreset.model_validate(data["default_preset"]).save(
+                        default_json
+                    )
+            except Exception as e:
+                logger.warning(f"迁移内嵌 default_preset 失败: {e!s}")
+            data.pop("default_preset")
+
         if "core" in data:
             return data  # 已迁移
 
@@ -437,7 +449,6 @@ class ConfigManager(EnvfulConfigManager[Config]):
         # 服务构造只依赖惰性回调，配置加载前后均可安全初始化。
         self.presets = PresetService(
             self.preset_store,
-            get_config=lambda: self.config,
             get_ins_config=lambda: self.ins_config,
             save_config=lambda: self.save_config(),
         )
@@ -447,7 +458,6 @@ class ConfigManager(EnvfulConfigManager[Config]):
         )
         self.models = ModelConfigService(
             self.preset_store,
-            get_ins_config=lambda: self.ins_config,
         )
 
     @override
@@ -539,16 +549,16 @@ class ConfigManager(EnvfulConfigManager[Config]):
 
     async def get_preset(
         self, preset: str, fix: bool = False, cache: bool = True
-    ) -> ModelPreset:
+    ) -> ModelPreset | None:
         """获取预设配置（委托 PresetService，默认走缓存）
 
         Args:
             preset (str): _预设的字符串名称_
-            fix (bool, optional): _是否修正不存在的预设_. Defaults to False.
+            fix (bool, optional): _找不到时是否回退并持久化_. Defaults to False.
             cache (bool, optional): _是否使用缓存_. Defaults to True.
 
         Returns:
-            ModelPreset: _模型预设对象_
+            ModelPreset | None: _模型预设对象；找不到且未 fix 时为 None_
         """
         return await self.presets.get_preset(preset, fix=fix, cache=cache)
 

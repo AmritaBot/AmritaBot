@@ -49,7 +49,10 @@ async def model_switch(
 
 async def model_info(event: MessageEvent, matcher: Matcher, bot: Bot) -> None:
     """展示当前模型的详细信息（模型名、思考深度）"""
-    preset = await config_manager.get_preset(config_manager.config.preset)
+    preset = await config_manager.get_preset(
+        config_manager.config.preset, fix=True, cache=True
+    )
+    assert preset is not None  # fix 回退保证存在（目录为空时默认创建 default）
     msg = (
         f"当前模型：{preset.name}（{preset.model}）\n"
         f"接口：{preset.base_url or '默认'}\n"
@@ -68,12 +71,12 @@ async def model_test(
     """测试指定模型（不指定则测试全部）"""
     pm = MultiPresetManager()
     if name:
-        try:
-            presets = [await config_manager.get_preset(name)]
-        except Exception:
+        preset = await config_manager.get_preset(name, fix=False, cache=True)
+        if preset is None:
             await matcher.finish(
                 f"未找到模型 {name}，请输入 /model list 查看可用模型。"
             )
+        presets = [preset]
     else:
         presets = await config_manager.get_all_presets(True)
     if TEST_LOCK.locked():

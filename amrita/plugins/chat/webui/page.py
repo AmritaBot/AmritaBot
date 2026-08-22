@@ -54,7 +54,7 @@ async def create_model(request: Request):
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).error("创建模型预设失败")
         return JSONResponse(
-            {"success": False, "message": f"创建模型预设失败: {e!s}"},
+            {"success": False, "message": "创建模型预设失败"},
             status_code=500,
         )
 
@@ -109,7 +109,7 @@ async def update_model(request: Request, name: str):
             "[webui] 模型预设更新失败: %s", e
         )
         return JSONResponse(
-            {"success": False, "message": f"更新模型预设失败: {e!s}"},
+            {"success": False, "message": "更新模型预设失败"},
             status_code=500,
         )
 
@@ -147,7 +147,7 @@ async def delete_model(name: str):
             f"Error in delete preset {name}"
         )
         return JSONResponse(
-            {"success": False, "message": f"删除模型预设失败: {e!s}"},
+            {"success": False, "message": "删除模型预设失败"},
             status_code=500,
         )
 
@@ -171,7 +171,7 @@ async def get_models():
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).error("获取模型预设列表失败")
         return JSONResponse(
-            {"success": False, "message": f"获取模型预设列表失败: {e!s}"},
+            {"success": False, "message": "获取模型预设列表失败"},
             status_code=500,
         )
 
@@ -220,9 +220,9 @@ async def create_prompt(request: Request, prompt_type: str):
             {"success": True, "message": f"{prompt_type}提示词 {name} 创建成功"},
             status_code=200,
         )
-    except Exception as e:
+    except Exception:
         return JSONResponse(
-            {"success": False, "message": f"创建提示词失败: {e!s}"}, status_code=500
+            {"success": False, "message": "创建提示词失败"}, status_code=500
         )
 
 
@@ -305,9 +305,9 @@ async def update_prompt(request: Request, prompt_type: str, name: str):
             {"success": True, "message": f"{prompt_type}提示词 {name} 更新成功"},
             status_code=200,
         )
-    except Exception as e:
+    except Exception:
         return JSONResponse(
-            {"success": False, "message": f"更新提示词失败: {e!s}"}, status_code=500
+            {"success": False, "message": "更新提示词失败"}, status_code=500
         )
 
 
@@ -351,9 +351,9 @@ async def delete_prompt(prompt_type: str, name: str):
             {"success": True, "message": f"{prompt_type}提示词 {name} 删除成功"},
             status_code=200,
         )
-    except Exception as e:
+    except Exception:
         return JSONResponse(
-            {"success": False, "message": f"删除提示词失败: {e!s}"}, status_code=500
+            {"success": False, "message": "删除提示词失败"}, status_code=500
         )
 
 
@@ -384,9 +384,9 @@ async def get_prompts():
             },
             status_code=200,
         )
-    except Exception as e:
+    except Exception:
         return JSONResponse(
-            {"success": False, "message": f"获取提示词列表失败: {e!s}"},
+            {"success": False, "message": "获取提示词列表失败"},
             status_code=500,
         )
 
@@ -656,7 +656,7 @@ async def get_skills():
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).error("获取技能列表失败")
         return JSONResponse(
-            {"success": False, "message": f"获取技能列表失败: {e!s}"},
+            {"success": False, "message": "获取技能列表失败"},
             status_code=500,
         )
 

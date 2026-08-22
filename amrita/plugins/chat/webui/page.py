@@ -13,8 +13,6 @@ from amrita.plugins.chat.config import config_manager
 from amrita.plugins.webui.API import JSONResponse
 from amrita.plugins.webui.API import app as router
 
-KEY_PLACEHOLDER = "••••••••"
-
 
 @router.post("/api/chat/models")
 async def create_model(request: Request):
@@ -90,10 +88,9 @@ async def update_model(request: Request, name: str):
                     for tc_key, tc_value in value.items():
                         if hasattr(preset.thinking_config, tc_key):
                             setattr(preset.thinking_config, tc_key, tc_value)
-            elif key == "api_key":
-                if value != KEY_PLACEHOLDER:
-                    setattr(preset, key, value)
             elif hasattr(preset, key) and key != "name":  # 排除不可变的name字段
+                # PATCH 语义：payload 中出现才更新（含 api_key）——
+                # 前端未修改 api_key 时不会提交该键，因此不会误清空
                 setattr(preset, key, value)
 
         if name == "default":
@@ -164,8 +161,12 @@ async def get_models():
         models = copy.deepcopy(await config_manager.get_all_presets(cache=False))
         model_data = []
         for model in models:
-            model.api_key = KEY_PLACEHOLDER
-            model_data.append(model.model_dump())
+            # 敏感字段不回传：api_key 置空，仅暴露是否已配置
+            has_key = bool(model.api_key)
+            model.api_key = ""
+            dump = model.model_dump()
+            dump["has_api_key"] = has_key
+            model_data.append(dump)
 
         return JSONResponse(
             {"success": True, "data": {"models": model_data}}, status_code=200

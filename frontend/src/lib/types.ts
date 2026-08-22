@@ -141,6 +141,8 @@ export interface ChatModel {
   model: string;
   base_url: string;
   api_key: string;
+  /** 是否已配置 API Key（敏感字段不回传，仅暴露状态） */
+  has_api_key?: boolean;
   protocol: string;
   config: Record<string, unknown>;
   thinking_config: Record<string, unknown> | null;

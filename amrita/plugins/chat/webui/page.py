@@ -699,6 +699,6 @@ async def reload_skills_api():
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).error("重载技能失败")
         return JSONResponse(
-            {"success": False, "message": f"重载技能失败: {e!s}"},
+            {"success": False, "message": "重载技能失败，请稍后重试"},
             status_code=500,
         )

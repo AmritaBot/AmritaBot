@@ -62,9 +62,10 @@ class WsConfig(BaseModel):
     )
     auth_check_interval: float = Field(
         default=60.0,
+        gt=0,
         description=(
-            "WS 连接内定期复检登录态的时间间隔（秒）：token 过期/登出后"
-            "断开挂机连接，避免长连接长期有效"
+            "WS 连接内定期复检登录态的时间间隔（秒，必须为正数）：token "
+            "过期/登出后断开挂机连接，避免长连接长期有效"
         ),
     )
 

@@ -89,9 +89,7 @@ async def get_skill_context() -> SkillContext:
         async with _skill_init_lock:
             if _skill_context is None:
                 SKILLS_DIR.mkdir(parents=True, exist_ok=True)  # noqa: ASYNC240
-                ctx = await asyncio.to_thread(
-                    create_context, skill_dirs=[SKILLS_DIR]
-                )
+                ctx = await asyncio.to_thread(create_context, skill_dirs=[SKILLS_DIR])
                 await asyncio.to_thread(ctx.discover)
                 _skill_context = ctx
     return _skill_context

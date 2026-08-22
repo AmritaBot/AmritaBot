@@ -97,9 +97,7 @@ class SkillConfig(BaseModel):
     enable: bool = Field(default=True, description="是否启用技能系统")
     selected: list[str] = Field(
         default=[],
-        description=(
-            "启用的技能名称列表（空列表=全部启用；非空则仅列表内的技能启用）"
-        ),
+        description=("启用的技能名称列表（空列表=全部启用；非空则仅列表内的技能启用）"),
     )
 
 

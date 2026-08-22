@@ -55,7 +55,9 @@ export function SkillsPage() {
       // 禁用：selected 为空时需显式列出其余全部技能；非空时从中移除
       const others = allNames.filter((n) => n !== skill.name);
       selected =
-        selected.length === 0 ? others : selected.filter((n) => n !== skill.name);
+        selected.length === 0
+          ? others
+          : selected.filter((n) => n !== skill.name);
     } else if (selected.length === 0) {
       // 全启用状态下无需修改（所有技能均已启用）
       return;

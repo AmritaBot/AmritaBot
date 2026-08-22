@@ -678,7 +678,7 @@ async def update_skills(request: Request):
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).error("保存技能配置失败")
         return JSONResponse(
-            {"success": False, "message": f"保存技能配置失败: {e!s}"},
+            {"success": False, "message": "保存技能配置失败"},
             status_code=500,
         )
 

@@ -40,8 +40,13 @@ class NoopAbilityBackend(AbilityBackend):
     其中 ``load_presets`` 构建并返回一个以配置选中预设为默认预设的
     ``MultiPresetManager``，由 Core 在 ``LOAD_STATE`` 节点抓取，从而
     彻底脱离全局单例 ``PresetManager``（其默认预设受热重载 / 脏状态影响，
-    且 Core 已改为 FailFast）。其余能力（MCP / tools / ability）由
-    ``DatabackendOptions`` 决定是否抓取。
+    且 Core 已改为 FailFast）。
+
+    ``load_tools`` 构建 faskill Skills 工具池：以全局 ``ToolsManager``
+    单例为基底克隆注册表（copy+mixin），再把已发现技能混合进克隆返回——
+    工具池包含全局工具池全部工具，同时不污染全局单例，由 Core 在
+    ``LOAD_STATE`` 节点抓取后注入 ``AbilityContext.tools``。其余能力
+    （MCP / ability）由 ``DatabackendOptions`` 决定是否抓取。
     """
 
     async def load_ability_all(self, session_id: str) -> AbilityContext:
@@ -54,7 +59,10 @@ class NoopAbilityBackend(AbilityBackend):
 
     async def load_tools(self, session_id: str) -> MultiToolsManager:
         del session_id
-        return MultiToolsManager()
+        # 延迟导入避免与 config / skills 模块产生循环依赖
+        from .skills import build_skill_tools
+
+        return build_skill_tools()
 
     async def load_presets(self, session_id: str) -> MultiPresetManager:
         del session_id

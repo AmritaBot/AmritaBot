@@ -86,4 +86,7 @@ export const registry: Record<string, ComponentType> = {
   "/manage/chat/mcp": lazy(() =>
     import("@/pages/manage/mcp").then((m) => ({ default: m.McpPage })),
   ),
+  "/manage/chat/skills": lazy(() =>
+    import("@/pages/manage/skills").then((m) => ({ default: m.SkillsPage })),
+  ),
 };

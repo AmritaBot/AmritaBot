@@ -9,7 +9,8 @@ from fastapi import Request
 from nonebot import logger
 from nonebot_plugin_amrita.database import InsightsModel
 
-from amrita.plugins.chat.config import config_manager
+from amrita.plugins.chat.config import SkillConfig, config_manager
+from amrita.plugins.chat.skills import reload_skills, validate_skills
 from amrita.plugins.webui.API import JSONResponse
 from amrita.plugins.webui.API import app as router
 
@@ -618,5 +619,88 @@ async def get_chat_insights():
         logger.opt(exception=e, colors=True, raw=True).error("获取信息统计失败")
         return JSONResponse(
             {"success": False, "message": "获取信息统计失败"},
+            status_code=500,
+        )
+
+
+@router.get("/api/chat/skills")
+async def get_skills():
+    """技能管理：已发现技能（含启停/校验状态）与启停配置。"""
+    try:
+        results = validate_skills()
+        config = config_manager.ins_config.skills
+        return JSONResponse(
+            {
+                "success": True,
+                "data": {
+                    "skills": [
+                        {
+                            "name": r.name,
+                            "description": r.description,
+                            "version": r.version,
+                            "path": r.path,
+                            "enabled": r.enabled,
+                            "ok": r.ok,
+                            "error": r.error,
+                        }
+                        for r in results
+                    ],
+                    "config": {
+                        "enable": config.enable,
+                        "enabled": config.enabled,
+                        "disabled": config.disabled,
+                    },
+                },
+            },
+            status_code=200,
+        )
+    except Exception as e:
+        logger.opt(exception=e, colors=True, raw=True).error("获取技能列表失败")
+        return JSONResponse(
+            {"success": False, "message": f"获取技能列表失败: {e!s}"},
+            status_code=500,
+        )
+
+
+@router.post("/api/chat/skills")
+async def update_skills(request: Request):
+    """技能启停配置保存（全量覆盖 enable/enabled/disabled）。"""
+    try:
+        data: dict[str, Any] = await request.json()
+        skills_cfg = SkillConfig(
+            enable=bool(data.get("enable", True)),
+            enabled=[str(x) for x in data.get("enabled", [])],
+            disabled=[str(x) for x in data.get("disabled", [])],
+        )
+        config_manager.ins_config.skills = skills_cfg
+        await config_manager.save_config()
+        return JSONResponse(
+            {"success": True, "message": "技能配置保存成功"}, status_code=200
+        )
+    except Exception as e:
+        logger.opt(exception=e, colors=True, raw=True).error("保存技能配置失败")
+        return JSONResponse(
+            {"success": False, "message": f"保存技能配置失败: {e!s}"},
+            status_code=500,
+        )
+
+
+@router.post("/api/chat/skills/actions/reload")
+async def reload_skills_api():
+    """重新发现并校验技能目录（拾取新增/修改的 SKILL.md）。"""
+    try:
+        results = reload_skills()
+        return JSONResponse(
+            {
+                "success": True,
+                "message": "技能重载成功",
+                "data": {"count": len(results)},
+            },
+            status_code=200,
+        )
+    except Exception as e:
+        logger.opt(exception=e, colors=True, raw=True).error("重载技能失败")
+        return JSONResponse(
+            {"success": False, "message": f"重载技能失败: {e!s}"},
             status_code=500,
         )

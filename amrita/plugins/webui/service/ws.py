@@ -467,9 +467,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                 opts = raw.get("opts") or {}
                 logs_opts = opts.get("logs") or {}
                 try:
-                    logs_limit = int(
-                        logs_opts.get("limit", cfg.log_replay_limit)
-                    )
+                    logs_limit = int(logs_opts.get("limit", cfg.log_replay_limit))
                 except (TypeError, ValueError):
                     logs_limit = cfg.log_replay_limit
                 logs_limit = min(max(logs_limit, 1), cfg.log_replay_limit_max)

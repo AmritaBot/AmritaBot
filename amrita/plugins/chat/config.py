@@ -86,6 +86,21 @@ class MetaInfoConfig(BaseModel):
     stream_reasoning: bool = Field(
         default=False, description="流式思考块（单token粒度，默认关闭避免刷屏）"
     )
+    skill_trigger: bool = Field(
+        default=True, description="技能触发通知（使用了xxx技能）"
+    )
+
+
+class SkillConfig(BaseModel):
+    """技能系统配置（faskill Skills）"""
+
+    enable: bool = Field(default=True, description="是否启用技能系统")
+    enabled: list[str] = Field(
+        default=[], description="显式启用白名单（空列表=全部启用）"
+    )
+    disabled: list[str] = Field(
+        default=[], description="禁用的技能名称列表（优先级高于白名单）"
+    )
 
 
 class SessionConfig(BaseModel):
@@ -264,6 +279,7 @@ class Config(BaseModel):
         default=PresetSwitch(), description="预设模型扩展配置"
     )
     session: SessionConfig = Field(default=SessionConfig(), description="会话管理配置")
+    skills: SkillConfig = Field(default=SkillConfig(), description="技能系统配置")
     meta: MetaInfoConfig = Field(
         default=MetaInfoConfig(), description="元信息消息显示开关"
     )

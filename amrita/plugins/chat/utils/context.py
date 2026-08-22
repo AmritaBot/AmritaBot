@@ -12,6 +12,7 @@ from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent
 from nonebot_plugin_amrita.memory import MemorySchema
 
 from ..config import Config, config_manager
+from ..skills import build_skill_usage_prompt
 
 
 def _format_desc_xml() -> str:
@@ -91,6 +92,7 @@ def build_train_dict(
             if config.function.allow_custom_prompt
             else ""
         )
+        + build_skill_usage_prompt()
     )
     return {"role": "system", "content": train_content}
 

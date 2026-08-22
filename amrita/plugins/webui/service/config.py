@@ -12,7 +12,6 @@ from pydantic import BaseModel, Field
 DEFAULT_WEBUI_PASSWORD = "admin123"
 
 
-
 class Config(BaseModel):
     """
     Configuration for webui
@@ -32,12 +31,8 @@ def get_webui_config() -> Config:
 class WsConfig(BaseModel):
     """WebSocket 实时推送配置（/amrita/ui/ws 频道）"""
 
-    system_interval: float = Field(
-        default=2.0, description="system 频道推送间隔（秒）"
-    )
-    bot_state_interval: float = Field(
-        default=5.0, description="bot 状态检查间隔（秒）"
-    )
+    system_interval: float = Field(default=2.0, description="system 频道推送间隔（秒）")
+    bot_state_interval: float = Field(default=5.0, description="bot 状态检查间隔（秒）")
     log_pending_max: int = Field(
         default=5000, description="待广播日志队列上限（sink 线程写、dispatcher 消费）"
     )
@@ -51,10 +46,13 @@ class WsConfig(BaseModel):
         default=64 * 1024,
         description="从日志文件尾部读取时每次 seek 的块大小（字节）",
     )
+
+
 # 配置热重载钩子
 
 WsConfigReloadHook = Callable[[WsConfig], Awaitable[None]]
 _reload_hooks: list[WsConfigReloadHook] = []
+
 
 def register_ws_config_reload_hook(hook: WsConfigReloadHook) -> None:
     """注册配置热重载钩子（幂等，重复注册自动去重）。"""
@@ -106,13 +104,16 @@ class DataManager(BaseDataManager[WsConfig]):
             self._task = asyncio.create_task(init())
             self._inited = True
 
+
 def is_using_default_password() -> bool:
     """是否仍在使用出厂默认密码（此时 WebUI 锁定，要求更换）。"""
     return get_webui_config().webui_password.strip() == DEFAULT_WEBUI_PASSWORD
+
 
 @get_driver().on_startup
 async def _() -> None:
     """启动时加载配置。"""
     await data_manager.safe_get_config()
+
 
 data_manager = DataManager()

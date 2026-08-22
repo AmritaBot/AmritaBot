@@ -165,6 +165,24 @@ export interface McpServer {
 export interface McpServersData {
   servers: McpServer[];
 }
+export interface SkillInfo {
+  name: string;
+  description: string;
+  version: string | null;
+  path: string;
+  enabled: boolean;
+  ok: boolean;
+  error: string | null;
+}
+export interface SkillConfig {
+  enable: boolean;
+  enabled: string[];
+  disabled: string[];
+}
+export interface SkillsData {
+  skills: SkillInfo[];
+  config: SkillConfig;
+}
 export interface ChatInsightsData {
   token_prompt: number;
   token_completion: number;

@@ -140,6 +140,13 @@ _CORE_ROUTES = [
         "icon": "server",
         "hidden": False,
     },
+    {
+        "path": "/manage/chat/skills",
+        "name": "技能管理",
+        "category": "聊天管理",
+        "icon": "wand-2",
+        "hidden": False,
+    },
 ]
 
 

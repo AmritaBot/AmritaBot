@@ -25,6 +25,7 @@ from collections.abc import Coroutine
 from datetime import datetime
 from pathlib import Path
 from typing import Any, TextIO
+from urllib.parse import urlsplit
 
 import aiofiles
 import nonebot
@@ -84,6 +85,52 @@ class ChannelHub:
 
 
 hub = ChannelHub()
+
+
+def _origin_matches_host(origin: str, host: str) -> bool:
+    """Origin 与请求 Host 是否同「站点」（hostname 一致，端口不限）。
+
+    与浏览器 SameSite 的 site 判定一致（同 hostname 不同端口视为同站）：
+    仅跨 hostname 的 Origin 才需要走白名单。IPv6 字面量（[::1]:port）也支持。
+    """
+    try:
+        parts = urlsplit(origin)
+    except ValueError:
+        return False
+    if parts.scheme not in ("http", "https") or parts.hostname is None:
+        return False
+    host_l = host.lower()
+    if host_l.startswith("["):  # IPv6 字面量
+        end = host_l.find("]")
+        if end == -1:
+            return False
+        host_name = host_l[1:end]
+    elif ":" in host_l:
+        host_name, _, _ = host_l.rpartition(":")
+    else:
+        host_name = host_l
+    return parts.hostname.lower() == host_name
+
+
+def _origin_allowed(origin: str | None, host: str | None, cfg: WsConfig) -> bool:
+    """WebSocket 握手 Origin 校验：同站自动放行；跨站查白名单。
+
+    Origin 缺失（非浏览器客户端，如脚本/curl）放行——此类客户端不会被
+    浏览器自动携带 cookie，跨站 WebSocket 劫持面不成立。
+    """
+    if origin is None:
+        return True
+    if host is not None and _origin_matches_host(origin, host):
+        return True
+    return origin in cfg.allowed_origins
+
+
+async def _token_valid(token: str | None) -> bool:
+    """token 是否仍有效（存在且未过期）。"""
+    if token is None:
+        return False
+    token_data = await TokenManager().get_token_data(token, None)
+    return token_data is not None and token_data.expire >= datetime.now(utc)
 
 
 async def _send_json_locked(ws: WebSocket, message: dict) -> None:
@@ -344,34 +391,52 @@ async def _read_log_tail(limit: int) -> list[dict[str, Any]]:
         logger.debug("读取实时日志尾部失败", exc_info=True)
         return []
 
+async def _flush_replay_batch(ws: WebSocket, batch: list[dict[str, Any]]) -> None:
+    """逐条发送一批回放消息（持锁，与 dispatcher 广播串行）。"""
+    for message in batch:
+        await _send_json_locked(ws, message)
+
 
 async def _send_log_replay(ws: WebSocket, limit: int | None = None) -> None:
     """订阅 logs 时回放本次启动以来**最后 limit 条**日志（tail 语义）。
 
-    不全量回放：长运行的 Bot 可能产生数万条日志，全量回放会一次性
-    压垮前端（UI 卡死）。只发送文件尾部最新 limit 条，按时间正序发送。
-    limit 为 None 时使用配置 log_replay_limit。
+    由调用方以后台任务方式执行（不阻塞订阅循环）；按批发送并在批间
+    让出事件循环，实时日志（dispatcher）可插队——先快速看到最近 N 条
+    历史，随后无缝跟随实时。批次大小由配置 ``log_replay_batch`` 控制
+    （asyncio.Lock 为 FIFO，dispatcher 在锁队列中优先于下一批回放获得
+    发送权）。连接断开时静默结束（订阅循环的 finally 负责清理），
+    失败仅留 debug 线索。
     """
-    if limit is None:
+    try:
         cfg = await data_manager.safe_get_config()
-        limit = cfg.log_replay_limit
-    for item in await _read_log_tail(limit):
-        level = item.get("level", "INFO")
-        color, icon = _LEVEL_META.get(level, ("blue", "code"))
-        # 持锁发送：与 dispatcher 广播串行，避免并发 send 导致连接异常
-        await _send_json_locked(
-            ws,
-            {
-                "channel": "logs",
-                "data": {
-                    "title": level,
-                    "desc": item.get("payload", ""),
-                    "time": item.get("time", ""),
-                    "icon_color": color,
-                    "icon": icon,
-                },
-            },
-        )
+        if limit is None:
+            limit = cfg.log_replay_limit
+        batch: list[dict[str, Any]] = []
+        for item in await _read_log_tail(limit):
+            level = item.get("level", "INFO")
+            color, icon = _LEVEL_META.get(level, ("blue", "code"))
+            batch.append(
+                {
+                    "channel": "logs",
+                    "data": {
+                        "title": level,
+                        "desc": item.get("payload", ""),
+                        "time": item.get("time", ""),
+                        "icon_color": color,
+                        "icon": icon,
+                    },
+                }
+            )
+            if len(batch) >= cfg.log_replay_batch:
+                await _flush_replay_batch(ws, batch)
+                batch = []
+                # 让出事件循环：实时日志（dispatcher）在锁队列中优先发送
+                await asyncio.sleep(0)
+        if batch:
+            await _flush_replay_batch(ws, batch)
+    except Exception:
+        # 连接断开/发送失败：静默结束，不产生未捕获异常告警
+        logger.debug("日志回放中断", exc_info=True)
 
 
 _started = False
@@ -443,14 +508,17 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     """WebSocket 端点：先认证，再按订阅推送。"""
     await ws.accept()
 
+    # Origin 校验（防跨站 WebSocket 劫持：同站自动放行，跨站查白名单）
+    cfg = await data_manager.safe_get_config()
+    if not _origin_allowed(
+        ws.headers.get("origin"), ws.headers.get("host"), cfg
+    ):
+        await ws.close(code=1008, reason="Origin 不被允许")
+        return
+
     # Cookie 认证（WebSocket 无法重定向，直接关闭）
     token = ws.cookies.get(TOKEN_KEY)
-    token_manager = TokenManager()
-    if not token:
-        await ws.close(code=4401, reason="未授权")
-        return
-    token_data = await token_manager.get_token_data(token, None)
-    if token_data is None or token_data.expire < datetime.now(utc):
+    if not await _token_valid(token):
         await ws.close(code=4401, reason="未授权")
         return
 
@@ -459,7 +527,17 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     channels: set[str] = set()
     try:
         while True:
-            raw = await ws.receive_json()
+            cfg = await data_manager.safe_get_config()
+            try:
+                raw = await asyncio.wait_for(
+                    ws.receive_json(), timeout=cfg.auth_check_interval
+                )
+            except asyncio.TimeoutError:
+                # 周期性复检登录态：登出/token 过期后断开挂机连接
+                if not await _token_valid(token):
+                    await ws.close(code=4401, reason="未授权")
+                    return
+                continue
             action = raw.get("action")
             if action == "subscribe":
                 # 前端可控制日志回放条数：{"action":"subscribe","channels":["logs"],"opts":{"logs":{"limit":N}}}
@@ -474,8 +552,12 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                 for ch in raw.get("channels", []):
                     if ch in ("system", "bot", "logs"):
                         if ch == "logs" and ch not in channels:
-                            # 首次订阅 logs：回放本次启动以来最后 logs_limit 条
-                            await _send_log_replay(ws, logs_limit)
+                            # 首次订阅 logs：后台回放本次启动以来最后 logs_limit 条
+                            # （tail 语义）。回放放后台任务：同步逐条发送会阻塞
+                            # 订阅循环（无法处理 ping/退订），且实时日志（dispatcher）
+                            # 被回放占锁直到回放结束——回放量大时前端长时间只
+                            # 看到历史、实时日志滞后（“卡半天”）。
+                            _spawn_background(_send_log_replay(ws, logs_limit))
                         elif ch not in channels:
                             # 首次订阅 bot/system：立即推当前状态快照，
                             # 避免新订阅者要等下一次变化才能拿到数据；

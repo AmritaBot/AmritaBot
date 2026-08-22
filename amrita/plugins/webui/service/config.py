@@ -46,6 +46,27 @@ class WsConfig(BaseModel):
         default=64 * 1024,
         description="从日志文件尾部读取时每次 seek 的块大小（字节）",
     )
+    log_replay_batch: int = Field(
+        default=20,
+        description=(
+            "日志回放每批发送条数（批间让出事件循环，实时日志可插队，"
+            "避免回放历史时实时日志长时间滞后）"
+        ),
+    )
+    allowed_origins: list[str] = Field(
+        default_factory=list,
+        description=(
+            "WebSocket 额外允许的 Origin（同源请求自动放行，无需配置；"
+            "用于反代等 Host 与 Origin hostname 不一致的部署，留空表示仅允许同站）"
+        ),
+    )
+    auth_check_interval: float = Field(
+        default=60.0,
+        description=(
+            "WS 连接内定期复检登录态的时间间隔（秒）：token 过期/登出后"
+            "断开挂机连接，避免长连接长期有效"
+        ),
+    )
 
 
 # 配置热重载钩子

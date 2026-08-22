@@ -10,8 +10,9 @@ driver = get_driver()
 async def onEnable():
     logger.debug("加载配置文件...")
     await setup_core_runtime()
-    # 尽力加载并校验 skills 目录（单个技能失败仅记录日志，不阻断启动）
-    results = validate_skills()
+    # 尽力加载并校验 skills 目录（单个技能失败仅记录日志，不阻断启动）；
+    # 目录监听由 config 的 skills 目录回调负责（add_directory），无需自建任务
+    results = await validate_skills()
     failed = [r.name for r in results if not r.ok]
     if failed:
         logger.warning(f"技能加载校验失败 {len(failed)} 个: {failed}")

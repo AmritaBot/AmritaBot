@@ -146,7 +146,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     strategy = select_agent_strategy(config.llm.agent_strategy)
 
     # 构建定制化的 system prompt（与 /compact、/session info 共用同一构建逻辑）
-    train_dict = build_train_dict(event, memory, config)
+    train_dict = await build_train_dict(event, memory, config)
 
     #  阶段 4：创建 ChatObject
     ctx: AmritaBotContext = {

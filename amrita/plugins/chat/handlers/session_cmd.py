@@ -150,7 +150,7 @@ async def _session_info(event: MessageEvent, matcher: Matcher) -> None:
     data = memory.memory_json
 
     preset = await resolve_preset()
-    train = build_train_dict(event, memory, config)
+    train = await build_train_dict(event, memory, config)
     max_tokens = config.core.llm.session_tokens_windows
     total = await asyncio.to_thread(estimate_tokens, train, memory, config)
 
@@ -185,7 +185,7 @@ async def _session_compact(event: MessageEvent, matcher: Matcher, force: bool) -
     if not data.messages:
         await matcher.finish("当前会话为空，无需压缩。")
 
-    train = build_train_dict(event, memory, config)
+    train = await build_train_dict(event, memory, config)
     max_tokens = config.core.llm.session_tokens_windows
     current_tokens = await asyncio.to_thread(estimate_tokens, train, memory, config)
 

@@ -62,7 +62,7 @@ class NoopAbilityBackend(AbilityBackend):
         # 延迟导入避免与 config / skills 模块产生循环依赖
         from .skills import build_skill_tools
 
-        return build_skill_tools()
+        return await build_skill_tools()
 
     async def load_presets(self, session_id: str) -> MultiPresetManager:
         del session_id

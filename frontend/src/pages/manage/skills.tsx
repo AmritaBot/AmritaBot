@@ -1,30 +1,18 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { RefreshCw, Save } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
 import type { SkillConfig, SkillInfo, SkillsData } from "@/lib/types";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
-
-/** 解析每行一个的文本列表（兼容逗号/换行分隔） */
-function parseList(text: string): string[] {
-  return text
-    .split(/[\n,，]/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
 
 export function SkillsPage() {
   const qc = useQueryClient();
   const [enable, setEnable] = useState(true);
-  const [enabledText, setEnabledText] = useState("");
-  const [disabledText, setDisabledText] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["chat-skills"],
@@ -34,8 +22,6 @@ export function SkillsPage() {
   useEffect(() => {
     if (data?.data) {
       setEnable(data.data.config.enable);
-      setEnabledText(data.data.config.enabled.join("\n"));
-      setDisabledText(data.data.config.disabled.join("\n"));
     }
   }, [data]);
 
@@ -59,32 +45,40 @@ export function SkillsPage() {
 
   const save = (cfg: SkillConfig) => saveMutation.mutate(cfg);
 
-  /** 行内启停切换：更新 disabled（白名单模式下启用时同步加入白名单） */
+  /** 行内启停切换：维护 selected 列表（空=全部启用；非空=仅列表内启用） */
   const toggleSkill = (skill: SkillInfo) => {
     if (!data) return;
     const cfg = data.data.config;
-    const disabledSet = new Set(cfg.disabled);
+    const allNames = data.data.skills.map((s) => s.name);
+    let selected = cfg.selected;
     if (skill.enabled) {
-      disabledSet.add(skill.name);
+      // 禁用：selected 为空时需显式列出其余全部技能；非空时从中移除
+      const others = allNames.filter((n) => n !== skill.name);
+      selected =
+        selected.length === 0 ? others : selected.filter((n) => n !== skill.name);
+    } else if (selected.length === 0) {
+      // 全启用状态下无需修改（所有技能均已启用）
+      return;
     } else {
-      disabledSet.delete(skill.name);
+      // 启用：非空 selected 中加入该技能
+      selected = [...selected, skill.name];
     }
-    let enabledList = cfg.enabled;
-    if (
-      !skill.enabled &&
-      enabledList.length > 0 &&
-      !enabledList.includes(skill.name)
-    ) {
-      enabledList = [...enabledList, skill.name];
-    }
-    save({
-      enable: cfg.enable,
-      enabled: enabledList,
-      disabled: [...disabledSet],
-    });
+    save({ enable: cfg.enable, selected });
   };
 
   const columns: Column<SkillInfo>[] = [
+    {
+      key: "enabled",
+      header: "启用",
+      render: (s) => (
+        <Switch
+          checked={s.enabled}
+          onCheckedChange={() => toggleSkill(s)}
+          disabled={!s.ok || saveMutation.isPending}
+          aria-label={`${s.enabled ? "禁用" : "启用"}技能 ${s.name}`}
+        />
+      ),
+    },
     {
       key: "name",
       header: "名称",
@@ -125,27 +119,16 @@ export function SkillsPage() {
     },
     {
       key: "actions",
-      header: "操作",
-      render: (s) => (
-        <div className="flex items-center gap-3">
-          {!s.ok && s.error && (
-            <span
-              className="max-w-xs truncate text-xs text-destructive"
-              title={s.error}
-            >
-              {s.error}
-            </span>
-          )}
-          <Button
-            variant={s.enabled ? "outline" : "default"}
-            size="sm"
-            onClick={() => toggleSkill(s)}
-            disabled={saveMutation.isPending}
+      header: "",
+      render: (s) =>
+        !s.ok && s.error ? (
+          <span
+            className="max-w-xs truncate text-xs text-destructive"
+            title={s.error}
           >
-            {s.enabled ? "禁用" : "启用"}
-          </Button>
-        </div>
-      ),
+            {s.error}
+          </span>
+        ) : null,
     },
   ];
 
@@ -167,8 +150,7 @@ export function SkillsPage() {
                 if (data) {
                   save({
                     enable: checked,
-                    enabled: data.data.config.enabled,
-                    disabled: data.data.config.disabled,
+                    selected: data.data.config.selected,
                   });
                 }
               }}
@@ -190,52 +172,24 @@ export function SkillsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">启停配置</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>启用白名单（每行一个，留空=全部启用）</Label>
-              <Textarea
-                value={enabledText}
-                onChange={(e) => setEnabledText(e.target.value)}
-                placeholder="skill_name"
-                rows={4}
-                className="font-mono text-xs"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>禁用黑名单（每行一个，优先级高于白名单）</Label>
-              <Textarea
-                value={disabledText}
-                onChange={(e) => setDisabledText(e.target.value)}
-                placeholder="skill_name"
-                rows={4}
-                className="font-mono text-xs"
-              />
-            </div>
-          </div>
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">技能列表</CardTitle>
             <Button
-              onClick={() =>
-                save({
-                  enable,
-                  enabled: parseList(enabledText),
-                  disabled: parseList(disabledText),
-                })
-              }
+              variant="outline"
+              size="sm"
+              onClick={() => save({ enable, selected: [] })}
               disabled={saveMutation.isPending}
+              title="清空 selected 列表，恢复全部技能启用"
             >
-              <Save className="mr-1 h-4 w-4" />
-              {saveMutation.isPending ? "保存中…" : "保存配置"}
+              全部启用
             </Button>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">技能列表</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            勾选开关 = 启用对应技能；清空启用名单（点击“全部启用”）即全部启用。
+          </p>
+          <p className="text-xs text-muted-foreground/80">
+            （您也可以在配置文件处修改）
+          </p>
         </CardHeader>
         <CardContent>
           <DataTable

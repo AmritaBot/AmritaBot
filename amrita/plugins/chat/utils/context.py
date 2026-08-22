@@ -51,7 +51,7 @@ def _format_desc_legacy() -> str:
     )
 
 
-def build_train_dict(
+async def build_train_dict(
     event: MessageEvent, memory: MemorySchema, config: Config
 ) -> dict[str, str]:
     """构建 system prompt（与 chat 主流程完全一致）
@@ -92,7 +92,7 @@ def build_train_dict(
             if config.function.allow_custom_prompt
             else ""
         )
-        + build_skill_usage_prompt()
+        + (await build_skill_usage_prompt())
     )
     return {"role": "system", "content": train_content}
 

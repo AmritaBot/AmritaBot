@@ -95,11 +95,11 @@ class SkillConfig(BaseModel):
     """技能系统配置（faskill Skills）"""
 
     enable: bool = Field(default=True, description="是否启用技能系统")
-    enabled: list[str] = Field(
-        default=[], description="显式启用白名单（空列表=全部启用）"
-    )
-    disabled: list[str] = Field(
-        default=[], description="禁用的技能名称列表（优先级高于白名单）"
+    selected: list[str] = Field(
+        default=[],
+        description=(
+            "启用的技能名称列表（空列表=全部启用；非空则仅列表内的技能启用）"
+        ),
     )
 
 
@@ -498,6 +498,22 @@ class ConfigManager(EnvfulConfigManager[Config]):
             await self.get_all_presets(False)
             logger.success("完成")
 
+        async def skills_callback():
+            # 延迟导入避免循环依赖（skills.py 顶层 import 本模块）
+            from .skills import reload_skills
+
+            logger.info("正在重载技能目录...")
+            results = await reload_skills()
+            failed = [r.name for r in results if not r.ok]
+            if failed:
+                logger.warning(
+                    "技能目录变化，重新加载后 %d 个技能校验失败: %s",
+                    len(failed),
+                    failed,
+                )
+            else:
+                logger.success(f"技能目录已重载: {len(results)} 个技能")
+
         logger.info("正在初始化存储目录...")
         logger.debug(f"配置目录: {self.config_dir}")
         os.makedirs(self.config_dir, exist_ok=True)
@@ -508,6 +524,16 @@ class ConfigManager(EnvfulConfigManager[Config]):
         await UniConfigManager().add_directory(
             "models",
             lambda *_: models_callback(),
+            owner_name="chat",
+        )
+        # 技能目录回调：目录内文件变化自动重新 discover（复用 uniconf 监听）。
+        # 注意：自定义 filter 会替换默认过滤（final_filter = filter or default_filter），
+        # 故需自行检查路径前缀。不限后缀：技能目录除 SKILL.md 外还可能含脚本
+        # （.py/.sh 等，渐进披露 L3 的 skill.scripts），任何文件变化都应触发重载。
+        await UniConfigManager().add_directory(
+            "skills",
+            lambda *_: skills_callback(),
+            lambda change: change[1].startswith(str(self.config_dir / "skills")),
             owner_name="chat",
         )
         self.validate_presets()

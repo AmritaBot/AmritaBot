@@ -176,8 +176,8 @@ export interface SkillInfo {
 }
 export interface SkillConfig {
   enable: boolean;
-  enabled: string[];
-  disabled: string[];
+  /** 启用的技能名称列表（空列表=全部启用；非空则仅列表内的技能启用） */
+  selected: string[];
 }
 export interface SkillsData {
   skills: SkillInfo[];

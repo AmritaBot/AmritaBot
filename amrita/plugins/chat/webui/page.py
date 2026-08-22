@@ -627,7 +627,7 @@ async def get_chat_insights():
 async def get_skills():
     """技能管理：已发现技能（含启停/校验状态）与启停配置。"""
     try:
-        results = validate_skills()
+        results = await validate_skills()
         config = config_manager.ins_config.skills
         return JSONResponse(
             {
@@ -647,8 +647,7 @@ async def get_skills():
                     ],
                     "config": {
                         "enable": config.enable,
-                        "enabled": config.enabled,
-                        "disabled": config.disabled,
+                        "selected": config.selected,
                     },
                 },
             },
@@ -664,13 +663,12 @@ async def get_skills():
 
 @router.post("/api/chat/skills")
 async def update_skills(request: Request):
-    """技能启停配置保存（全量覆盖 enable/enabled/disabled）。"""
+    """技能启停配置保存（全量覆盖 enable/selected）。"""
     try:
         data: dict[str, Any] = await request.json()
         skills_cfg = SkillConfig(
             enable=bool(data.get("enable", True)),
-            enabled=[str(x) for x in data.get("enabled", [])],
-            disabled=[str(x) for x in data.get("disabled", [])],
+            selected=[str(x) for x in data.get("selected", [])],
         )
         config_manager.ins_config.skills = skills_cfg
         await config_manager.save_config()
@@ -689,7 +687,7 @@ async def update_skills(request: Request):
 async def reload_skills_api():
     """重新发现并校验技能目录（拾取新增/修改的 SKILL.md）。"""
     try:
-        results = reload_skills()
+        results = await reload_skills()
         return JSONResponse(
             {
                 "success": True,

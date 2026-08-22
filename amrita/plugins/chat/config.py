@@ -86,6 +86,19 @@ class MetaInfoConfig(BaseModel):
     stream_reasoning: bool = Field(
         default=False, description="流式思考块（单token粒度，默认关闭避免刷屏）"
     )
+    skill_trigger: bool = Field(
+        default=True, description="技能触发通知（使用了xxx技能）"
+    )
+
+
+class SkillConfig(BaseModel):
+    """技能系统配置（faskill Skills）"""
+
+    enable: bool = Field(default=True, description="是否启用技能系统")
+    selected: list[str] = Field(
+        default=[],
+        description=("启用的技能名称列表（空列表=全部启用；非空则仅列表内的技能启用）"),
+    )
 
 
 class SessionConfig(BaseModel):
@@ -263,10 +276,8 @@ class Config(BaseModel):
     preset_extension: PresetSwitch = Field(
         default=PresetSwitch(), description="预设模型扩展配置"
     )
-    default_preset: ModelPreset = Field(
-        default=ModelPreset(), description="默认预设配置"
-    )
     session: SessionConfig = Field(default=SessionConfig(), description="会话管理配置")
+    skills: SkillConfig = Field(default=SkillConfig(), description="技能系统配置")
     meta: MetaInfoConfig = Field(
         default=MetaInfoConfig(), description="元信息消息显示开关"
     )
@@ -312,6 +323,21 @@ class Config(BaseModel):
         """
         if not isinstance(data, dict):
             return data
+
+        # 迁移内嵌 default_preset → models/default.json（若目标不存在），
+        # 随后移除该键：default 预设一律由磁盘承载，配置不再内嵌模型预设。
+        if isinstance(data.get("default_preset"), dict):
+            try:
+                default_json = CONFIG_DIR / "models" / "default.json"
+                if not default_json.exists():
+                    default_json.parent.mkdir(parents=True, exist_ok=True)
+                    ModelPreset.model_validate(data["default_preset"]).save(
+                        default_json
+                    )
+            except Exception as e:
+                logger.warning(f"迁移内嵌 default_preset 失败: {e!s}")
+            data.pop("default_preset")
+
         if "core" in data:
             return data  # 已迁移
 
@@ -437,7 +463,6 @@ class ConfigManager(EnvfulConfigManager[Config]):
         # 服务构造只依赖惰性回调，配置加载前后均可安全初始化。
         self.presets = PresetService(
             self.preset_store,
-            get_config=lambda: self.config,
             get_ins_config=lambda: self.ins_config,
             save_config=lambda: self.save_config(),
         )
@@ -447,7 +472,6 @@ class ConfigManager(EnvfulConfigManager[Config]):
         )
         self.models = ModelConfigService(
             self.preset_store,
-            get_ins_config=lambda: self.ins_config,
         )
 
     @override
@@ -472,6 +496,22 @@ class ConfigManager(EnvfulConfigManager[Config]):
             await self.get_all_presets(False)
             logger.success("完成")
 
+        async def skills_callback():
+            # 延迟导入避免循环依赖（skills.py 顶层 import 本模块）
+            from .skills import reload_skills
+
+            logger.info("正在重载技能目录...")
+            results = await reload_skills()
+            failed = [r.name for r in results if not r.ok]
+            if failed:
+                logger.warning(
+                    "技能目录变化，重新加载后 %d 个技能校验失败: %s",
+                    len(failed),
+                    failed,
+                )
+            else:
+                logger.success(f"技能目录已重载: {len(results)} 个技能")
+
         logger.info("正在初始化存储目录...")
         logger.debug(f"配置目录: {self.config_dir}")
         os.makedirs(self.config_dir, exist_ok=True)
@@ -482,6 +522,16 @@ class ConfigManager(EnvfulConfigManager[Config]):
         await UniConfigManager().add_directory(
             "models",
             lambda *_: models_callback(),
+            owner_name="chat",
+        )
+        # 技能目录回调：目录内文件变化自动重新 discover（复用 uniconf 监听）。
+        # 注意：自定义 filter 会替换默认过滤（final_filter = filter or default_filter），
+        # 故需自行检查路径前缀。不限后缀：技能目录除 SKILL.md 外还可能含脚本
+        # （.py/.sh 等，渐进披露 L3 的 skill.scripts），任何文件变化都应触发重载。
+        await UniConfigManager().add_directory(
+            "skills",
+            lambda *_: skills_callback(),
+            lambda change: change[1].startswith(str(self.config_dir / "skills")),
             owner_name="chat",
         )
         self.validate_presets()
@@ -539,16 +589,16 @@ class ConfigManager(EnvfulConfigManager[Config]):
 
     async def get_preset(
         self, preset: str, fix: bool = False, cache: bool = True
-    ) -> ModelPreset:
+    ) -> ModelPreset | None:
         """获取预设配置（委托 PresetService，默认走缓存）
 
         Args:
             preset (str): _预设的字符串名称_
-            fix (bool, optional): _是否修正不存在的预设_. Defaults to False.
+            fix (bool, optional): _找不到时是否回退并持久化_. Defaults to False.
             cache (bool, optional): _是否使用缓存_. Defaults to True.
 
         Returns:
-            ModelPreset: _模型预设对象_
+            ModelPreset | None: _模型预设对象；找不到且未 fix 时为 None_
         """
         return await self.presets.get_preset(preset, fix=fix, cache=cache)
 

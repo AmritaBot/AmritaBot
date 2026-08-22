@@ -24,9 +24,7 @@ _TOP_MAX = 50  # 排名数量上限，防止刷屏
 
 def _format_user_entry(i: int, user: UserMetadata, label: str) -> str:
     """格式化排名条目"""
-    user_id = (
-        user.user_id.split("_", 1)[1] if "_" in user.user_id else user.user_id
-    )
+    user_id = user.user_id.split("_", 1)[1] if "_" in user.user_id else user.user_id
     total_tokens = user.tokens_input + user.tokens_output
     return f"{i}. {label}{user_id}: {user.called_count}次, {total_tokens}tokens\n"
 

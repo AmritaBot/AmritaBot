@@ -1,6 +1,6 @@
 [project]
 name = "amrita"
-version = "1.6.7.1"
+version = "1.7.0"
 description = "A powerful Agent bot powered by NoneBot2"
 readme = "README.md"
 license = "AGPL-3.0-or-later"
@@ -16,6 +16,7 @@ dependencies = [
     "amrita-sense>=0.4.2",
     "async-lru>=2.0.5",
     "bcrypt>=4.3.0",
+    "faskill[amrita]>=0.2.0",
     "fastmcp>=2.14.1",
     "importlib>=1.0.4",
     "jinja2>=3.1.6",

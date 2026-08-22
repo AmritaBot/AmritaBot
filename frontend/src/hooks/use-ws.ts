@@ -191,10 +191,12 @@ function connect() {
         // 回放与实时推送的重叠只会出现在边界；截断防无限增长
         const ev = msg.data as LogEvent;
         const logs = global.snapshots.logs;
-        const dup = logs.slice(-10).some(
-          (l) =>
-            l.time === ev.time && l.title === ev.title && l.desc === ev.desc,
-        );
+        const dup = logs
+          .slice(-10)
+          .some(
+            (l) =>
+              l.time === ev.time && l.title === ev.title && l.desc === ev.desc,
+          );
         if (!dup) {
           updateSnapshot("logs", [...logs, ev].slice(-MAX_LOG_SNAPSHOT));
         }

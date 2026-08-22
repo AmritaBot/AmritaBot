@@ -249,7 +249,7 @@ wheels = [
 
 [[package]]
 name = "amrita"
-version = "1.6.7.1"
+version = "1.7.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
@@ -262,6 +262,7 @@ dependencies = [
     { name = "amrita-sense" },
     { name = "async-lru" },
     { name = "bcrypt" },
+    { name = "faskill", extra = ["amrita"] },
     { name = "fastmcp" },
     { name = "importlib" },
     { name = "jinja2" },
@@ -305,6 +306,7 @@ requires-dist = [
     { name = "amrita-sense", specifier = ">=0.4.2" },
     { name = "async-lru", specifier = ">=2.0.5" },
     { name = "bcrypt", specifier = ">=4.3.0" },
+    { name = "faskill", extras = ["amrita"], specifier = ">=0.2.0" },
     { name = "fastmcp", specifier = ">=2.14.1" },
     { name = "importlib", specifier = ">=1.0.4" },
     { name = "jinja2", specifier = ">=3.1.6" },
@@ -948,6 +950,25 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8a/0e/97c33bf5009bdbac74fd2beace167cab3f978feb69cc36f1ef79360d6c4e/exceptiongroup-1.3.1-py3-none-any.whl", hash = "sha256:a7a39a3bd276781e98394987d3a5701d0c4edffb633bb7a5144577f82c773598", size = 16740, upload-time = "2025-11-21T23:01:53.443Z" },
+]
+
+[[package]]
+name = "faskill"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiofiles" },
+    { name = "aiologic" },
+    { name = "pyyaml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a4/ec/39708fe82c470b0106a3aa5239fcec8780c2272ba2c628ccd93566942816/faskill-0.2.0.tar.gz", hash = "sha256:ac37fcd75a7498342f9e5696fc4cda2d8ef806629bd90e451c866c3ca2d6114e", size = 120610, upload-time = "2026-08-16T14:18:57.266Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4b/a8/29c1ed2d3a5f48b5e77e6d3bbba4316a940c03ded9e27f3dfff2a88b36d7/faskill-0.2.0-py3-none-any.whl", hash = "sha256:199e00b2f2619a139fe05e6b62cba40dd5c343b7c254f1eecce3b8ac224c247a", size = 63063, upload-time = "2026-08-16T14:18:56.259Z" },
+]
+
+[package.optional-dependencies]
+amrita = [
+    { name = "amrita-core" },
 ]
 
 [[package]]

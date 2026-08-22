@@ -9,11 +9,10 @@ from fastapi import Request
 from nonebot import logger
 from nonebot_plugin_amrita.database import InsightsModel
 
-from amrita.plugins.chat.config import config_manager
+from amrita.plugins.chat.config import SkillConfig, config_manager
+from amrita.plugins.chat.skills import reload_skills, validate_skills
 from amrita.plugins.webui.API import JSONResponse
 from amrita.plugins.webui.API import app as router
-
-KEY_PLACEHOLDER = "••••••••"
 
 
 @router.post("/api/chat/models")
@@ -55,7 +54,7 @@ async def create_model(request: Request):
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).error("创建模型预设失败")
         return JSONResponse(
-            {"success": False, "message": f"创建模型预设失败: {e!s}"},
+            {"success": False, "message": "创建模型预设失败"},
             status_code=500,
         )
 
@@ -90,21 +89,14 @@ async def update_model(request: Request, name: str):
                     for tc_key, tc_value in value.items():
                         if hasattr(preset.thinking_config, tc_key):
                             setattr(preset.thinking_config, tc_key, tc_value)
-            elif key == "api_key":
-                if value != KEY_PLACEHOLDER:
-                    setattr(preset, key, value)
             elif hasattr(preset, key) and key != "name":  # 排除不可变的name字段
+                # PATCH 语义：payload 中出现才更新（含 api_key）——
+                # 前端未修改 api_key 时不会提交该键，因此不会误清空
                 setattr(preset, key, value)
 
-        if name == "default":
-            # default 预设即 config.default_preset（运行时模型配置），
-            # 更新后写回配置并持久化（不能存到预设表文件，那里不生效）
-            config_manager.config.default_preset = preset
-            await config_manager.save_config()
-        else:
-            # 保存模型预设到文件
-            preset_path = config_manager.get_preset_path(name)
-            preset.save(preset_path)
+        # 所有预设（含 default）统一以磁盘预设文件承载
+        preset_path = config_manager.get_preset_path(name)
+        preset.save(preset_path)
 
         # 重新加载模型列表
         await config_manager.get_all_presets(cache=False)
@@ -117,7 +109,7 @@ async def update_model(request: Request, name: str):
             "[webui] 模型预设更新失败: %s", e
         )
         return JSONResponse(
-            {"success": False, "message": f"更新模型预设失败: {e!s}"},
+            {"success": False, "message": "更新模型预设失败"},
             status_code=500,
         )
 
@@ -125,13 +117,8 @@ async def update_model(request: Request, name: str):
 @router.post("/api/chat/models/{name}/delete")
 async def delete_model(name: str):
     try:
-        # default 预设是运行时配置（config.default_preset），不可删除
-        if name == "default":
-            return JSONResponse(
-                {"success": False, "message": "默认预设不可删除"},
-                status_code=400,
-            )
-
+        # default 预设与普通预设一致（磁盘文件），可删除；
+        # 若删除的是配置选中的预设，重置选中到剩余的第一个预设。
         preset_path = config_manager.get_preset_path(name)
 
         if not preset_path.exists():
@@ -145,6 +132,13 @@ async def delete_model(name: str):
         await config_manager.get_all_presets(cache=False)
         config_manager.forget_preset(name)
 
+        # 删除的是当前选中的预设 → 重置选中到剩余第一个可用预设
+        if config_manager.config.preset == name:
+            remaining = await config_manager.get_all_presets(cache=False)
+            if remaining:
+                config_manager.ins_config.preset = remaining[0].name
+                await config_manager.save_config()
+
         return JSONResponse(
             {"success": True, "message": f"模型预设 {name} 删除成功"}, status_code=200
         )
@@ -153,7 +147,7 @@ async def delete_model(name: str):
             f"Error in delete preset {name}"
         )
         return JSONResponse(
-            {"success": False, "message": f"删除模型预设失败: {e!s}"},
+            {"success": False, "message": "删除模型预设失败"},
             status_code=500,
         )
 
@@ -164,8 +158,12 @@ async def get_models():
         models = copy.deepcopy(await config_manager.get_all_presets(cache=False))
         model_data = []
         for model in models:
-            model.api_key = KEY_PLACEHOLDER
-            model_data.append(model.model_dump())
+            # 敏感字段不回传：api_key 置空，仅暴露是否已配置
+            has_key = bool(model.api_key)
+            model.api_key = ""
+            dump = model.model_dump()
+            dump["has_api_key"] = has_key
+            model_data.append(dump)
 
         return JSONResponse(
             {"success": True, "data": {"models": model_data}}, status_code=200
@@ -173,7 +171,7 @@ async def get_models():
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).error("获取模型预设列表失败")
         return JSONResponse(
-            {"success": False, "message": f"获取模型预设列表失败: {e!s}"},
+            {"success": False, "message": "获取模型预设列表失败"},
             status_code=500,
         )
 
@@ -222,9 +220,9 @@ async def create_prompt(request: Request, prompt_type: str):
             {"success": True, "message": f"{prompt_type}提示词 {name} 创建成功"},
             status_code=200,
         )
-    except Exception as e:
+    except Exception:
         return JSONResponse(
-            {"success": False, "message": f"创建提示词失败: {e!s}"}, status_code=500
+            {"success": False, "message": "创建提示词失败"}, status_code=500
         )
 
 
@@ -307,9 +305,9 @@ async def update_prompt(request: Request, prompt_type: str, name: str):
             {"success": True, "message": f"{prompt_type}提示词 {name} 更新成功"},
             status_code=200,
         )
-    except Exception as e:
+    except Exception:
         return JSONResponse(
-            {"success": False, "message": f"更新提示词失败: {e!s}"}, status_code=500
+            {"success": False, "message": "更新提示词失败"}, status_code=500
         )
 
 
@@ -353,9 +351,9 @@ async def delete_prompt(prompt_type: str, name: str):
             {"success": True, "message": f"{prompt_type}提示词 {name} 删除成功"},
             status_code=200,
         )
-    except Exception as e:
+    except Exception:
         return JSONResponse(
-            {"success": False, "message": f"删除提示词失败: {e!s}"}, status_code=500
+            {"success": False, "message": "删除提示词失败"}, status_code=500
         )
 
 
@@ -386,9 +384,9 @@ async def get_prompts():
             },
             status_code=200,
         )
-    except Exception as e:
+    except Exception:
         return JSONResponse(
-            {"success": False, "message": f"获取提示词列表失败: {e!s}"},
+            {"success": False, "message": "获取提示词列表失败"},
             status_code=500,
         )
 
@@ -621,5 +619,86 @@ async def get_chat_insights():
         logger.opt(exception=e, colors=True, raw=True).error("获取信息统计失败")
         return JSONResponse(
             {"success": False, "message": "获取信息统计失败"},
+            status_code=500,
+        )
+
+
+@router.get("/api/chat/skills")
+async def get_skills():
+    """技能管理：已发现技能（含启停/校验状态）与启停配置。"""
+    try:
+        results = await validate_skills()
+        config = config_manager.ins_config.skills
+        return JSONResponse(
+            {
+                "success": True,
+                "data": {
+                    "skills": [
+                        {
+                            "name": r.name,
+                            "description": r.description,
+                            "version": r.version,
+                            "path": r.path,
+                            "enabled": r.enabled,
+                            "ok": r.ok,
+                            "error": r.error,
+                        }
+                        for r in results
+                    ],
+                    "config": {
+                        "enable": config.enable,
+                        "selected": config.selected,
+                    },
+                },
+            },
+            status_code=200,
+        )
+    except Exception as e:
+        logger.opt(exception=e, colors=True, raw=True).error("获取技能列表失败")
+        return JSONResponse(
+            {"success": False, "message": "获取技能列表失败"},
+            status_code=500,
+        )
+
+
+@router.post("/api/chat/skills")
+async def update_skills(request: Request):
+    """技能启停配置保存（全量覆盖 enable/selected）。"""
+    try:
+        data: dict[str, Any] = await request.json()
+        skills_cfg = SkillConfig(
+            enable=bool(data.get("enable", True)),
+            selected=[str(x) for x in data.get("selected", [])],
+        )
+        config_manager.ins_config.skills = skills_cfg
+        await config_manager.save_config()
+        return JSONResponse(
+            {"success": True, "message": "技能配置保存成功"}, status_code=200
+        )
+    except Exception as e:
+        logger.opt(exception=e, colors=True, raw=True).error("保存技能配置失败")
+        return JSONResponse(
+            {"success": False, "message": "保存技能配置失败"},
+            status_code=500,
+        )
+
+
+@router.post("/api/chat/skills/actions/reload")
+async def reload_skills_api():
+    """重新发现并校验技能目录（拾取新增/修改的 SKILL.md）。"""
+    try:
+        results = await reload_skills()
+        return JSONResponse(
+            {
+                "success": True,
+                "message": "技能重载成功",
+                "data": {"count": len(results)},
+            },
+            status_code=200,
+        )
+    except Exception as e:
+        logger.opt(exception=e, colors=True, raw=True).error("重载技能失败")
+        return JSONResponse(
+            {"success": False, "message": "重载技能失败，请稍后重试"},
             status_code=500,
         )

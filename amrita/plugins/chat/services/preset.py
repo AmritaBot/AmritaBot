@@ -25,19 +25,12 @@ class PresetService:
     def __init__(
         self,
         store: PresetStore,
-        get_config: Callable[[], Config],
         get_ins_config: Callable[[], Config],
         save_config: Callable[[], Awaitable[None]],
     ) -> None:
         self._store = store
-        self._get_config = get_config
         self._get_ins_config = get_ins_config
         self._save_config = save_config
-
-    @property
-    def _config(self) -> Config:
-        """env 替换后的配置副本（读 default_preset 用）"""
-        return self._get_config()
 
     @property
     def _ins_config(self) -> Config:
@@ -51,36 +44,41 @@ class PresetService:
     async def get_all_presets(self, *, cache: bool = True) -> list[ModelPreset]:
         """获取全部预设（默认走缓存）。
 
+        预设全部来自磁盘目录（``models/*.json``）；``default`` 与普通预设
+        无差别，仅当目录为空时由 ``PresetStore`` 默认创建一个。
+
         Args:
             cache: 是否使用磁盘预设缓存；热重载时显式传 ``False`` 强制刷新
         """
-        return [
-            self._config.default_preset,
-            *(await self._store.load_all(cache=cache)),
-        ]
+        return await self._store.load_all(cache=cache)
 
     async def get_preset(
         self, preset: str, fix: bool = False, *, cache: bool = True
-    ) -> ModelPreset:
+    ) -> ModelPreset | None:
         """解析预设名 → ``ModelPreset``。
 
-        - ``"default"`` 直接返回配置默认预设（env 已替换）
-        - 磁盘预设按名查找（默认缓存）
-        - ``fix=True`` 且找不到时回退 ``default`` 并持久化写回
+        - 磁盘预设按名查找（默认缓存），default 无任何特殊处理
+        - ``fix=True`` 且找不到时回退到 ``default``（亦不存在则回退到
+          第一个可用预设），并持久化写回选中预设；预设目录为空时
+          ``load_all`` 会默认创建 ``default``，因此回退始终有结果
 
         Args:
             preset: 预设名称
-            fix: 找不到时是否修正为 ``default`` 并保存配置
+            fix: 找不到时是否回退并保存配置
             cache: 是否使用磁盘预设缓存（默认 True）
         """
-        if preset == "default":
-            return self._config.default_preset
         if (model := await self._store.find(preset, cache=cache)) is not None:
             return model
         if fix:
-            self._ins_config.preset = "default"
-            await self._save_config()
-        return await self.get_preset("default", fix, cache=cache)
+            fallback = await self._store.find("default", cache=cache)
+            if fallback is None:
+                presets = await self._store.load_all(cache=cache)
+                fallback = presets[0] if presets else None
+            if fallback is not None:
+                self._ins_config.preset = fallback.name
+                await self._save_config()
+                return fallback
+        return None
 
     def get_preset_path(self, name: str) -> Path:
         """预设名对应的文件路径"""

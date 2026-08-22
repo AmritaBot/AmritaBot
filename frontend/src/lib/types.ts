@@ -141,6 +141,8 @@ export interface ChatModel {
   model: string;
   base_url: string;
   api_key: string;
+  /** 是否已配置 API Key（敏感字段不回传，仅暴露状态） */
+  has_api_key?: boolean;
   protocol: string;
   config: Record<string, unknown>;
   thinking_config: Record<string, unknown> | null;
@@ -162,6 +164,24 @@ export interface McpServer {
 }
 export interface McpServersData {
   servers: McpServer[];
+}
+export interface SkillInfo {
+  name: string;
+  description: string;
+  version: string | null;
+  path: string;
+  enabled: boolean;
+  ok: boolean;
+  error: string | null;
+}
+export interface SkillConfig {
+  enable: boolean;
+  /** 启用的技能名称列表（空列表=全部启用；非空则仅列表内的技能启用） */
+  selected: string[];
+}
+export interface SkillsData {
+  skills: SkillInfo[];
+  config: SkillConfig;
 }
 export interface ChatInsightsData {
   token_prompt: number;

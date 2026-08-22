@@ -25,13 +25,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 interface ModelRow extends ChatModel {
   __editing?: boolean;
 }
-
-const KEY_PLACEHOLDER = "••••••••";
 
 /** 思考模式配置（对应后端 ThinkingConfig） */
 const THINKING_EFFORT_OPTIONS = [
@@ -60,9 +59,10 @@ function ModelForm({
   const [name, setName] = useState(initial?.name ?? "");
   const [model, setModel] = useState(initial?.model ?? "");
   const [baseUrl, setBaseUrl] = useState(initial?.base_url ?? "");
-  const [apiKey, setApiKey] = useState(
-    initial && initial.api_key !== KEY_PLACEHOLDER ? initial.api_key : "",
-  );
+  // API Key 敏感字段不回传，输入框始终从空开始；
+  // apiKeyTouched 记录用户是否修改过，未修改则提交时省略该键（PATCH 语义）
+  const [apiKey, setApiKey] = useState("");
+  const [apiKeyTouched, setApiKeyTouched] = useState(false);
   const [protocol, setProtocol] = useState(initial?.protocol ?? "__main__");
 
   // 思考模式配置（ThinkingConfig）
@@ -95,6 +95,20 @@ function ModelForm({
     return cfg;
   }
 
+  /** 构建提交 payload：编辑时未修改的 api_key 不提交，避免覆盖已有值 */
+  function buildPayload(): Record<string, unknown> {
+    const payload: Record<string, unknown> = {
+      name,
+      model,
+      base_url: baseUrl,
+      protocol,
+      thinking_config: buildThinkingConfig(),
+    };
+    // 新建：始终提交（可为空）；编辑：仅当用户修改过才提交
+    if (!initial || apiKeyTouched) payload.api_key = apiKey;
+    return payload;
+  }
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -117,9 +131,20 @@ function ModelForm({
         <Label>API Key</Label>
         <Input
           value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-          placeholder={initial ? KEY_PLACEHOLDER : undefined}
+          onChange={(e) => {
+            setApiKey(e.target.value);
+            setApiKeyTouched(true);
+          }}
+          placeholder={
+            initial?.has_api_key ? "已配置，留空则不修改" : undefined
+          }
+          type={apiKeyTouched ? "password" : "text"}
         />
+        {initial?.has_api_key && !apiKeyTouched && (
+          <p className="text-xs text-muted-foreground">
+            已配置 API Key。留空并保存将保持原 Key 不变；如需更换请输入新 Key。
+          </p>
+        )}
       </div>
       <div className="space-y-2">
         <Label>协议</Label>
@@ -193,16 +218,7 @@ function ModelForm({
 
       <DialogFooter>
         <Button
-          onClick={() =>
-            onSubmit({
-              name,
-              model,
-              base_url: baseUrl,
-              api_key: apiKey,
-              protocol,
-              thinking_config: buildThinkingConfig(),
-            })
-          }
+          onClick={() => onSubmit(buildPayload())}
           disabled={!name || !model || submitting}
         >
           {submitting ? "保存中…" : "保存"}
@@ -279,6 +295,16 @@ export function ModelsPage() {
       ),
     },
     {
+      key: "api_key",
+      header: "API Key",
+      render: (m) =>
+        m.has_api_key ? (
+          <Badge variant="secondary">已配置</Badge>
+        ) : (
+          <Badge variant="outline">未配置</Badge>
+        ),
+    },
+    {
       key: "protocol",
       header: "协议",
       render: (m) => (
@@ -293,13 +319,12 @@ export function ModelsPage() {
           <Button variant="outline" size="sm" onClick={() => setEditing(m)}>
             编辑
           </Button>
-          {/* default 是运行时配置（config.default_preset），不可删除 */}
+          {/* default 与普通预设一致，可编辑可删除；仅当删除后预设目录为空时才会自动重建 */}
           <Button
             variant="destructive"
             size="sm"
             onClick={() => setDeleting(m)}
-            disabled={deleteMutation.isPending || m.name === "default"}
-            title={m.name === "default" ? "默认预设不可删除" : undefined}
+            disabled={deleteMutation.isPending}
           >
             删除
           </Button>
@@ -355,6 +380,7 @@ export function ModelsPage() {
           </DialogHeader>
           {editing && (
             <ModelForm
+              key={editing.name}
               initial={editing}
               onSubmit={(payload) =>
                 updateMutation.mutate({ name: editing.name, payload })

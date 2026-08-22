@@ -6,13 +6,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from ..preset_store import PresetStore
-
-if TYPE_CHECKING:
-    from ..config import Config
 
 
 class ModelConfigService:
@@ -21,13 +17,11 @@ class ModelConfigService:
     def __init__(
         self,
         preset_store: PresetStore,
-        get_ins_config: Callable[[], Config],
     ) -> None:
         self._preset_store = preset_store
-        self._get_ins_config = get_ins_config
 
     def reg_model_config(self, key: str, default_value: Any = None) -> None:
-        """注册模型配置项：写入默认预设 extra，并为全部已加载预设补默认值。
+        """注册模型配置项：写入 default 预设的 extra，并为全部已加载预设补默认值。
 
         Args:
             key: 配置项名称
@@ -35,7 +29,7 @@ class ModelConfigService:
         """
         if default_value is None:
             default_value = "null"
-        ins = self._get_ins_config()
-        if key not in ins.default_preset.extra:
-            ins.default_preset.extra.setdefault(key, default_value)
+        # default 预设以磁盘 default.json 承载（配置不再内嵌），
+        # 先同步兜底确保其存在，再给所有已加载预设补默认值并存盘
+        self._preset_store.ensure_default_sync()
         self._preset_store.register_extra(key, default_value)

@@ -146,7 +146,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     strategy = select_agent_strategy(config.llm.agent_strategy)
 
     # 构建定制化的 system prompt（与 /compact、/session info 共用同一构建逻辑）
-    train_dict = build_train_dict(event, memory, config)
+    train_dict = await build_train_dict(event, memory, config)
 
     #  阶段 4：创建 ChatObject
     ctx: AmritaBotContext = {
@@ -172,7 +172,9 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         ),
         backend_options=DatabackendOptions(
             skip_mcp_fetch=True,
-            skip_tools_fetch=True,
+            # skip_tools_fetch 保持默认 False：由数据后端 load_tools 注入
+            # faskill Skills 工具池（独立 MultiToolsManager，非全局单例）
+            skip_tools_fetch=False,
         ),
     )
 
@@ -192,9 +194,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
 
     # 按 chat_pending_mode 处理锁占用场景（single / single_with_report /
     # interactive / queue）。返回 True 表示已停止本次流程。
-    if await get_pending_mode_strategy(
-        config.function.chat_pending_mode
-    ).handle_locked(
+    if await get_pending_mode_strategy(config.function.chat_pending_mode).handle_locked(
         lock=lock,
         matcher=matcher,
         event=event,

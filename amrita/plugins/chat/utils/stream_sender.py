@@ -228,6 +228,10 @@ class ChatStreamSender:
                     if detail:
                         text += f"\n{detail}"
                     await self._matcher.send(text)
+            case "skill_call":
+                # 技能触发通知（由 skills 模块在技能工具被调用时推送）
+                if meta.enable and meta.skill_trigger:
+                    await self._matcher.send(f"🧠 {message.content}")
             case "text":
                 if (
                     extra_type == "structured_reasoning_step"

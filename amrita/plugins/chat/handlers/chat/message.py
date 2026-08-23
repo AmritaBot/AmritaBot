@@ -15,8 +15,9 @@ from datetime import datetime
 
 from amrita_core import TextContent, debug_log
 from amrita_core.types import Content, ImageContent, ImageUrl
-from nonebot.adapters.onebot.v11 import Bot
+from nonebot.adapters import Bot
 from nonebot.adapters.onebot.v11.event import MessageEvent, Reply
+from nonebot_plugin_alconna.uniseg import Image, UniMessage
 
 from ...config import config_manager
 from ...utils.functions import synthesize_message
@@ -111,18 +112,13 @@ async def handle_reply(
     return result
 
 
-def get_reply_pics(event: MessageEvent) -> list[ImageContent]:
-    """获取引用消息中的图片内容
-
-    Returns:
-        图片内容列表
-    """
+def get_reply_pics(event: MessageEvent, bot: Bot) -> list[ImageContent]:
+    """获取引用消息中的图片内容"""
     if reply := event.reply:
-        msg = reply.message
         images = [
-            ImageContent(image_url=ImageUrl(url=url))
-            for seg in msg
-            if seg.type == "image" and (url := seg.data.get("url")) is not None
+            ImageContent(image_url=ImageUrl(url=img.url))
+            for img in UniMessage.of(reply.message, bot=bot).select(Image)
+            if img.url
         ]
         debug_log(f"获取引用图片完成，共 {len(images)} 张")
         return images
@@ -150,6 +146,7 @@ async def get_user_role(bot: Bot, group_id: int, user_id: int) -> str:
 
 async def synthesize_message_to_msg(
     event: MessageEvent,
+    bot: Bot,
     role: str,
     user_name: str,
     user_id: str,
@@ -182,9 +179,7 @@ async def synthesize_message_to_msg(
 
     if config_manager.config.parse_segments:
         if config_manager.config.function.message_type == "xml":
-            # handle_reply 在 XML 模式下已对 content 做了 escape_xml，
-            # 且 content 中可能包含 <ref> 标签（已转义好的引用内容），
-            # 因此不能再次经过 format_msg_xml -> escape_xml 导致双重转义
+            # handle_reply 已转义 content 且可能含 <ref>，不能二次转义
             if "\n<ref" in content:
                 safe_name = escape_xml(str(user_name))
                 attrs = f' role="{role}"' if role else ""
@@ -196,9 +191,9 @@ async def synthesize_message_to_msg(
         text: Sequence[Content] | str = (
             [TextContent(text=body)]
             + [
-                ImageContent(image_url=ImageUrl(url=seg.data["url"]))
-                for seg in event.message
-                if seg.type == "image" and seg.data.get("url")
+                ImageContent(image_url=ImageUrl(url=img.url))
+                for img in UniMessage.of(event.message, bot=bot).select(Image)
+                if img.url
             ]
             if is_multimodal
             else body

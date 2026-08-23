@@ -6,10 +6,15 @@ import pytz
 from amrita_core.utils import remove_think_tag
 from amrita_sense.logging import debug_log
 from nonebot import logger
-from nonebot.adapters.onebot.v11 import (
-    Bot,
-    GroupMessageEvent,
-    Message,
+from nonebot.adapters import Bot, Message
+from nonebot.adapters.onebot.v11 import GroupMessageEvent
+from nonebot_plugin_alconna.uniseg import (
+    At,
+    Image,
+    Reference,
+    Segment,
+    Text,
+    UniMessage,
 )
 
 from ..config import config_manager
@@ -138,25 +143,30 @@ async def synthesize_forward_message(forward_msg: dict, bot: Bot) -> str:
     return result
 
 
-async def synthesize_message(message: Message, bot: Bot) -> str:
-    """合成消息内容为字符串"""
-    content = ""
-    for segment in message:
-        if segment.type == "text":
-            content += segment.data["text"]
-        elif segment.type == "at":
-            content += f"\\（at: @{segment.data.get('name')}(QQ:{segment.data['qq']}))"
-        elif (
-            segment.type == "forward"
-            and config_manager.config.function.synthesize_forward_message
-        ):
-            forward = await bot.get_forward_msg(id=segment.data["id"])
+async def synthesize_segment(seg: Segment, bot: Bot) -> str:
+    """合成单个 uniseg 段为可读文本"""
+    if isinstance(seg, Text):
+        return seg.text
+    if isinstance(seg, At):
+        return f"\\（at: @{seg.display or seg.target}）"
+    if isinstance(seg, Image):
+        return f"[图片:{seg.name}]" if seg.url or seg.raw else "[图片]"
+    if isinstance(seg, Reference) and seg.id:
+        if config_manager.config.function.synthesize_forward_message:
+            forward = await bot.get_forward_msg(id=seg.id)
             debug_log(str(forward))
-            content += (
-                " \\（合并转发\n"
-                + await synthesize_forward_message(forward, bot)
-                + "）\\\n"
-            )
+            return " \\（合并转发\n" + await synthesize_forward_message(forward, bot) + "）\\\n"
+        return "[合并转发]"
+    return f"[{seg.type}]"
+
+
+async def synthesize_message(message: UniMessage | Message, bot: Bot) -> str:
+    """合成消息内容为字符串"""
+    if not isinstance(message, UniMessage):
+        message = UniMessage.of(message, bot=bot)
+    content = ""
+    for seg in message:
+        content += await synthesize_segment(seg, bot)
     return content
 
 
@@ -180,6 +190,8 @@ def get_current_datetime_timestamp(utc_time: datetime | None = None):
 
 async def get_friend_name(qq_number: int, bot: Bot) -> str:
     """获取好友昵称"""
+    if not hasattr(bot, "get_friend_list"):
+        return ""
     friend_list = await bot.get_friend_list()
     return next(
         (

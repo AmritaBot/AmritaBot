@@ -10,24 +10,13 @@
 
 from __future__ import annotations
 
-# 支持主动退群（set_group_leave）的平台白名单：
-# OneBot V11 / OneBot V12 / Milky
-GROUP_LEAVE_ADAPTERS = frozenset(
-    {"OneBot V11", "OneBot V12", "Milky"}
-)
-
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from nonebot.adapters import Bot, Event
     from nonebot_plugin_alconna.uniseg import Target
 
-# README 推荐 ID 格式：AdapterType_ExtraType_UserPayload
-# 示例：QQPlatform_Group_1114514 / QQPlatform_Private_12345
-#
-# AdapterType 归并规则：QQ 系平台（OneBot V11/V12、Milky、QQ 官方、
-# Satori-chronocat 等）按 Target.scope 统一为 ``QQPlatform``，其余平台
-# 回退到适配器名。
+GROUP_LEAVE_ADAPTERS = frozenset({"OneBot V11", "OneBot V12", "Milky"})
 QQ_SCOPES = frozenset({"QQClient", "QQGuild", "QQAPI"})
 QQ_PLATFORM = "QQPlatform"
 ADAPTER_UNKNOWN = "Unknown"
@@ -42,12 +31,7 @@ def _platform_of(target: "Target") -> str:
 
 
 def uni_target_id(target: "Target") -> str:
-    """按推荐格式 ``AdapterType_ExtraType_UserPayload`` 生成 user_id
-
-    - 群聊/频道：``{platform}_Group_{id}`` / ``{platform}_Channel_{id}``
-    - 私聊：``{platform}_Private_{id}``
-    - QQ 系平台统一为 ``QQPlatform``（见模块注释）
-    """
+    """按推荐格式 ``AdapterType_ExtraType_UserPayload`` 生成 user_id"""
     platform = _platform_of(target)
     if target.channel:
         extra = "Channel"

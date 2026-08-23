@@ -22,7 +22,14 @@ from amrita_core.contents import (
 from amrita_sense.hook.event import BaseEvent
 from amrita_sense.hook.matcher import MatcherFactory
 from nonebot import logger
-from nonebot.adapters.onebot.v11 import Message, MessageSegment
+from nonebot.adapters import Bot, Event
+from nonebot_plugin_alconna.uniseg import (
+    Image,
+    Reply,
+    UniMessage,
+    get_message_id,
+    get_target,
+)
 
 from amrita.utils.admin import send_to_admin
 from amrita.utils.send import send_forward_msg
@@ -33,7 +40,6 @@ from .functions import split_message_into_chats
 if TYPE_CHECKING:
     from amrita_core.base.adapter import COMPLETION_RETURNING
     from amrita_core.chatmanager import ChatObject as CoreChatObject
-    from nonebot.adapters.onebot.v11 import Bot, MessageEvent
     from nonebot.matcher import Matcher
 
 
@@ -44,15 +50,15 @@ class NoMessageSendError(BaseException):
 class SendMessageEvent(BaseEvent[str]):
     """最终消息发送前触发的事件
 
-    content: 构建好的 MessageSegment，钩子可直接修改或替换
+    content: 构建好的 UniMessage，钩子可直接修改或替换
     """
 
     def __init__(
         self,
-        content: Message,
+        content: UniMessage,
         *,
         chat: CoreChatObject,
-        event: MessageEvent,
+        event: Event,
         matcher: Matcher,
         bot: Bot,
     ):
@@ -133,7 +139,7 @@ class ChatStreamSender:
         self,
         matcher: Matcher,
         bot: Bot,
-        event: MessageEvent,
+        event: Event,
         config: Config,
         chat: CoreChatObject,
     ):
@@ -144,10 +150,17 @@ class ChatStreamSender:
         self._chat = chat
         self._reasoning = _ReasoningCollector()
         self._blocked = False  # cookie 熔断后置位，send_final 静默跳过
+        self._target = get_target(event, bot)
+
+    async def _send(self, message: UniMessage) -> None:
+        await message.send(target=self._target, bot=self._bot)
+
+    async def _send_text(self, text: str) -> None:
+        await UniMessage.text(text).send(target=self._target, bot=self._bot)
 
     async def _flush_reasoning(self) -> None:
         if text := self._reasoning.flush():
-            await self._matcher.send(f"💭 {text}")
+            await self._send_text(f"💭 {text}")
 
     async def handle(self, message: "COMPLETION_RETURNING") -> None:
         """流式消息回调：处理元信息消息、收集思考块、转发文本/图片"""
@@ -158,14 +171,14 @@ class ChatStreamSender:
             return
         if isinstance(message, StringMessageContent):
             await self._flush_reasoning()
-            await self._matcher.send(message.get_content())
+            await self._send_text(message.get_content())
             return
         if isinstance(message, ImageMessage):
             await self._flush_reasoning()
-            await self._matcher.send(MessageSegment.image(await message.get_image()))
+            await self._send(UniMessage(Image(raw=await message.get_image())))
             return
         # 未知类型：保持原有直接转发行为
-        await self._matcher.send(str(message))
+        await self._send_text(str(message))
 
     async def _handle_metadata(self, message: MessageWithMetadata) -> None:
         meta = self._config.meta
@@ -178,27 +191,27 @@ class ChatStreamSender:
         if is_reasoning_chunk and meta.enable and meta.stream_reasoning:
             # 收集思考块：混入不同的 extra_type 时先发送上一段
             if old := self._reasoning.write(message.content, extra_type):
-                await self._matcher.send(f"💭 {old}")
+                await self._send_text(f"💭 {old}")
             return
         # 非思考块消息：先 flush 累积的思考块再处理
         await self._flush_reasoning()
         match mtype:
             case "system":
                 if metadata.get("extra_type") == "tool_call_limit":
-                    await self._matcher.send(
+                    await self._send_text(
                         "⚠️ 已超出工具调用限制，请调整你的prompt以继续。"
                     )
                 else:
-                    await self._matcher.send(message.content)
+                    await self._send_text(message.content)
             case "reasoning":
                 # 框架整段思考块（pre_resolve）
                 if not self._config.core.builtin.agent_reasoning_hide:
-                    await self._matcher.send(f"💭 {message.content}")
+                    await self._send_text(f"💭 {message.content}")
             case "tool_prediction":
                 if self._config.core.builtin.agent_tool_call_notice == "notify":
-                    await self._matcher.send("⏩ 优化了工具选择")
+                    await self._send_text("⏩ 优化了工具选择")
             case "middle_message":
-                await self._matcher.send(f"💬 {message.content}")
+                await self._send_text(f"💬 {message.content}")
             case "function_call":
                 if (
                     metadata.get("is_done")
@@ -209,9 +222,9 @@ class ChatStreamSender:
                         logger.opt(exception=err, colors=True, raw=True).exception(
                             f"Tool {function_name} execution failed: {err}"
                         )
-                        await self._matcher.send(f"ERR: {function_name} 执行失败")
+                        await self._send_text(f"ERR: {function_name} 执行失败")
                     else:
-                        await self._matcher.send(f"调用了工具：{function_name}")
+                        await self._send_text(f"调用了工具：{function_name}")
             case "step":
                 # Step 生命周期消息，按 extra_type 粒度控制
                 if (
@@ -219,7 +232,7 @@ class ChatStreamSender:
                     and extra_type is not None
                     and getattr(meta.step, extra_type, False)
                 ):
-                    await self._matcher.send(f"🪜 {message.content}")
+                    await self._send_text(f"🪜 {message.content}")
             case "reflection":
                 # 反思结果：self_check/contradiction_check/completeness_check
                 if meta.enable and meta.reflection:
@@ -227,17 +240,17 @@ class ChatStreamSender:
                     text = f"🔍 {message.content}"
                     if detail:
                         text += f"\n{detail}"
-                    await self._matcher.send(text)
+                    await self._send_text(text)
             case "skill_call":
                 # 技能触发通知（由 skills 模块在技能工具被调用时推送）
                 if meta.enable and meta.skill_trigger:
-                    await self._matcher.send(f"🧠 {message.content}")
+                    await self._send_text(f"🧠 {message.content}")
             case "text":
                 if (
                     extra_type == "structured_reasoning_step"
                     and not self._config.core.builtin.agent_reasoning_hide
                 ):
-                    await self._matcher.send(message.content)
+                    await self._send_text(message.content)
             case "error":
                 if metadata.get("extra_type") == "cookie":
                     await self._handle_cookie_error()
@@ -247,7 +260,7 @@ class ChatStreamSender:
                     f"有错误发生:{error}"
                 )
                 if meta.enable and meta.error_report:
-                    await self._matcher.send(f"❌ {message.content}")
+                    await self._send_text(f"❌ {message.content}")
 
     async def _handle_cookie_error(self) -> None:
         """cookie 泄露：通知管理员并熔断（不再发送最终响应）"""
@@ -259,7 +272,7 @@ class ChatStreamSender:
             f"安全警告：用户请求导致了可能的Prompt泄露。已在response检测到cookie泄露，请检查！\n用户请求：\n{chat.user_input!s}\n模型模型输出：\n{response_content!s}"
         )
         self._blocked = True
-        await self._matcher.send(random.choice(self._config.llm.block_msg))
+        await self._send_text(random.choice(self._config.llm.block_msg))
 
     async def send_final(self, content: str) -> None:
         """发送最终响应：先触发 SendMessageEvent 钩子，再发送
@@ -280,10 +293,9 @@ class ChatStreamSender:
         # 发送前 flush 残留思考块
         await self._flush_reasoning()
 
-        # 构建 MessageSegment（引用回复）
-        message: Message = MessageSegment.reply(
-            self._event.message_id
-        ) + MessageSegment.text(content)
+        # 构建引用回复（uniseg）
+        msg_id = get_message_id(self._event, self._bot)
+        message = UniMessage(Reply(msg_id)) + content
 
         # 触发钩子：允许修改或拦截
         ev = SendMessageEvent(
@@ -301,22 +313,19 @@ class ChatStreamSender:
         if forward_threshold > 0 and len(final_text) > forward_threshold:
             # 超长响应改用合并转发：按连续换行拆分，每块至少 min_chunk 字符
             min_chunk = self._config.function.forward_min_chunk
-            parts = [
-                MessageSegment.text(part)
-                for part in _split_forward_chunks(final_text, min_chunk)
-            ]
+            parts = _split_forward_chunks(final_text, min_chunk)
             await send_forward_msg(
                 self._bot,
                 self._event,
                 name="Amrita",
-                uin=str(self._event.self_id),
+                uin=str(self._bot.self_id),
                 msgs=parts,
             )
         elif not self._config.function.nature_chat_style:
-            await self._matcher.send(ev.content)
+            await self._send(ev.content)
         elif response_list := split_message_into_chats(final_text):
             for part in response_list:
-                await self._matcher.send(MessageSegment.text(part))
+                await self._send_text(part)
                 await asyncio.sleep(
                     random.randint(1, 3) + (len(part) // random.randint(80, 100))
                 )

@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import time
-import typing
 from collections import defaultdict
+from typing import TYPE_CHECKING
 
 import nonebot
 from aiologic import Lock
 from nonebot import logger
-from nonebot.adapters.onebot.v11 import Bot, MessageSegment
+from nonebot.adapters import Bot, MessageSegment
 
 from amrita.config import get_amrita_config
 from amrita.utils.rate import TokenBucket
+from amrita.utils.send import send_forward_msg_to_target
 
 # 用于跟踪消息发送的计数器和时间戳
 _message_tracker = defaultdict(int)
@@ -61,51 +62,49 @@ async def _check_and_handle_rate_limit():
     return False  # 表示不需要阻断消息发送
 
 
-async def send_to_admin(msg: str, bot: Bot | None = None):
-    """发送消息到管理
+if TYPE_CHECKING:
+    from nonebot_plugin_alconna.uniseg import Segment, Target
 
-    Args:
-        bot (Bot): Bot
-        msg (str): 消息内容
-    """
+
+def _admin_target(config) -> "Target":
+    from nonebot_plugin_alconna.uniseg import SupportScope, Target
+
+    return Target.group(str(config.admin_group), SupportScope.qq_client)
+
+
+async def send_to_admin(msg: str, bot: Bot | None = None):
+    """发送消息到管理"""
+    from nonebot_plugin_alconna.uniseg import UniMessage
+
     config = get_amrita_config()
     if config.admin_group == -1:
         return nonebot.logger.warning("SEND_TO_ADMIN\n" + msg)
     if bot is None:
-        bot = typing.cast(Bot, nonebot.get_bot())
-    await bot.send_group_msg(group_id=config.admin_group, message=msg)
+        bot = nonebot.get_bot()
+    await UniMessage(msg).send(target=_admin_target(config), bot=bot)
 
 
 async def send_forward_msg_to_admin(
-    bot: Bot, name: str, uin: str, msgs: list[MessageSegment]
+    bot: Bot,
+    name: str,
+    uin: str,
+    msgs: list[str | MessageSegment | "Segment"],
 ):
-    """发送消息到管理
-
-    Args:
-        bot (Bot): Bot
-        name (str): 名称
-        uin (str): UID
-        msgs (list[MessageSegment]): 消息列表
-
-    Returns:
-        dict: 发送消息后的结果
-    """
+    """以合并转发形式发送消息到管理"""
     global _last_exception_time
-    # 检查是否需要阻断消息发送
     if await _check_and_handle_rate_limit():
-        return  # 阻断消息发送
+        return
     _last_exception_time = time.time()
-
-    def to_json(msg: MessageSegment) -> dict:
-        return {"type": "node", "data": {"name": name, "uin": uin, "content": msg}}
 
     config = get_amrita_config()
     if config.admin_group == -1:
-        return nonebot.logger.warning(
-            "LOG_MSG_FORWARD\n".join(
-                [msg.data.get("text", "") for msg in msgs if msg.is_text()]
-            )
+        text = "".join(
+            m.data.get("text", "") if isinstance(m, MessageSegment) else str(m)
+            for m in msgs
+            if not isinstance(m, MessageSegment) or m.is_text()
         )
+        return nonebot.logger.warning("LOG_MSG_FORWARD\n" + text)
 
-    messages = [to_json(msg) for msg in msgs]
-    await bot.send_group_forward_msg(group_id=config.admin_group, messages=messages)
+    await send_forward_msg_to_target(
+        bot, _admin_target(config), name, uin, msgs
+    )

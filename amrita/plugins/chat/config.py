@@ -189,10 +189,6 @@ class PresetSwitch(BaseModel):
     backup_preset_list: list[str] = Field(
         default=[], description="主模型不可用时自动切换的备选模型预设列表"
     )
-    # multi_modal_preset_list: list[str] = Field(
-    #    default=[], description="多模态场景预设调用顺序"
-    # )
-    # TODO: 完成hook适配
 
 
 class ExtendConfig(BaseModel):
@@ -524,10 +520,6 @@ class ConfigManager(EnvfulConfigManager[Config]):
             lambda *_: models_callback(),
             owner_name="chat",
         )
-        # 技能目录回调：目录内文件变化自动重新 discover（复用 uniconf 监听）。
-        # 注意：自定义 filter 会替换默认过滤（final_filter = filter or default_filter），
-        # 故需自行检查路径前缀。不限后缀：技能目录除 SKILL.md 外还可能含脚本
-        # （.py/.sh 等，渐进披露 L3 的 skill.scripts），任何文件变化都应触发重载。
         await UniConfigManager().add_directory(
             "skills",
             lambda *_: skills_callback(),

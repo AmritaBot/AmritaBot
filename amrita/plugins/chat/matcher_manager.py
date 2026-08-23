@@ -70,7 +70,7 @@ class MatcherSpec:
 
 
 MATCHERS: list[MatcherSpec] = [
-    # ---- 通知事件 ----
+    # 通知事件
     MatcherSpec(
         kind="notice",
         handler=add_notices,
@@ -89,7 +89,7 @@ MATCHERS: list[MatcherSpec] = [
         priority=5,
         block=False,
     ),
-    # ---- 消息事件：处理聊天消息 ----
+    # 消息事件：处理聊天消息
     MatcherSpec(
         kind="message",
         handler=chat,
@@ -97,7 +97,7 @@ MATCHERS: list[MatcherSpec] = [
         priority=11,
         rule=Rule(should_respond_with_usage_check, is_bot_enabled),
     ),
-    # ---- 模型域 ----
+    # 模型域
     MatcherSpec(
         command="model",
         aliases={"模型", "切换模型", "模型管理"},
@@ -118,7 +118,7 @@ MATCHERS: list[MatcherSpec] = [
             ],
         ).model_dump(),
     ),
-    # ---- 提示词域 ----
+    # 提示词域
     MatcherSpec(
         command="prompt",
         priority=10,
@@ -136,7 +136,7 @@ MATCHERS: list[MatcherSpec] = [
             ],
         ).model_dump(),
     ),
-    # ---- 会话域 ----
+    # 会话域
     MatcherSpec(
         command="session",
         aliases={"会话", "会话管理"},
@@ -161,7 +161,7 @@ MATCHERS: list[MatcherSpec] = [
             ],
         ).model_dump(),
     ),
-    # ---- 聊天开关域 ----
+    # 聊天开关域
     MatcherSpec(
         command="chat",
         aliases={"聊天开关", "chat_switch"},
@@ -181,7 +181,7 @@ MATCHERS: list[MatcherSpec] = [
             ],
         ).model_dump(),
     ),
-    # ---- 调试 ----
+    # 调试
     MatcherSpec(
         command="debug",
         priority=10,
@@ -199,7 +199,7 @@ MATCHERS: list[MatcherSpec] = [
             ],
         ).model_dump(),
     ),
-    # ---- 用量统计 ----
+    # 用量统计
     MatcherSpec(
         command="insights",
         aliases={"今日用量"},
@@ -217,7 +217,7 @@ MATCHERS: list[MatcherSpec] = [
             ],
         ).model_dump(),
     ),
-    # ---- MCP 管理 ----
+    # 管理
     MatcherSpec(
         command="mcp",
         aliases={"MCP管理"},
@@ -236,7 +236,7 @@ MATCHERS: list[MatcherSpec] = [
             ],
         ).model_dump(),
     ),
-    # ---- 会话进程管理 ----
+    # 会话进程管理
     MatcherSpec(
         command="chatobj",
         aliases={"chat_obj"},
@@ -277,9 +277,6 @@ def _register(spec: MatcherSpec) -> None:
     else:
         assert spec.command is not None, "command 类匹配器必须提供 command"
         kwargs["aliases"] = spec.aliases
-        # 仅当显式指定时才传入，避免 False 覆盖 NoneBot 默认的 None
-        # （NoneBot 中 force_whitespace=False 表示命令后必须无空白，
-        #  会导致 `/chat on` 这类带空格参数的命令静默失配）
         if spec.force_whitespace is not None:
             kwargs["force_whitespace"] = spec.force_whitespace
         kwargs["state"] = spec.state

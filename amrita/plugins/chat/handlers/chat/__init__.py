@@ -118,7 +118,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         debug_log("处理引用消息..")
         content = await handle_reply(event.reply, bot, group_id, content)
 
-    reply_pics = get_reply_pics(event)
+    reply_pics = get_reply_pics(event, bot)
     debug_log(f"获取引用图片完成，共 {len(reply_pics)} 张")
 
     if is_group:
@@ -137,7 +137,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         user_name = await get_friend_name(event.user_id, bot=bot)
     role = await get_user_role(bot, event.group_id, event.user_id) if is_group else ""
     final_content: USER_INPUT = await synthesize_message_to_msg(
-        event, role, str(user_name), str(event.user_id), content
+        event, bot, role, str(user_name), str(event.user_id), content
     )
     if isinstance(final_content, list):
         final_content.extend(reply_pics)
@@ -232,12 +232,9 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         if isinstance(e, CancelledError):
             return
 
-        # Panic-Recover：解释器已 dump（panic 现场保留在 interpreter 上），
-        # 触发事件让外部处理器决定是否恢复。恢复成功则继续执行剩余管线
-        # （含 COMMIT_MEMORY 记忆提交）；未恢复则走旧路径，不提交记忆。
+        # Panic-Recover：解释器已 dump，触发事件由外部决定是否恢复
         result = await try_panic_recover(chat, e, config)
         if result is RecoveryResult.RECOVERED:
-            # 恢复成功：走正常收尾（send_final；usage 统计由外层 finally 完成）
             stream.mark_received()
             await stream.send_final()
             return

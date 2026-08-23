@@ -8,10 +8,11 @@ from amrita_core.types import Message as CoreMessage
 from amrita_sense.hook.event import BaseEvent
 from amrita_sense.hook.matcher import MatcherFactory
 from nonebot import logger
-from nonebot.adapters.onebot.v11 import Bot, Message, MessageSegment
+from nonebot.adapters import Bot
 from nonebot.adapters.onebot.v11.event import PokeNotifyEvent
 from nonebot.exception import NoneBotException
 from nonebot.matcher import Matcher
+from nonebot_plugin_alconna.uniseg import At, Text, UniMessage, get_target
 from nonebot_plugin_amrita import CachedUserDataRepository
 from nonebot_plugin_amrita.database import InsightsModel
 
@@ -37,12 +38,12 @@ class PokeSendError(BaseException):
 class PokeSendMessageEvent(BaseEvent[str]):
     """poke 回复发送前触发的事件（与 chat 的 SendMessageEvent 完全独立）
 
-    content: 构建好的 MessageSegment，钩子可直接修改或替换
+    content: 构建好的 UniMessage，钩子可直接修改或替换
     """
 
     def __init__(
         self,
-        content: Message,
+        content: UniMessage,
         *,
         event: PokeNotifyEvent,
         matcher: Matcher,
@@ -62,12 +63,12 @@ class PokeSendMessageEvent(BaseEvent[str]):
 
 
 async def _trigger_poke_send(
-    content: Message,
+    content: UniMessage,
     *,
     event: PokeNotifyEvent,
     matcher: Matcher,
     bot: Bot,
-) -> Message:
+) -> UniMessage:
     """触发 poke 发送钩子，返回（可能被修改的）最终消息
 
     Raises:
@@ -156,26 +157,20 @@ async def handle_group_poke(
         ),
     ]
     response = await process_poke_event(event, send_messages, repo)
-    message = (
-        MessageSegment.at(user_id=event.user_id)
-        + MessageSegment.text(" ")
-        + MessageSegment.text(response)
-    )
+    message = UniMessage(At("user", str(event.user_id))) + Text(" ") + Text(response)
 
-    # 触发独立钩子：允许修改或拦截（发送流程保持不变）
     message = await _trigger_poke_send(
-        Message(message),
+        message,
         event=event,
         matcher=matcher,
         bot=bot,
     )
 
-    # 根据配置决定消息发送方式
     if not config_manager.config.function.nature_chat_style:
-        await matcher.send(message)
+        await message.send(target=event, bot=bot)
     else:
         await send_split_messages(
-            message.extract_plain_text(), event.user_id, matcher, is_group=True
+            message.extract_plain_text(), event, bot, matcher, is_group=True
         )
 
 
@@ -206,20 +201,20 @@ async def handle_private_poke(
 
     # 处理戳一戳事件并获取回复
     response = await process_poke_event(event, send_messages, repo)
-    message = MessageSegment.text(response)
+    message = UniMessage(Text(response))
 
     message = await _trigger_poke_send(
-        Message(message),
+        message,
         event=event,
         matcher=matcher,
         bot=bot,
     )
 
     if not config_manager.config.function.nature_chat_style:
-        await matcher.send(message)
+        await message.send(target=event, bot=bot)
     else:
         await send_split_messages(
-            message.extract_plain_text(), event.user_id, matcher, is_group=False
+            message.extract_plain_text(), event, bot, matcher, is_group=False
         )
 
 
@@ -268,24 +263,27 @@ async def process_poke_event(
 
 
 async def send_split_messages(
-    response: str, user_id: int, matcher: Matcher, *, is_group: bool = True
+    response: str,
+    event: PokeNotifyEvent,
+    bot: Bot,
+    matcher: Matcher,
+    *,
+    is_group: bool = True,
 ):
     """发送分段消息
 
     私聊不支持 at 段（协议约束），is_group=False 时剥离 at。
     """
-    if response_list := split_message_into_chats(response):  # 将消息分段
+    if response_list := split_message_into_chats(response):
+        target = get_target(event, bot)
         if is_group:
-            first_message = (
-                MessageSegment.at(user_id) + MessageSegment.text(" ") + response_list[0]
-            )
+            first_message = UniMessage.text(f"@{event.user_id} {response_list[0]}")
         else:
-            first_message = MessageSegment.text(response_list[0])
-        await matcher.send(first_message)
+            first_message = UniMessage.text(response_list[0])
+        await first_message.send(target=target, bot=bot)
 
-        # 逐条发送分段消息
         for message in response_list[1:]:
-            await matcher.send(message)
+            await UniMessage.text(message).send(target=target, bot=bot)
             await asyncio.sleep(
                 random.randint(1, 3) + len(message) // random.randint(80, 100)
             )

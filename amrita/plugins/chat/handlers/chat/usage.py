@@ -15,7 +15,7 @@ from amrita_core.utils import gather_usage
 from nonebot_plugin_amrita.database import InsightsModel
 
 from ...utils.libchat import add_usage
-from ...utils.sql import get_uni_user_id
+from ...utils.sql import get_uni_user_id, make_uni_id
 
 if TYPE_CHECKING:
     from amrita_core.chatmanager import ChatObject as CoreChatObject
@@ -70,7 +70,7 @@ async def record_usage(
     for d in (
         (
             ins,
-            await cudr.get_metadata(f"user_{event.user_id}"),
+            await cudr.get_metadata(make_uni_id(event.user_id, False)),
         )
         if hasattr(event, "group_id")
         else (ins,)

@@ -1,5 +1,5 @@
 from nonebot import get_driver
-from nonebot.adapters.onebot.v11 import Event
+from nonebot.adapters import Event
 
 from ..config import DataManager
 from .rules import (

@@ -4,12 +4,14 @@ from amrita_core.libchat import (
     text_generator,
     tools_caller,
 )
-from nonebot.adapters.onebot.v11 import Event
+from nonebot.adapters import Event
 from nonebot_plugin_amrita.database import InsightsModel
 from nonebot_plugin_amrita.memory import CachedUserDataRepository, UserMetadataSchema
 
 from amrita.plugins.chat.config import config_manager
 from amrita.plugins.perm.API.rules import any_has_permission
+
+from .sql import make_uni_id
 
 is_bot_admin = None
 
@@ -68,7 +70,7 @@ async def usage_enough(event: Event) -> bool:
     # ### User insights ###
     uid: int | None = getattr(event, "user_id", None)
     assert uid is not None
-    data: UserMetadataSchema = await dm.get_metadata(f"user_{uid!s}")
+    data: UserMetadataSchema = await dm.get_metadata(make_uni_id(uid, False))
     if (
         data.called_count >= config.usage_limit.user_daily_limit
         and config.usage_limit.user_daily_limit != -1
@@ -86,7 +88,7 @@ async def usage_enough(event: Event) -> bool:
     # ### Start of group check ###
     group_id: int | None
     if (group_id := getattr(event, "group_id", None)) is not None:
-        data = await dm.get_metadata(f"group_{group_id!s}")
+        data = await dm.get_metadata(make_uni_id(group_id, True))
 
         if (
             config.usage_limit.group_daily_limit != -1

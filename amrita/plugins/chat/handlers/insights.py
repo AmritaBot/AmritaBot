@@ -16,15 +16,29 @@ from amrita.plugins.perm.API.rules import any_has_permission
 
 from ..check_rule import is_bot_admin
 from ..config import config_manager
-from ..utils.sql import get_uni_user_id, get_user_metadata_or_none
+from ..utils.sql import (
+    get_uni_user_id,
+    get_user_metadata_or_none,
+    make_uni_id,
+)
 
 _TOP_RE = re.compile(r"^top(\d+)$", re.IGNORECASE)
 _TOP_MAX = 50  # 排名数量上限，防止刷屏
 
 
+def _payload_of(uni_id: str) -> str:
+    """提取会话 ID 末尾的原始 ID（兼容旧格式与推荐格式）"""
+    return uni_id.rsplit("_", 1)[-1]
+
+
+def _is_group_id(uni_id: str) -> bool:
+    """判断会话 ID 是否指向群组（兼容双格式）"""
+    return uni_id.startswith("group_") or "_Group_" in uni_id
+
+
 def _format_user_entry(i: int, user: UserMetadata, label: str) -> str:
     """格式化排名条目"""
-    user_id = user.user_id.split("_", 1)[1] if "_" in user.user_id else user.user_id
+    user_id = _payload_of(user.user_id)
     total_tokens = user.tokens_input + user.tokens_output
     return f"{i}. {label}{user_id}: {user.called_count}次, {total_tokens}tokens\n"
 
@@ -47,7 +61,7 @@ async def insights(event: MessageEvent, matcher: Matcher, args: Message = Comman
     msg = "未知参数。"
     config = config_manager.config
     if not (arg := args.extract_plain_text().strip()):
-        data = await CachedUserDataRepository().get_metadata(f"user_{event.user_id}")
+        data = await CachedUserDataRepository().get_metadata(make_uni_id(event.user_id, False))
         user_limit = config.usage_limit.user_daily_limit
         user_token_limit = config.usage_limit.user_daily_token_limit
         group_limit = config.usage_limit.group_daily_limit
@@ -91,7 +105,7 @@ async def insights(event: MessageEvent, matcher: Matcher, args: Message = Comman
             msg = "用法：/insights inspect [group|user] <id>"
         else:
             kind, target = parsed
-            uni_id = f"{kind}_{target}"
+            uni_id = make_uni_id(int(target), kind == "group")
             data = await get_user_metadata_or_none(uni_id)
             if data is None:
                 msg = f"未找到{kind} {target} 的使用数据。"
@@ -118,12 +132,11 @@ async def insights(event: MessageEvent, matcher: Matcher, args: Message = Comman
         if not top_users:
             msg = "暂无使用数据。"
         else:
-            # 按 group/private 分类
             group_users: Sequence[UserMetadata] = [
-                u for u in top_users if u.user_id.startswith("group_")
+                u for u in top_users if _is_group_id(u.user_id)
             ]
             private_users: Sequence[UserMetadata] = [
-                u for u in top_users if not u.user_id.startswith("group_")
+                u for u in top_users if not _is_group_id(u.user_id)
             ]
 
             msg = f"今日使用量Top{n}：\n"

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import TYPE_CHECKING, Literal, cast
+from typing import Literal
 
 from aiologic import Lock
-from nonebot.adapters.onebot.v11 import Event
+from nonebot.adapters import Event
 from nonebot_plugin_amrita.database import (
     HasUserIDModel,
     Memory,
@@ -29,12 +29,19 @@ from typing_extensions import Self
 
 from .lock import database_lock
 
+QQ_PLATFORM = "QQPlatform"
+
 
 def get_uni_user_id(event: Event) -> str:
+    """按推荐格式 ``AdapterType_ExtraType_UserPayload`` 生成会话 ID
+
+    QQ 系平台统一为 ``QQPlatform_Group_{群号}`` / ``QQPlatform_Private_{qq}``，
+    与 ``uniseg`` 的 ``get_target`` 归并规则一致（群聊/私聊二元推导，
+    不依赖 Bot 上下文）。
+    """
     if uid := getattr(event, "group_id", None):
-        return f"group_{uid!s}"
-    else:
-        return f"user_{event.get_user_id()!s}"
+        return f"{QQ_PLATFORM}_Group_{uid!s}"
+    return f"{QQ_PLATFORM}_Private_{event.get_user_id()!s}"
 
 
 async def get_user_metadata_or_none(uni_user_id: str) -> UserMetadata | None:
@@ -52,12 +59,13 @@ def get_any_id(event: Event) -> tuple[int, bool]:
         return int(event.get_user_id()), False
 
 
-def make_uni_id(id: int, is_group: bool) -> str:
-    return f"{'group' if is_group else 'user'}_{id!s}"
+def make_uni_id(id: int | str, is_group: bool) -> str:
+    """按推荐格式生成会话 ID（当前部署为 QQ 系平台，统一 QQPlatform）"""
+    extra = "Group" if is_group else "Private"
+    return f"{QQ_PLATFORM}_{extra}_{id!s}"
 
 
-VALIDATE_PATTERN = re.compile(r"^(user|group)_[0-9]+$")
-UNWRAP_PATTERN = re.compile(r"^(user|group)_[0-9]+$")
+VALIDATE_PATTERN = re.compile(r"^(?:user|group|[A-Za-z0-9]+_(?:Private|Group))_[0-9]+$")
 
 
 def validate_uni_user_id(user_id: str) -> bool:
@@ -71,13 +79,12 @@ def validate_and_ret(uid: str) -> str:
 
 
 def unwrap_uni_user_id(user_id: str) -> tuple[Literal["user", "group"], int]:
-    match = UNWRAP_PATTERN.match(user_id)
-    if not match:
-        raise ValueError(f"Invalid uni_user_id: {user_id}")
-    if TYPE_CHECKING:
-        return cast(Literal["user", "group"], match.group(1)), int(match.group(2))
-    else:
-        return match.group(1), int(match.group(2))
+    """解析会话 ID 为 (类型, 原始 ID)，兼容旧格式与推荐格式"""
+    if user_id.startswith("user_") or user_id.startswith("QQPlatform_Private_"):
+        return "user", int(user_id.rsplit("_", 1)[-1])
+    if user_id.startswith("group_") or user_id.startswith("QQPlatform_Group_"):
+        return "group", int(user_id.rsplit("_", 1)[-1])
+    raise ValueError(f"Invalid uni_user_id: {user_id}")
 
 
 class GroupConfig(Model, HasUserIDModel):

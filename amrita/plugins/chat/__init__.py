@@ -29,5 +29,6 @@ __plugin_meta__ = PluginMetadata(
     usage="https://amrita.suggar.top/amrita/plugins/suggarchat/",
     homepage="https://github.com/AmritaBot/Amrita",
     type="application",
-    supported_adapters={"~onebot.v11"},
+    # 声明支持所有适配器（不再限定 OneBotV11）
+    supported_adapters=None,
 )

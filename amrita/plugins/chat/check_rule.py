@@ -5,9 +5,9 @@ import time
 import nonebot
 from amrita_core.types import Message, TextContent
 from nonebot import get_driver, logger
+from nonebot.adapters import Event
 from nonebot.adapters.onebot.v11 import Bot
 from nonebot.adapters.onebot.v11.event import (
-    Event,
     GroupMessageEvent,
     MessageEvent,
 )
@@ -32,11 +32,40 @@ nb_config = get_driver().config
 class FakeEvent(Event):
     """伪事件类，用于模拟用户事件"""
 
-    user_id: int
+    time: int = 0
+    self_id: int = 0
+    post_type: str = ""
+    user_id: int = 0
+
+    @override
+    def get_type(self) -> str:
+        return self.post_type
+
+    @override
+    def get_event_name(self) -> str:
+        return self.post_type
+
+    @override
+    def get_event_description(self) -> str:
+        return ""
 
     @override
     def get_user_id(self) -> str:
         return str(self.user_id)
+
+    @override
+    def get_session_id(self) -> str:
+        return f"{self.post_type}_{self.user_id}"
+
+    @override
+    def get_message(self):
+        from nonebot.adapters.onebot.v11 import Message
+
+        return Message()
+
+    @override
+    def is_tome(self) -> bool:
+        return False
 
 
 async def is_bot_globally_enabled(event: Event) -> bool:

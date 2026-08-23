@@ -5,8 +5,8 @@ from dataclasses import dataclass, field
 from typing import TypeAlias
 
 from async_lru import alru_cache
+from nonebot.adapters import Event
 from nonebot.adapters.onebot.v11 import (
-    Event,
     GroupAdminNoticeEvent,
     GroupBanNoticeEvent,
     GroupDecreaseNoticeEvent,

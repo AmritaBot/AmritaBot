@@ -7,7 +7,7 @@ from pydantic import Field
 
 from amrita.cache import LRUCache, WeakValueLRUCache
 
-from .sql import GroupConfigExecutor
+from .sql import GroupConfigExecutor, make_uni_id
 
 
 class GroupConfigSchema(BaseSchema):
@@ -38,12 +38,8 @@ class CachedGroupDataRepository:
             self._action_lock.put(session_id, lock)
         return lock
 
-    @staticmethod
-    def make_uni_id(id: int, is_group: bool) -> str:
-        return f"{'group' if is_group else 'user'}_{id}"
-
     async def get_group_config(self, group_id: int) -> GroupConfigSchema:
-        uni_id = self.make_uni_id(group_id, True)
+        uni_id = make_uni_id(group_id, True)
         if config := self._cached_group_config.get(uni_id):
             return config
         async with self.make_lock(uni_id):

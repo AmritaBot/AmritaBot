@@ -167,15 +167,19 @@ def split_list(lst: list, threshold: int) -> list[Any]:
     return [lst[i : i + threshold] for i in range(0, len(lst), threshold)]
 
 
-def get_current_datetime_timestamp(utc_time: datetime | None = None):
-    """获取当前时间并格式化为日期、星期和时间字符串"""
+def format_current_datetime(utc_time: datetime | None = None) -> str:
+    """当前时间，格式 ``YYYY-MM-DD 星期 HH:MM:SS``（Asia/Shanghai，不带方括号）"""
     utc_time = utc_time or datetime.now(pytz.utc)
-    asia_shanghai = pytz.timezone("Asia/Shanghai")
-    now = utc_time.astimezone(asia_shanghai)
+    now = utc_time.astimezone(pytz.timezone("Asia/Shanghai"))
     formatted_date = now.strftime("%Y-%m-%d")
     formatted_weekday = now.strftime("%A")
     formatted_time = now.strftime("%H:%M:%S")
-    return f"[{formatted_date} {formatted_weekday} {formatted_time}]"
+    return f"{formatted_date} {formatted_weekday} {formatted_time}"
+
+
+def get_current_datetime_timestamp(utc_time: datetime | None = None) -> str:
+    """获取当前时间并格式化为日期、星期和时间字符串（带方括号，供 legacy 文本格式使用）"""
+    return f"[{format_current_datetime(utc_time)}]"
 
 
 async def get_friend_name(qq_number: int, bot: Bot) -> str:

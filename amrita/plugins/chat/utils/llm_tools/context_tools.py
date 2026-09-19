@@ -29,8 +29,10 @@ _READ_CONTEXT_DEFINITION = FunctionDefinitionSchema(
         "读取当前会话最近记录的群聊上下文。\n"
         "当你不确定刚才群里聊了什么、需要补充背景信息，或用户提到"
         "「之前/刚刚说过」的内容时调用本工具。\n"
-        "返回内容按时间正序排列，格式与正常聊天记录一致"
-        "（[角色][时间][昵称（QQ号）]说:内容）。"
+        "返回内容按时间正序排列，每条记录为 XML 格式"
+        '（<msg role="群主/管理员/普通成员" name="昵称" uid="QQ号" '
+        'time="2026-09-19 Saturday 15:24:37">内容</msg>），'
+        "time 属性为消息发送时间。"
     ),
     parameters=FunctionParametersSchema(
         type="object",

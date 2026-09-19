@@ -21,10 +21,8 @@ from amrita.plugins.perm.API.admin import is_lp_admin
 from .config import config_manager
 from .utils.context_store import append_context_record
 from .utils.data_access import get_group_config, get_memory, update_memory
-from .utils.functions import (
-    get_current_datetime_timestamp,
-    synthesize_message,
-)
+from .utils.format import format_msg_xml
+from .utils.functions import format_current_datetime, synthesize_message
 
 nb_config = get_driver().config
 
@@ -152,9 +150,6 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
             # 合成消息内容
             content = await synthesize_message(message, bot)
 
-            # 获取当前时间戳
-            Date = get_current_datetime_timestamp()
-
             # 获取用户角色信息
             role_code = (
                 event.sender.role
@@ -185,12 +180,19 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
 
             # 生成消息内容并静默落库：不再写入 LLM 记忆，
             # 改由 read_context 工具在需要时按需读取。
+            # 固定使用 XML 格式，与 function.message_type == "xml" 的主流程一致。
             await append_context_record(
                 uni_id=make_uni_id(ins_id, is_group),
                 user_id=str(user_id),
                 nickname=str(user_name),
                 role=role,
-                content=f"[{role}][{Date}][{user_name}（{user_id}）]说:{content}",
+                content=format_msg_xml(
+                    role,
+                    str(user_name),
+                    str(user_id),
+                    content,
+                    time=format_current_datetime(),
+                ),
             )
         # 默认返回 False
         return False

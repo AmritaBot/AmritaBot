@@ -297,7 +297,11 @@ async def append_context_record(
     role: str,
     content: str,
 ) -> None:
-    """静默记录一条群聊上下文（不进入 LLM 记忆）。"""
+    """静默记录一条群聊上下文（不进入 LLM 记忆）。
+
+    ``content`` 需是已渲染好的文本（调用方用 ``utils.format.format_msg_xml``
+    生成），本函数不再做格式处理。
+    """
     if not config_manager.config.context.enable or not content.strip():
         return
     #  “计数 -> 淘汰最旧 -> 插入” 需要串行化，否则并发写入会多删或少删
@@ -323,7 +327,7 @@ async def append_context_record(
 async def read_context_records(
     uni_id: str, limit: int, keyword: str | None = None
 ) -> list[str]:
-    """读取指定会话最近的上下文记录，按时间正序返回（已格式化好的文本行）。"""
+    """读取指定会话最近的上下文记录，按时间正序返回（已渲染好的文本）。"""
     cfg = config_manager.config.context
     #  ``read_context_limit`` 同时是默认值与上限，这里对任何调用者再夹一次
     limit = max(1, min(limit, cfg.read_context_limit))

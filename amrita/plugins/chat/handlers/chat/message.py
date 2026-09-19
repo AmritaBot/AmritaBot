@@ -26,6 +26,12 @@ from nonebot.adapters.onebot.v11.event import MessageEvent, Reply
 
 from ...config import config_manager
 from ...utils.context_store import PlaceholderContent, store_media
+from ...utils.format import (
+    escape_content,
+    escape_xml,
+    format_msg_legacy,
+    format_msg_xml,
+)
 from ...utils.functions import synthesize_message
 from ...utils.net_guard import (
     FetchResult,
@@ -73,42 +79,6 @@ class _ImageFetchResult:
     def ok(self) -> bool:
         """是否成功取到图片二进制与 MIME。"""
         return bool(self.raw) and bool(self.mime)
-
-
-def escape_content(raw: str) -> str:
-    """
-    转义用户输入中可能与 legacy 消息格式冲突的字符。
-
-    legacy 格式使用 [...] 标记用户身份、说: 标记发言，
-    用户输入中出现相同字符时全角替换以避免 LLM 误解析。
-    """
-    return raw.replace("[", "\uff3b").replace("]", "\uff3d").replace("说:", "说：")
-
-
-def escape_xml(raw: str) -> str:
-    """
-    转义用户输入中可能与 XML 消息格式冲突的字符。
-
-    < > & 替换为 XML 实体，防止 injection。
-    """
-    return raw.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-
-def format_msg_legacy(role: str, name: str, uid: str, content: str) -> str:
-    """legacy 格式：方括号标记，紧凑风格"""
-    safe_content = escape_content(content)
-    safe_name = escape_content(name)
-    if role:
-        return f"[{role}][{safe_name}（{uid}）]说:{safe_content}"
-    return f"[{safe_name}（{uid}）]说:{safe_content}"
-
-
-def format_msg_xml(role: str, name: str, uid: str, content: str) -> str:
-    """XML 格式：标签标记，结构清晰，天然支持多行"""
-    safe_content = escape_xml(content)
-    safe_name = escape_xml(name)
-    attrs = f' role="{role}"' if role else ""
-    return f'<msg{attrs} name="{safe_name}" uid="{uid}">\n{safe_content}\n</msg>'
 
 
 async def handle_reply(

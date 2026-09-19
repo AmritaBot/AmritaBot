@@ -236,7 +236,7 @@ class UsageLimitConfig(BaseModel):
     )
 
 
-#  上下文存储：淘汰时间上限（小时，约 10 年），拦住把秒/天当小时填的明显笔误
+#  上下文存储：淘汰时间上限（小时，约 10 年）
 _MAX_TTL_HOURS = 87600
 #  单张图片体积上限（KB），与采集侧的硬上限保持一致
 _HARD_MAX_IMAGE_KB = 32 * 1024

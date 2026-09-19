@@ -81,7 +81,7 @@ class ContextRecord(Model):
     nickname: Mapped[str] = mapped_column(String(128), default="")
     #  消息发送者在群内的角色（群主/群管理员/普通成员）
     role: Mapped[str] = mapped_column(String(32), default="")
-    #  已按 message_type 格式化后的、可直接喂给 LLM 的一行文本
+    #  已按 XML 格式渲染、可直接喂给 LLM 的文本（旧记录可能为 legacy 格式）
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now, nullable=False

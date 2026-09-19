@@ -55,12 +55,12 @@ const CONTENT_MODE_OPTIONS = [
 const DIALOG_SIZING =
   "flex max-h-[90vh] w-[92vw] max-w-4xl flex-col gap-4 overflow-hidden";
 
-/** 数值字段 → 输入框字符串（未设置时为空串） */
+/** 数值字段 -> 输入框字符串（未设置时为空串） */
 function numToInput(v: unknown): string {
   return typeof v === "number" && Number.isFinite(v) ? String(v) : "";
 }
 
-/** 输入框字符串 → 数值；空串或非法输入返回 undefined（表示不提交该键） */
+/** 输入框字符串 -> 数值；空串或非法输入返回 undefined（表示不提交该键） */
 function inputToNum(v: string): number | undefined {
   const t = v.trim();
   if (!t) return undefined;

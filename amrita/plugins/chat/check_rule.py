@@ -3,7 +3,6 @@ import random
 import time
 
 import nonebot
-from amrita_core.types import Message, TextContent
 from nonebot import get_driver, logger
 from nonebot.adapters.onebot.v11 import Bot
 from nonebot.adapters.onebot.v11.event import (
@@ -20,6 +19,7 @@ from amrita.plugins.chat.utils.sql import make_uni_id
 from amrita.plugins.perm.API.admin import is_lp_admin
 
 from .config import config_manager
+from .utils.context_store import append_context_record
 from .utils.data_access import get_group_config, get_memory, update_memory
 from .utils.functions import (
     get_current_datetime_timestamp,
@@ -146,6 +146,9 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
                 memory_data.memory_json.time = time.time()
                 await update_memory(memory_data)
                 return True
+            if not config_manager.config.context.enable:
+                # 未启用静默上下文存储时，不记录未被触发的群消息
+                return False
             # 合成消息内容
             content = await synthesize_message(message, bot)
 
@@ -153,21 +156,20 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
             Date = get_current_datetime_timestamp()
 
             # 获取用户角色信息
-            role = (
-                (
+            role_code = (
+                event.sender.role
+                if event.sender.role
+                else (
                     await bot.get_group_member_info(
                         group_id=event.group_id, user_id=event.user_id
                     )
-                )
-                if not event.sender.role
-                else event.sender.role
+                ).get("role", "")
             )
-            if role == "admin":
-                role = "群管理员"
-            elif role == "owner":
-                role = "群主"
-            elif role == "member":
-                role = "普通成员"
+            role = {
+                "admin": "群管理员",
+                "owner": "群主",
+                "member": "普通成员",
+            }.get(str(role_code), "普通成员")
 
             # 获取用户 ID 和昵称
             user_id = event.user_id
@@ -181,37 +183,15 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
                 else event.sender.nickname
             )
 
-            # 生成消息内容并记录到记忆
-            content_message = f"[{role}][{Date}][{user_name}（{user_id}）]说:{content}"
-            if (
-                not len(memory_data.memory_json.messages) > 1
-                or memory_data.memory_json.messages[-1].role != "user"
-                or (not memory_data.memory_json.messages[-1].content)
-            ):
-                memory_data.memory_json.messages.append(
-                    Message(
-                        role="user",
-                        content=[TextContent(type="text", text=content_message)],
-                    )
-                )
-            elif isinstance(memory_data.memory_json.messages[-1].content, str):
-                memory_data.memory_json.messages[-1].content = [
-                    TextContent(
-                        type="text",
-                        text=str(memory_data.memory_json.messages[-1].content),
-                    ),
-                    TextContent(type="text", text=content_message),
-                ]
-            else:
-                assert isinstance(memory_data.memory_json.messages[-1].content, list)
-                if len(memory_data.memory_json.messages[-1].content) >= 100:
-                    memory_data.memory_json.messages[
-                        -1
-                    ].content = memory_data.memory_json.messages[-1].content[-100:]
-                memory_data.memory_json.messages[-1].content.append(
-                    TextContent(type="text", text=content_message)
-                )
-            await update_memory(memory_data)
+            # 生成消息内容并静默落库：不再写入 LLM 记忆，
+            # 改由 read_context 工具在需要时按需读取。
+            await append_context_record(
+                uni_id=make_uni_id(ins_id, is_group),
+                user_id=str(user_id),
+                nickname=str(user_name),
+                role=role,
+                content=f"[{role}][{Date}][{user_name}（{user_id}）]说:{content}",
+            )
         # 默认返回 False
         return False
 

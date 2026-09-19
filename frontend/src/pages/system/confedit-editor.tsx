@@ -496,7 +496,7 @@ export function ConfeditEditorPage() {
     return values;
   }, [schema]);
 
-  /** 展平字段 → 嵌套树（按 "." 分层展示） */
+  /** 展平字段 -> 嵌套树（按 "." 分层展示） */
   const tree = useMemo(() => buildFieldTree(schema?.fields ?? []), [schema]);
   const visibleTree = useMemo(
     () => filterFieldTree(tree, keyword),

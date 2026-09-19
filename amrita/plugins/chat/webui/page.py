@@ -136,7 +136,7 @@ async def delete_model(name: str):
         await config_manager.get_all_presets(cache=False)
         config_manager.forget_preset(name)
 
-        # 删除的是当前选中的预设 → 重置选中到剩余第一个可用预设
+        # 删除的是当前选中的预设 -> 重置选中到剩余第一个可用预设
         if config_manager.config.preset == name:
             remaining = await config_manager.get_all_presets(cache=False)
             if remaining:

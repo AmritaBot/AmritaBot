@@ -11,14 +11,20 @@ from . import (
     config,
     hooks,
     matcher_manager,
+    models,
     preprocess,
     webui,
 )
 
+#  导入即向全局 ToolsManager 注册 read_context 工具
+from .utils.llm_tools import context_tools
+
 __all__ = [
     "config",
+    "context_tools",
     "hooks",
     "matcher_manager",
+    "models",
     "preprocess",
     "webui",
 ]

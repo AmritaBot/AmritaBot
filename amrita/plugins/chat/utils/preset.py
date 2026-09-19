@@ -14,11 +14,11 @@ from ..config import config_manager
 async def resolve_preset(
     name: str | None = None, *, fix: bool = True, cache: bool = True
 ) -> ModelPreset:
-    """解析预设名 → ``ModelPreset``。
+    """解析预设名 -> ``ModelPreset``。
 
     Args:
         name: 预设名；``None`` 时取配置选中的预设（``config.preset``）
-        fix: 找不到时回退（default → 首个可用预设）并持久化选中。
+        fix: 找不到时回退（default -> 首个可用预设）并持久化选中。
             默认 ``True``：热路径自动修正失效的选中预设（如 default 被删除）
         cache: 是否走磁盘预设缓存（默认 ``True``，热路径友好）
 

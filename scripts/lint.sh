@@ -6,7 +6,9 @@
 #   1. uv run ruff check          —— Python lint（静态检查）
 #   2. uv run ruff format .       —— Python 格式化（幂等，格式化后无 diff）
 #   3. prettier frontend/         —— 前端格式化（--check 验证，--write 修复）
-#   4. tailwindcss 编译检查       —— CSS lint（验证 Tailwind v4 语法/类检测可编译）
+#
+# 前端 CSS 不在这里单独检查：它由 React 构建链路的 bun-plugin-tailwind 编译，
+# 语法错误会在 `bun run build`（scripts/build-frontend.sh）时直接报错。
 #
 # 用法：
 #   bash scripts/lint.sh          # 完整检查（prettier 会实际修复格式）
@@ -47,13 +49,6 @@ else
   bunx prettier --write .
 fi
 echo "  ✅ prettier 通过"
-
-echo ""
-echo "4️⃣  tailwindcss 编译检查 (CSS lint)"
-# 编译 globals.css 到临时文件，验证 Tailwind v4 语法与类检测可正常编译
-bunx tailwindcss -i styles/globals.css -o /tmp/amrita-tailwind-lint.css --minify
-rm -f /tmp/amrita-tailwind-lint.css
-echo "  ✅ tailwindcss 编译通过"
 
 echo ""
 echo "🎉 全部检查通过"

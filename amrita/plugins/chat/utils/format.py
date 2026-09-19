@@ -2,11 +2,11 @@
 
 两种格式：
 
-- XML：``<msg role="群主/管理员/普通成员" name="昵称" uid="QQ号">内容</msg>``，
-  ``time`` 属性可选（静默上下文记录会带上发送时间）
-- legacy：``[身份][昵称（QQ号）]说:内容``
+- XML：``<msg role="群主/管理员/普通成员" name="昵称" uid="QQ号" time="发送时间">内容</msg>``
+- legacy：``[身份][时间][昵称（QQ号）]说:内容``
 
-主流程按 ``function.message_type`` 二选一；静默上下文记录固定用 XML。
+两者的 ``time`` 都是可选的：主流程与静默上下文记录都会传，
+不传时输出与历史版本逐字节一致。
 """
 
 from __future__ import annotations
@@ -48,24 +48,38 @@ def escape_xml_attr(raw: str) -> str:
     return escape_xml(raw).replace('"', "&quot;")
 
 
-def format_msg_legacy(role: str, name: str, uid: str, content: str) -> str:
-    """legacy 格式：方括号标记，紧凑风格"""
+def format_msg_legacy(
+    role: str, name: str, uid: str, content: str, time: str | None = None
+) -> str:
+    """legacy 格式：方括号标记，紧凑风格
+
+    ``time`` 非空时渲染为 ``[身份][时间][昵称（QQ号）]说:内容``。
+    """
     safe_content = escape_content(content)
     safe_name = escape_content(name)
+    stamp = f"[{time}]" if time else ""
     if role:
-        return f"[{role}][{safe_name}（{uid}）]说:{safe_content}"
-    return f"[{safe_name}（{uid}）]说:{safe_content}"
+        return f"[{role}]{stamp}[{safe_name}（{uid}）]说:{safe_content}"
+    return f"{stamp}[{safe_name}（{uid}）]说:{safe_content}"
 
 
 def format_msg_xml(
-    role: str, name: str, uid: str, content: str, time: str | None = None
+    role: str,
+    name: str,
+    uid: str,
+    content: str,
+    time: str | None = None,
+    *,
+    content_escaped: bool = False,
 ) -> str:
     """XML 格式：标签标记，结构清晰，天然支持多行
 
     ``time`` 非空时渲染为 ``time`` 属性，例如
     ``time="2026-09-19 Saturday 15:24:37"``（见 ``format_current_datetime``）。
+    ``content_escaped=True`` 用于内容已由调用方转义的场景（如已含 ``<ref>``
+    块的引用消息），避免二次转义。
     """
-    safe_content = escape_xml(content)
+    safe_content = content if content_escaped else escape_xml(content)
     safe_name = escape_xml_attr(name)
     attrs = f' role="{role}"' if role else ""
     extra = f' time="{escape_xml_attr(time)}"' if time else ""

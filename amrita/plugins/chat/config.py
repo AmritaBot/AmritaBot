@@ -130,8 +130,8 @@ class FunctionConfig(BaseModel):
         default="legacy",
         description=(
             "消息格式类型：\n"
-            '  xml    — <msg role="群主" name="张三" uid="12345">\n{内容}\n</msg>（结构清晰但费tokens）\n'
-            "  legacy — [群主][张三（12345）]说:内容（紧凑但LLM易误解析）"
+            '  xml    — <msg role="群主" name="张三" uid="12345" time="2026-09-19 Saturday 15:24:37">\n{内容}\n</msg>（结构清晰但费tokens）\n'
+            "  legacy — [群主][2026-09-19 Saturday 15:24:37][张三（12345）]说:内容（紧凑但LLM易误解析）"
         ),
     )
     chat_pending_mode: Literal[

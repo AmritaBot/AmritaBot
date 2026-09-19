@@ -29,10 +29,11 @@ from ...utils.context_store import PlaceholderContent, store_media
 from ...utils.format import (
     escape_content,
     escape_xml,
+    escape_xml_attr,
     format_msg_legacy,
     format_msg_xml,
 )
-from ...utils.functions import synthesize_message
+from ...utils.functions import format_current_datetime, synthesize_message
 from ...utils.net_guard import (
     FetchResult,
     decode_inline_bytes,
@@ -114,7 +115,8 @@ async def handle_reply(
 
     if msg_type == "xml":
         safe_content = escape_xml(reply_content)
-        safe_name = escape_xml(safe_name)
+        # 昵称进的是属性值，需要额外转义双引号，否则可以伪造属性
+        safe_name = escape_xml_attr(safe_name)
         # 用户消息内容也需要转义，因为 downstream format_msg_xml
         # 在检测到已有 <ref> 后会跳过二次转义
         safe_user_content = escape_xml(content)
@@ -361,18 +363,24 @@ async def synthesize_message_to_msg(
     is_multimodal: bool = await _is_multimodal()
 
     if config_manager.config.parse_segments:
+        #  时间戳让模型能判断消息先后与间隔；两种格式都带
+        now = format_current_datetime()
         if config_manager.config.function.message_type == "xml":
             # handle_reply 在 XML 模式下已对 content 做了 escape_xml，
             # 且 content 中可能包含 <ref> 标签（已转义好的引用内容），
-            # 因此不能再次经过 format_msg_xml -> escape_xml 导致双重转义
-            if "\n<ref" in content:
-                safe_name = escape_xml(str(user_name))
-                attrs = f' role="{role}"' if role else ""
-                body = f'<msg{attrs} name="{safe_name}" uid="{user_id}">\n{content}\n</msg>'
-            else:
-                body = format_msg_xml(role, str(user_name), str(user_id), content)
+            # 因此不能再次经过 format_msg_xml 的转义导致双重转义
+            body = format_msg_xml(
+                role,
+                str(user_name),
+                str(user_id),
+                content,
+                time=now,
+                content_escaped="\n<ref" in content,
+            )
         else:
-            body = format_msg_legacy(role, str(user_name), str(user_id), content)
+            body = format_msg_legacy(
+                role, str(user_name), str(user_id), content, time=now
+            )
         text: Sequence[Content] | str = (
             [
                 TextContent(text=body),

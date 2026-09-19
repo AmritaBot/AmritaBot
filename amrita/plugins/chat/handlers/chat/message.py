@@ -14,7 +14,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterable, Sequence
+from collections.abc import AsyncIterator, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -195,6 +195,48 @@ async def _resolve_media_bytes(value: str, limit: int) -> FetchResult:
     return FetchResult(data=raw)
 
 
+async def _try_image_source(value: str, limit: int) -> _ImageFetchResult:
+    """尝试把单个候选地址取成图片。
+
+    成功返回二进制与 MIME，失败返回带 ``summary`` 的结果（不抛异常）。
+    """
+    try:
+        result = await _resolve_media_bytes(value, limit)
+    except Exception:
+        logger.opt(exception=True).warning(f"获取图片二进制异常: {value!r}")
+        return _ImageFetchResult(summary="下载图片时发生未预期异常")
+    if (raw := result.data) is None:
+        return _ImageFetchResult(summary=result.reason or "图片不可用")
+    mime = _sniff_mime(raw)
+    if mime is None:
+        debug_log("图片内容不是受支持的图片格式，已丢弃")
+        return _ImageFetchResult(summary="内容不是受支持的图片格式")
+    return _ImageFetchResult(raw=raw, mime=mime)
+
+
+async def _image_candidates(bot: Bot, seg: MessageSegment) -> AsyncIterator[str]:
+    """按优先级产出候选地址。
+
+    消息段里的 ``url`` 与 ``file`` 可能同时存在（``url`` 可能已过期），
+    所以两者都是候选，不能因为拿到了 ``url`` 就放弃 ``file``；
+    查询 ``file`` 需要一次协议端往返，因此排在 ``url`` 之后惰性执行。
+    """
+    if url := str(seg.data.get("url") or ""):
+        yield url
+    file = seg.data.get("file")
+    if not file:
+        return
+    try:
+        info = await bot.get_image(file=str(file))
+    except Exception:
+        logger.opt(exception=True).debug(f"调用 get_image 获取图片信息失败: {file!r}")
+        return
+    #  优先用服务端给出的 url，其次是本地文件路径
+    for key in ("url", "file"):
+        if (value := info.get(key)) is not None:
+            yield str(value)
+
+
 async def _fetch_image_bytes(bot: Bot, seg: MessageSegment) -> _ImageFetchResult:
     """获取图片二进制与 MIME 类型。
 
@@ -210,44 +252,17 @@ async def _fetch_image_bytes(bot: Bot, seg: MessageSegment) -> _ImageFetchResult
     失败时不抛异常，而是返回带 ``summary`` 的结果（最后一个候选地址的失败原因）。
     """
     limit = _max_image_bytes()
-    candidates: list[str] = []
-    if url := str(seg.data.get("url") or ""):
-        candidates.append(url)
-    elif file := seg.data.get("file"):
-        try:
-            info = await bot.get_image(file=str(file))
-        except Exception:
-            logger.opt(exception=True).debug(
-                f"调用 get_image 获取图片信息失败: {file!r}"
-            )
-        else:
-            #  优先用服务端给出的 url，其次是本地文件路径
-            candidates.extend(
-                str(value)
-                for key in ("url", "file")
-                if (value := info.get(key)) is not None
-            )
-    if not candidates:
+    reason = "图片不可用"
+    has_candidate = False
+    async for candidate in _image_candidates(bot, seg):
+        has_candidate = True
+        result = await _try_image_source(candidate, limit)
+        if result.ok:
+            return result
+        reason = result.summary or reason
+    if not has_candidate:
         debug_log("图片消息段缺少可用的 url，已跳过")
         return _ImageFetchResult(summary="消息段未提供可用的图片地址")
-
-    reason = "图片不可用"
-    for candidate in candidates:
-        try:
-            result = await _resolve_media_bytes(candidate, limit)
-        except Exception:
-            logger.opt(exception=True).warning(f"获取图片二进制异常: {candidate!r}")
-            reason = "下载图片时发生未预期异常"
-            continue
-        if (raw := result.data) is None:
-            reason = result.reason or reason
-            continue
-        mime = _sniff_mime(raw)
-        if mime is None:
-            debug_log("图片内容不是受支持的图片格式，已丢弃")
-            reason = "内容不是受支持的图片格式"
-            continue
-        return _ImageFetchResult(raw=raw, mime=mime)
     return _ImageFetchResult(summary=reason)
 
 

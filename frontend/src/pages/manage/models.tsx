@@ -128,7 +128,13 @@ function ModelForm({
     return cfg;
   }
 
-  /** 收集模型参数：布尔项始终提交，数值项留空则省略（保持原值） */
+  /**
+   * 收集模型参数：布尔项始终提交，数值项留空则省略。
+   *
+   * 后端 `update_model` 对 `config` 是逐键 setattr（payload 里没有的键不动），
+   * 所以省略即「保持原值」，也不会丢掉 ModelConfig 之外的配置
+   * （适配器专属配置在 ModelPreset.extra，本表单从不提交该键）。
+   */
   function buildConfig(): Record<string, unknown> {
     const cfg: Record<string, unknown> = {
       stream,

@@ -128,6 +128,9 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
             ):
                 return True
 
+        is_group = bool(getattr(event, "group_id", None))
+        ins_id: int = getattr(event, "group_id", event.user_id)
+
         # 判断是否启用了AutoReply模式
         if config_manager.config.autoreply.enable:
             # 根据概率决定是否回复
@@ -135,8 +138,6 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
             rate = config_manager.config.autoreply.probability
 
             # 获取记忆数据
-            is_group = bool(getattr(event, "group_id", None))
-            ins_id: int = getattr(event, "group_id", event.user_id)
             memory_data: MemorySchema = await get_memory(make_uni_id(ins_id, is_group))
             fk = (await get_group_config(ins_id)).autoreply
 
@@ -144,56 +145,57 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
                 memory_data.memory_json.time = time.time()
                 await update_memory(memory_data)
                 return True
-            if not config_manager.config.context.enable:
-                # 未启用静默上下文存储时，不记录未被触发的群消息
-                return False
-            # 合成消息内容
-            content = await synthesize_message(message, bot)
 
-            # 获取用户角色信息
-            role_code = (
-                event.sender.role
-                if event.sender.role
-                else (
-                    await bot.get_group_member_info(
-                        group_id=event.group_id, user_id=event.user_id
-                    )
-                ).get("role", "")
-            )
-            role = {
-                "admin": "群管理员",
-                "owner": "群主",
-                "member": "普通成员",
-            }.get(str(role_code), "普通成员")
+        # 静默落库：只受 context.enable 控制，与 autoreply 是否启用无关——
+        # 关闭 autoreply 时消息仍可能被 @ / 关键字触发，同样需要这些上文。
+        if not config_manager.config.context.enable:
+            # 未启用静默上下文存储时，不记录未被触发的群消息
+            return False
+        # 合成消息内容
+        content = await synthesize_message(message, bot)
 
-            # 获取用户 ID 和昵称
-            user_id = event.user_id
-            user_name = (
-                (
-                    await bot.get_group_member_info(
-                        group_id=event.group_id, user_id=user_id
-                    )
-                )["nickname"]
-                if not config_manager.config.function.use_user_nickname
-                else event.sender.nickname
-            )
+        # 获取用户角色信息
+        role_code = (
+            event.sender.role
+            if event.sender.role
+            else (
+                await bot.get_group_member_info(
+                    group_id=event.group_id, user_id=event.user_id
+                )
+            ).get("role", "")
+        )
+        role = {
+            "admin": "群管理员",
+            "owner": "群主",
+            "member": "普通成员",
+        }.get(str(role_code), "普通成员")
 
-            # 生成消息内容并静默落库：不再写入 LLM 记忆，
-            # 改由 read_context 工具在需要时按需读取。
-            # 固定使用 XML 格式，与 function.message_type == "xml" 的主流程一致。
-            await append_context_record(
-                uni_id=make_uni_id(ins_id, is_group),
-                user_id=str(user_id),
-                nickname=str(user_name),
-                role=role,
-                content=format_msg_xml(
-                    role,
-                    str(user_name),
-                    str(user_id),
-                    content,
-                    time=format_current_datetime(),
-                ),
-            )
+        # 获取用户 ID 和昵称
+        user_id = event.user_id
+        user_name = (
+            (await bot.get_group_member_info(group_id=event.group_id, user_id=user_id))[
+                "nickname"
+            ]
+            if not config_manager.config.function.use_user_nickname
+            else event.sender.nickname
+        )
+
+        # 生成消息内容并静默落库：不再写入 LLM 记忆，
+        # 改由 read_context 工具在需要时按需读取。
+        # 固定使用 XML 格式，与 function.message_type == "xml" 的主流程一致。
+        await append_context_record(
+            uni_id=make_uni_id(ins_id, is_group),
+            user_id=str(user_id),
+            nickname=str(user_name),
+            role=role,
+            content=format_msg_xml(
+                role,
+                str(user_name),
+                str(user_id),
+                content,
+                time=format_current_datetime(),
+            ),
+        )
         # 默认返回 False
         return False
 

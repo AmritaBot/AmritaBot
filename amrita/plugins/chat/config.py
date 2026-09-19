@@ -18,7 +18,7 @@ from amrita_core.config import (
 )
 from nonebot import get_driver, logger
 from nonebot_plugin_uniconf import EnvfulConfigManager, UniConfigManager
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing_extensions import final, override
 
 from .preset_store import PresetStore
@@ -56,9 +56,6 @@ class ToolsConfig(BaseModel):
     report_invoke_level: Literal["low", "medium", "high"] = Field(
         default="medium",
         description="内容审查的严格程度，可选值：low, medium, high",
-    )
-    require_tools: bool = Field(
-        default=False, description="是否强制要求每次调用至少使用一个工具"
     )
 
 
@@ -133,8 +130,8 @@ class FunctionConfig(BaseModel):
         default="legacy",
         description=(
             "消息格式类型：\n"
-            '  xml    — <msg role="群主" name="张三" uid="12345">\n{内容}\n</msg>（结构清晰但费tokens）\n'
-            "  legacy — [群主][张三（12345）]说:内容（紧凑但LLM易误解析）"
+            '  xml    — <msg role="群主" name="张三" uid="12345" time="2026-09-19 Saturday 15:24:37">\n{内容}\n</msg>（结构清晰但费tokens）\n'
+            "  legacy — [群主][2026-09-19 Saturday 15:24:37][张三（12345）]说:内容（紧凑但LLM易误解析）"
         ),
     )
     chat_pending_mode: Literal[
@@ -164,9 +161,6 @@ class FunctionConfig(BaseModel):
     )
     use_user_nickname: bool = Field(
         default=False, description="在群聊中使用QQ昵称而非群名片"
-    )
-    chat_object_keep_count: int = Field(
-        default=10, description="单会话聊天对象保存数量限制"
     )
     forward_threshold: int = Field(
         default=200,
@@ -236,17 +230,103 @@ class UsageLimitConfig(BaseModel):
     )
     total_daily_limit: int = Field(default=1500, description="总使用次数限制")
     total_daily_token_limit: int = Field(default=1000000, description="总使用token限制")
-    global_insights_expire_days: int = Field(default=7, description="全局统计过期天数")
     limit_msg: list[str] = Field(
         default=["今日额度已达上限，请明天再试。"],
         description="达到使用限制时返回的消息",
     )
 
 
+#  上下文存储：淘汰时间上限（小时，约 10 年）
+_MAX_TTL_HOURS = 87600
+#  单张图片体积上限（KB），与采集侧的硬上限保持一致
+_HARD_MAX_IMAGE_KB = 32 * 1024
+#  淘汰任务节流间隔上限（分钟，一天）
+_MAX_PRUNE_INTERVAL_MINUTES = 1440
+#  read_context 单次返回条数上限，拦住把整库记录一次性塑进上下文的配置
+_MAX_READ_CONTEXT_LIMIT = 1000
+
+
+class ContextStoreConfig(BaseModel):
+    """群聊上下文静默存储与多模态本地存储配置
+
+    未被触发的群消息不再写入 LLM 记忆，而是静默落库，由 ``read_context`` 工具按需读取；
+    多模态内容二进制本地落库，上下文中只保留占位符，读取时再还原为 base64。
+    """
+
+    enable: bool = Field(
+        default=True,
+        description="是否启用群聊上下文静默存储（关闭后未触发的群消息不再记录，read_context 工具一并禁用）",
+    )
+    max_records: int = Field(
+        default=200,
+        ge=0,
+        description="每个会话保留的上下文记录条数上限（0=不限制）",
+    )
+    record_ttl_hours: int = Field(
+        default=72,
+        ge=0,
+        le=_MAX_TTL_HOURS,
+        description="上下文记录淘汰时间（小时），0=不按时间淘汰",
+    )
+    read_context_limit: int = Field(
+        default=30,
+        ge=1,
+        le=_MAX_READ_CONTEXT_LIMIT,
+        description=(
+            "read_context 工具单次返回的默认条数，同时也是模型可请求的条数上限"
+            f"（1~{_MAX_READ_CONTEXT_LIMIT}）"
+        ),
+    )
+    max_image_kb: int = Field(
+        default=2048,
+        ge=0,
+        le=_HARD_MAX_IMAGE_KB,
+        description=(
+            "允许接收的单张图片最大体积（KB），超出该体积的图片将被直接丢弃，"
+            f"0=不限制（内部兜底 {_HARD_MAX_IMAGE_KB}KB）"
+        ),
+    )
+    media_ttl_hours: int = Field(
+        default=24,
+        ge=0,
+        le=_MAX_TTL_HOURS,
+        description="多模态二进制内容淘汰时间（小时），0=不按时间淘汰",
+    )
+    prune_interval_minutes: int = Field(
+        default=10,
+        ge=0,
+        le=_MAX_PRUNE_INTERVAL_MINUTES,
+        description=(
+            "后台淘汰任务的节流间隔（分钟）：新增记录/图片时最多每该间隔执行一次淘汰，"
+            "0=不节流（每次新增都执行）"
+        ),
+    )
+    local_media_dirs: list[str] = Field(
+        default=[],
+        description=(
+            "允许读取本地图片的目录白名单（绝对路径），空列表=禁止读取任何本地文件。"
+            "消息段中的 file/url 字段完全由客户端控制，放开该白名单等于开放任意文件读取，"
+            "仅在确有本地图片目录时才填写。"
+        ),
+    )
+
+    @field_validator("local_media_dirs")
+    @classmethod
+    def _check_local_media_dirs(cls, value: list[str]) -> list[str]:
+        """目录白名单必须是绝对路径，否则运行期会被静默忽略。"""
+        for raw in value:
+            if not raw:
+                raise ValueError("local_media_dirs 中不允许出现空路径")
+            if not Path(raw).expanduser().is_absolute():
+                raise ValueError(
+                    f"local_media_dirs 必须是绝对路径（或 ~ 开头）: {raw!r}"
+                )
+        return value
+
+
 class LLM_Config(BaseModel):
     #  Chat 插件独有（Core 已覆盖的字段如 memory_length_limit 等已移至 core.llm）
     tools: ToolsConfig = Field(default=ToolsConfig(), description="工具调用子系统")
-    stream: bool = Field(default=False, description="是否启用流式响应（逐字输出）")
     block_msg: list[str] = Field(
         default=["你好，这个问题我暂时无法处理，请稍后再试。"],
         description="触发安全熔断时随机返回的提示消息",
@@ -289,6 +369,10 @@ class Config(BaseModel):
     )
     extended: ExtendConfig = Field(default=ExtendConfig(), description="扩展行为设置")
     llm: LLM_Config = Field(default=LLM_Config(), description="LLM核心功能配置")
+    context: ContextStoreConfig = Field(
+        default=ContextStoreConfig(),
+        description="群聊上下文静默存储与多模态本地存储配置",
+    )
     extra: dict[str, Any] = Field(default={}, description="扩展预留区")
     usage_limit: UsageLimitConfig = Field(
         default=UsageLimitConfig(), description="使用限额配置"
@@ -318,13 +402,13 @@ class Config(BaseModel):
 
         新 TOML 格式 (有 core 键则跳过):
             { "core": { "llm": {...}, "cookie": {...}, "builtin": {...}, "function_config": {...} },
-              "llm": { "block_msg": ..., "agent_strategy": ..., "stream": ..., "tools": {<chat-only>} },
+              "llm": { "block_msg": ..., "agent_strategy": ..., "tools": {<chat-only>} },
               ... }
         """
         if not isinstance(data, dict):
             return data
 
-        # 迁移内嵌 default_preset → models/default.json（若目标不存在），
+        # 迁移内嵌 default_preset -> models/default.json（若目标不存在），
         # 随后移除该键：default 预设一律由磁盘承载，配置不再内嵌模型预设。
         if isinstance(data.get("default_preset"), dict):
             try:

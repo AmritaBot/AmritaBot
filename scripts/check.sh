@@ -4,7 +4,7 @@
 #
 # 流程（按顺序，任一失败即中止）：
 #   1. uv run pyright              —— Python 类型检查
-#   2. bash scripts/lint.sh --check —— 代码质量检查（ruff + prettier + tailwind）
+#   2. bash scripts/lint.sh --check —— 代码质量检查（ruff + prettier）
 #   3. bash scripts/full-build.sh  —— 完整构建（前端 typecheck + 构建 + uv build）
 #
 # 用法：
@@ -29,7 +29,7 @@ uv run pyright
 echo "  ✅ pyright 通过"
 
 echo ""
-echo "2️⃣  lint (ruff + prettier + tailwindcss)"
+echo "2️⃣  lint (ruff + prettier)"
 bash "$ROOT/scripts/lint.sh" --check
 
 if [[ "$SKIP_BUILD" == true ]]; then

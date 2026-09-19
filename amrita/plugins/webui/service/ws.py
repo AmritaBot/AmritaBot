@@ -90,7 +90,7 @@ hub = ChannelHub()
 def _origin_components(origin: str) -> tuple[str, str, int] | None:
     """解析 Origin（scheme://host:port）为可比较的 (scheme, hostname, port)。
 
-    端口缺省按 scheme 归一（http→80、https→443）；非法/非 http(s) 返回
+    端口缺省按 scheme 归一（http->80、https->443）；非法/非 http(s) 返回
     None。hostname 统一小写；IPv6 字面量（[::1]:8080）由 urlsplit 处理。
     """
     try:

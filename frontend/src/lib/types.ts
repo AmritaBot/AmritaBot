@@ -135,6 +135,23 @@ export interface ConfeditListData {
   configs: { name: string; class_name: string }[];
 }
 
+/** 模型参数（对应后端 ModelConfig） */
+export interface ChatModelConfig {
+  /** TopK（部分模型适配器不支持） */
+  top_k?: number;
+  /** TopP */
+  top_p?: number;
+  /** 温度 */
+  temperature?: number;
+  /** 是否启用流式响应（逐字输出） */
+  stream?: boolean;
+  /** 是否支持多模态输入（如图片识别） */
+  multimodal?: boolean;
+  /** 是否剥离响应中的 think 标签 */
+  cot_model?: boolean;
+  [key: string]: unknown;
+}
+
 /** 聊天管理 */
 export interface ChatModel {
   name: string;
@@ -144,7 +161,10 @@ export interface ChatModel {
   /** 是否已配置 API Key（敏感字段不回传，仅暴露状态） */
   has_api_key?: boolean;
   protocol: string;
-  config: Record<string, unknown>;
+  // NOTE: 目前不对单个预设计费，rate 先注释掉；需要时恢复即可。
+  // /** Token 计费费率（用于成本估算，可选） */
+  // rate?: number | null;
+  config: ChatModelConfig;
   thinking_config: Record<string, unknown> | null;
 }
 export interface ChatModelsData {

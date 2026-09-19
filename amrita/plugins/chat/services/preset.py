@@ -55,7 +55,7 @@ class PresetService:
     async def get_preset(
         self, preset: str, fix: bool = False, *, cache: bool = True
     ) -> ModelPreset | None:
-        """解析预设名 → ``ModelPreset``。
+        """解析预设名 -> ``ModelPreset``。
 
         - 磁盘预设按名查找（默认缓存），default 无任何特殊处理
         - ``fix=True`` 且找不到时回退到 ``default``（亦不存在则回退到

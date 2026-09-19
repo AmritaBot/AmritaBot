@@ -38,6 +38,7 @@ from amrita.plugins.chat.runtime import (
 )
 from amrita.plugins.chat.runtime_session import SessionManager
 from amrita.plugins.chat.utils.context import build_train_dict
+from amrita.plugins.chat.utils.context_store import resolve_placeholders_in_content
 from amrita.plugins.chat.utils.functions import get_friend_name, synthesize_message
 from amrita.plugins.chat.utils.lock import get_group_lock, get_private_lock
 from amrita.plugins.chat.utils.preset import resolve_preset
@@ -118,7 +119,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         debug_log("处理引用消息..")
         content = await handle_reply(event.reply, bot, group_id, content)
 
-    reply_pics = get_reply_pics(event)
+    reply_pics = await get_reply_pics(bot, event)
     debug_log(f"获取引用图片完成，共 {len(reply_pics)} 张")
 
     if is_group:
@@ -137,10 +138,13 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         user_name = await get_friend_name(event.user_id, bot=bot)
     role = await get_user_role(bot, event.group_id, event.user_id) if is_group else ""
     final_content: USER_INPUT = await synthesize_message_to_msg(
-        event, role, str(user_name), str(event.user_id), content
+        event, role, str(user_name), str(event.user_id), content, bot
     )
     if isinstance(final_content, list):
         final_content.extend(reply_pics)
+    #  占位符 -> base64：只在内存中展开，
+    #  写库前由 ChatMemoryBackend.commit_memory 折叠回占位符
+    final_content = await resolve_placeholders_in_content(final_content)
 
     #  阶段 3：构建策略与 prompt
     strategy = select_agent_strategy(config.llm.agent_strategy)

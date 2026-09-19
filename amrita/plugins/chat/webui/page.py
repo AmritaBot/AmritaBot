@@ -26,6 +26,8 @@ async def create_model(request: Request):
         protocol = data.get("protocol", "__main__")
         config_data = data.get("config", {})
         thinking_data = data.get("thinking_config")
+        # NOTE: 目前不对单个预设计费，rate 先注释掉；需要时恢复即可。
+        # rate = data.get("rate")
         if not name:
             return JSONResponse(
                 {"success": False, "message": "缺少模型预设名称"}, status_code=400
@@ -37,6 +39,8 @@ async def create_model(request: Request):
             base_url=base_url,
             api_key=api_key,
             protocol=protocol,
+            # NOTE: rate 先注释掉（ModelPreset.rate 默认 None = 不计费）
+            # rate=rate,
             config=ModelConfig(**config_data),
             thinking_config=thinking_cfg,
         )
@@ -132,7 +136,7 @@ async def delete_model(name: str):
         await config_manager.get_all_presets(cache=False)
         config_manager.forget_preset(name)
 
-        # 删除的是当前选中的预设 → 重置选中到剩余第一个可用预设
+        # 删除的是当前选中的预设 -> 重置选中到剩余第一个可用预设
         if config_manager.config.preset == name:
             remaining = await config_manager.get_all_presets(cache=False)
             if remaining:

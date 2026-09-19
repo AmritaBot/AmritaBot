@@ -26,6 +26,8 @@ async def create_model(request: Request):
         protocol = data.get("protocol", "__main__")
         config_data = data.get("config", {})
         thinking_data = data.get("thinking_config")
+        # NOTE: 目前不对单个预设计费，rate 先注释掉；需要时恢复即可。
+        # rate = data.get("rate")
         if not name:
             return JSONResponse(
                 {"success": False, "message": "缺少模型预设名称"}, status_code=400
@@ -37,6 +39,8 @@ async def create_model(request: Request):
             base_url=base_url,
             api_key=api_key,
             protocol=protocol,
+            # NOTE: rate 先注释掉（ModelPreset.rate 默认 None = 不计费）
+            # rate=rate,
             config=ModelConfig(**config_data),
             thinking_config=thinking_cfg,
         )

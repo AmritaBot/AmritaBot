@@ -57,9 +57,6 @@ class ToolsConfig(BaseModel):
         default="medium",
         description="内容审查的严格程度，可选值：low, medium, high",
     )
-    require_tools: bool = Field(
-        default=False, description="是否强制要求每次调用至少使用一个工具"
-    )
 
 
 class StepLifecycleConfig(BaseModel):
@@ -165,9 +162,6 @@ class FunctionConfig(BaseModel):
     use_user_nickname: bool = Field(
         default=False, description="在群聊中使用QQ昵称而非群名片"
     )
-    chat_object_keep_count: int = Field(
-        default=10, description="单会话聊天对象保存数量限制"
-    )
     forward_threshold: int = Field(
         default=200,
         description="最终响应超过该字符数时改用合并转发发送（0=禁用）",
@@ -236,7 +230,6 @@ class UsageLimitConfig(BaseModel):
     )
     total_daily_limit: int = Field(default=1500, description="总使用次数限制")
     total_daily_token_limit: int = Field(default=1000000, description="总使用token限制")
-    global_insights_expire_days: int = Field(default=7, description="全局统计过期天数")
     limit_msg: list[str] = Field(
         default=["今日额度已达上限，请明天再试。"],
         description="达到使用限制时返回的消息",
@@ -246,7 +239,6 @@ class UsageLimitConfig(BaseModel):
 class LLM_Config(BaseModel):
     #  Chat 插件独有（Core 已覆盖的字段如 memory_length_limit 等已移至 core.llm）
     tools: ToolsConfig = Field(default=ToolsConfig(), description="工具调用子系统")
-    stream: bool = Field(default=False, description="是否启用流式响应（逐字输出）")
     block_msg: list[str] = Field(
         default=["你好，这个问题我暂时无法处理，请稍后再试。"],
         description="触发安全熔断时随机返回的提示消息",
@@ -318,7 +310,7 @@ class Config(BaseModel):
 
         新 TOML 格式 (有 core 键则跳过):
             { "core": { "llm": {...}, "cookie": {...}, "builtin": {...}, "function_config": {...} },
-              "llm": { "block_msg": ..., "agent_strategy": ..., "stream": ..., "tools": {<chat-only>} },
+              "llm": { "block_msg": ..., "agent_strategy": ..., "tools": {<chat-only>} },
               ... }
         """
         if not isinstance(data, dict):

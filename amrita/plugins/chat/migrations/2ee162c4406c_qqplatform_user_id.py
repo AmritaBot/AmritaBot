@@ -25,10 +25,10 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 _TABLES = (
-    "amrita_user_metadata",
     "amrita_memory_data",
     "amrita_memory_sessions",
     "amrita_group_config",
+    "amrita_user_metadata",
 )
 
 _OLD_PATTERN = re.compile(r"^(user|group)_([0-9]+)$")

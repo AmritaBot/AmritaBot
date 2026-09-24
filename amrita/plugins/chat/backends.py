@@ -10,6 +10,8 @@ from nonebot_plugin_amrita.memory import CachedUserDataRepository, MemorySchema
 
 from .utils.context_store import (
     collapse_media_to_placeholders,
+    has_placeholders,
+    omit_placeholders_in_messages,
     resolve_placeholders_in_messages,
 )
 
@@ -24,19 +26,30 @@ class ChatMemoryBackend(MemoryBackend):
 
     多模态约定：读路径把 ``PlaceholderContent`` 展开成 base64 的
     ``ImageContent``（模型真正需要的是图片本体），写路径再折叠回占位符，
-    保证数据库里永远只存占位符。
+    保证数据库里永远只存占位符。当前模型不支持多模态时改为换成带 ``media_id``
+    的文本标记（既不把 base64 送进请求，也不丢失占位符）。
     """
 
     repo = CachedUserDataRepository()
 
-    def __init__(self, memory: MemorySchema):
+    def __init__(self, memory: MemorySchema, *, multimodal: bool = True):
         self.memory_val = memory
+        self.multimodal = multimodal
 
     async def load_memory(self, session_id: str) -> MemoryModel:
         del session_id
-        #  占位符 -> base64（仅展开内存中的对象，写库前会折叠回去）
-        await resolve_placeholders_in_messages(self.memory_val.memory_json.messages)
-        return self.memory_val.memory_json
+        #  占位符 -> base64，但只作用在**副本**上。就地改写会把 base64 留在
+        #  CachedUserDataRepository 的共享缓存里：一旦本次运行在 COMMIT_MEMORY
+        #  之前中断（它是工作流最后一个节点），后续任意"读缓存 + 写库"的命令
+        #  都会把 base64 持久化进 memory_json。
+        memory = self.memory_val.memory_json.model_copy()
+        if has_placeholders(memory.messages):
+            memory.messages = (
+                await resolve_placeholders_in_messages(memory.messages)
+                if self.multimodal
+                else await omit_placeholders_in_messages(memory.messages)
+            )
+        return memory
 
     async def commit_memory(self, session_id: str, memory: MemoryModel) -> None:
         del session_id

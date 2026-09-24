@@ -30,6 +30,7 @@ from nonebot_plugin_orm import get_session
 from pydantic import BaseModel, Field
 
 from amrita.plugins.chat.config import Config
+from amrita.plugins.chat.utils.data_access import update_memory
 from amrita.plugins.chat.utils.sql import (
     get_uni_user_id,
 )
@@ -173,7 +174,7 @@ class SessionManager:
                 data.time = time_now
                 CachedUserDataRepository._cached_memory.pop(uni_id, None)
                 self._memory.memory_json = data
-                await self._repo.update_memory_data(self._memory)
+                await update_memory(self._memory)
 
                 within_grace = (time_now - timestamp) <= float(
                     cfg.session_control_time * 60 * 2
@@ -212,7 +213,7 @@ class SessionManager:
                     await executor.remove_session(last_session.id)
 
                 self._memory.memory_json = data
-                await self._repo.update_memory_data(self._memory)
+                await update_memory(self._memory)
                 await matcher.finish("让我们继续聊天吧～")
 
         finally:

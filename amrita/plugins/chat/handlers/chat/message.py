@@ -24,7 +24,7 @@ from nonebot import logger
 from nonebot.adapters.onebot.v11 import Bot, MessageSegment
 from nonebot.adapters.onebot.v11.event import MessageEvent, Reply
 
-from ...config import config_manager
+from ...config import HARD_MAX_IMAGE_BYTES, config_manager
 from ...utils.context_store import PlaceholderContent, store_media
 from ...utils.format import (
     escape_content,
@@ -41,13 +41,11 @@ from ...utils.net_guard import (
     file_url_to_path,
     read_local_bytes,
 )
-from ...utils.preset import resolve_preset
+from ...utils.preset import is_multimodal_enabled
 from ...utils.sql import get_uni_user_id
 
 #  单张图片下载超时（秒）
 _IMAGE_DOWNLOAD_TIMEOUT = 30
-#  max_image_kb 配置为 0（不限制）时的兜底硬上限（字节），避免单张图片打爆内存
-_HARD_MAX_IMAGE_BYTES = 32 * 1024 * 1024
 #  受支持的图片格式（文件头 -> MIME）。白名单式匹配，识别不出的内容一律丢弃。
 _IMAGE_SIGNATURES: tuple[tuple[bytes, str], ...] = (
     (b"\xff\xd8\xff", "image/jpeg"),
@@ -59,9 +57,13 @@ _IMAGE_SIGNATURES: tuple[tuple[bytes, str], ...] = (
 
 
 def _max_image_bytes() -> int:
-    """当前配置允许的单张图片体积上限（字节）。"""
+    """当前配置允许的单张图片体积上限（字节）。
+
+    ``max_image_kb`` 为 0（不限制）时回落到 :data:`HARD_MAX_IMAGE_BYTES`，
+    避免单张图片打爆内存。
+    """
     limit_kb = config_manager.config.context.max_image_kb
-    return _HARD_MAX_IMAGE_BYTES if limit_kb <= 0 else limit_kb * 1024
+    return HARD_MAX_IMAGE_BYTES if limit_kb <= 0 else limit_kb * 1024
 
 
 @dataclass(frozen=True, slots=True)
@@ -302,18 +304,6 @@ async def _build_image_contents(
     return contents
 
 
-async def _is_multimodal() -> bool:
-    """当前主预设或任一备选预设是否启用多模态。"""
-    presets = [
-        await resolve_preset(preset)
-        for preset in [
-            config_manager.config.preset,
-            *config_manager.config.preset_extension.backup_preset_list,
-        ]
-    ]
-    return any(p.config.multimodal for p in presets)
-
-
 async def get_reply_pics(bot: Bot, event: MessageEvent) -> list[Content]:
     """获取引用消息中的图片内容（本地落库后以占位符形式返回）
 
@@ -324,7 +314,7 @@ async def get_reply_pics(bot: Bot, event: MessageEvent) -> list[Content]:
     """
     if not (reply := event.reply):
         return []
-    if not await _is_multimodal():
+    if not await is_multimodal_enabled():
         return []
     images = await _build_image_contents(bot, reply.message, get_uni_user_id(event))
     pics = sum(1 for item in images if isinstance(item, PlaceholderContent))
@@ -375,7 +365,7 @@ async def synthesize_message_to_msg(
     Returns:
         转换后的消息内容
     """
-    is_multimodal: bool = await _is_multimodal()
+    is_multimodal: bool = await is_multimodal_enabled()
 
     if config_manager.config.parse_segments:
         #  时间戳让模型能判断消息先后与间隔；两种格式都带

@@ -7,12 +7,22 @@
 - :func:`store_media` —— 多模态二进制落库，返回占位符所需的 ``media_id``
 - :func:`resolve_placeholders_in_messages` / :func:`resolve_placeholders_in_content`
   —— 读路径：占位符 -> ``data:<mime>;base64,...`` 的 ``ImageContent``
+  （前者返回**新列表**，不修改传入的消息对象）
 - :func:`collapse_media_to_placeholders` —— 写路径：把 base64 的 ``ImageContent``
   折叠回占位符，保证数据库里只存占位符
 
-设计约束（重要）：写回记忆前的折叠是必需的。Core 的 ``_pre_runner`` 会把
-hook 处理后的上下文写回 ``memory.messages``，``COMMIT_MEMORY`` 再把它持久化，
-因此任何时刻展开出的 base64 都必须在提交前被折叠回占位符。
+设计约束（重要）：**"记忆里只有占位符"必须是不变式，而不是"顺利的话"的副作用**。
+
+1. 展开只作用于副本。``resolve_placeholders_in_messages`` 返回新列表，调用方
+   （``ChatMemoryBackend.load_memory``）把它挂到一份 ``model_copy()`` 上。若就地
+   改写共享的 ``CachedUserDataRepository._cached_memory``，一旦本次运行在
+   ``COMMIT_MEMORY`` 之前中断（LLM 报错 / 超时 / 取消，它是工作流最后一个节点），
+   缓存里残留的 base64 就会被后续任意"读缓存 + 写库"的命令（``/prompt set``、
+   ``/session compact`` 等）持久化进 ``memory_json``。
+2. 折叠只看内容。data URI 合法即折回占位符，不查询 :class:`ContextMedia` 是否
+   还在：媒体可能已被 TTL 淘汰，此时若不折叠，base64 同样会被写进记忆。
+3. 任何绕过 ``ChatMemoryBackend.commit_memory`` 的写库路径都必须经
+   ``utils/data_access.py:update_memory``（它内部会先折叠）。
 """
 
 from __future__ import annotations
@@ -38,17 +48,20 @@ from amrita_core.types import (
 from nonebot import logger
 from nonebot_plugin_orm import AsyncSession, get_session
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 
 from amrita.cache import WeakValueLRUCache
 
-from ..config import config_manager
+from ..config import HARD_MAX_IMAGE_BYTES, config_manager
 from ..models import ContextMedia, ContextRecord, PlaceholderContent
 
 __all__ = [
     "PlaceholderContent",
     "append_context_record",
     "collapse_media_to_placeholders",
+    "has_placeholders",
     "load_media_data_uri",
+    "omit_placeholders_in_messages",
     "prune_context_store",
     "read_context_records",
     "resolve_placeholders_in_content",
@@ -63,7 +76,7 @@ _MIME_PATTERN = re.compile(
 )
 
 #  data URI 解码后的体积硬上限（字节），避免超长负载撑爆内存
-_MAX_DECODED_BYTES = 32 * 1024 * 1024
+_MAX_DECODED_BYTES = HARD_MAX_IMAGE_BYTES
 #  data URI 文本的硬上限（base64 膨胀系数 4/3，再加少量前缀余量）
 _MAX_DATA_URI_LENGTH = (_MAX_DECODED_BYTES // 3 + 1) * 4 + 64
 
@@ -75,6 +88,19 @@ _lock_pool: WeakValueLRUCache[str, aiologic.Lock] = WeakValueLRUCache(
 )
 #  淘汰任务的全局串行锁：避免节流检查与执行被并发穿插（多个协程同时全表删除）
 _prune_lock: aiologic.Lock = aiologic.Lock()
+
+#  本轮由占位符展开出来的 media_id（内容寻址）。
+#  折叠时用它区分两种情况：即便对应行已被 TTL 淘汰，只要是本插件自己展开出来的
+#  内容就必须折回占位符，否则 base64 会被写进记忆表；而来源不明的 data URI 保持
+#  原样，避免静默丢弃。容量有上限，超出即整体清空（只需保证最近一批还在）。
+_EXPANDED_ID_LIMIT = 4096
+_expanded_ids: set[str] = set()
+
+
+def _remember_expanded(media_id: str) -> None:
+    if len(_expanded_ids) >= _EXPANDED_ID_LIMIT:
+        _expanded_ids.clear()
+    _expanded_ids.add(media_id)
 
 
 def _lock_for(key: str) -> aiologic.Lock:
@@ -148,7 +174,8 @@ async def store_media(uni_id: str, raw: bytes, mime: str) -> str | None:
     #  mime 会被拼回 ``data:<mime>;base64,``，因此不能透传不可信值
     mime = _sanitize_mime(mime)
     media_id = hashlib.sha256(raw).hexdigest()
-    #  并发写入同一 media_id 会撞唯一约束，按 media_id 串行化“查-插”
+    #  并发写入同一 media_id 会撞唯一约束：锁池只能串行化本进程，多 worker 共享
+    #  同一个数据库时还要兜住 IntegrityError
     async with _lock_for(f"media:{media_id}"):
         async with get_session() as session:
             exists = await session.execute(
@@ -164,7 +191,12 @@ async def store_media(uni_id: str, raw: bytes, mime: str) -> str | None:
                         data=raw,
                     )
                 )
-                await session.commit()
+                try:
+                    await session.commit()
+                except IntegrityError:
+                    #  另一个进程刚写入同一行：内容寻址下两者完全等价，直接复用
+                    await session.rollback()
+                    logger.debug(f"媒体 {media_id[:8]} 已由其它进程写入，复用已有记录")
     await _maybe_prune()
     return media_id
 
@@ -193,7 +225,11 @@ async def _resolve_part(part: Content) -> Content:
         return part
     url = await load_media_data_uri(part.media_id)
     if url is None:
+        logger.debug(f"上下文媒体已不可用（{part.media_id[:8]}），降级为说明文本")
         return TextContent(text=f"[{part.kind} 已过期或不可用（{part.media_id[:8]}）]")
+    #  登记：折叠时据此认出"这张图是本插件自己展开的"，从而在媒体行已被淘汰的
+    #  情况下也能折回占位符
+    _remember_expanded(part.media_id)
     return ImageContent(image_url=ImageUrl(url=url))
 
 
@@ -203,8 +239,13 @@ def _has_placeholder(parts: Iterable[Content]) -> bool:
 
 async def resolve_placeholders_in_messages(
     messages: Iterable[CONTENT_LIST_TYPE_ITEM],
-) -> None:
-    """就地把记忆中的占位符展开为 base64 图片内容。"""
+) -> list[CONTENT_LIST_TYPE_ITEM]:
+    """展开记忆中的占位符，返回**新的**消息列表（不修改传入对象）。
+
+    调用方必须使用返回值。就地改写会把 base64 留在共享的记忆缓存里（见模块
+    docstring 的设计约束），只含占位符以外的消息会原样复用，不做多余拷贝。
+    """
+    resolved: list[CONTENT_LIST_TYPE_ITEM] = []
     for message in messages:
         parts = _iter_content_parts(message)
         if (
@@ -212,8 +253,12 @@ async def resolve_placeholders_in_messages(
             or not _has_placeholder(parts)
             or not isinstance(message, Message)
         ):
+            resolved.append(message)
             continue
-        message.content = [await _resolve_part(part) for part in parts]
+        expanded = message.model_copy()
+        expanded.content = [await _resolve_part(part) for part in parts]
+        resolved.append(expanded)
+    return resolved
 
 
 async def resolve_placeholders_in_content(content: USER_INPUT) -> USER_INPUT:
@@ -225,7 +270,96 @@ async def resolve_placeholders_in_content(content: USER_INPUT) -> USER_INPUT:
     return [await _resolve_part(part) for part in content]
 
 
+#  非多模态运行的占位符替身。
+#  此时既不能展开成 base64（纯文本模型会直接报错），也不能把 PlaceholderContent
+#  直接发给 API（Core 会把它序列化成 ``{"type": "placeholder", ...}``，同样报错），
+#  更不能直接丢掉占位符（重新开启多模态后要能取回原图）。因此用一个带 media_id
+#  的文本标记顶替，折叠时再由 :func:`_restore_omitted` 还原成占位符。
+_OMITTED_PATTERN = re.compile(r"^\[图片已省略：([0-9a-f]{64}) ([^\]\s]+) (\d+)\]$")
+
+
+def _omitted_text(part: PlaceholderContent) -> str:
+    return f"[图片已省略：{part.media_id} {part.mime} {part.size}]"
+
+
+def _parse_omitted(text: str) -> PlaceholderContent | None:
+    match = _OMITTED_PATTERN.fullmatch(text)
+    if match is None:
+        return None
+    return PlaceholderContent(
+        media_id=match.group(1),
+        kind="image",
+        mime=match.group(2),
+        size=int(match.group(3)),
+    )
+
+
+def has_placeholders(messages: Iterable[CONTENT_LIST_TYPE_ITEM]) -> bool:
+    """消息列表中是否含有待展开 / 待折叠的占位符。"""
+    for message in messages:
+        parts = _iter_content_parts(message)
+        if parts is not None and _has_placeholder(parts):
+            return True
+    return False
+
+
+async def omit_placeholders_in_messages(
+    messages: Iterable[CONTENT_LIST_TYPE_ITEM],
+) -> list[CONTENT_LIST_TYPE_ITEM]:
+    """把占位符换成文本标记，返回**新的**消息列表（不修改传入对象）。
+
+    仅用于当前模型不支持多模态的运行：既不把 base64 送进请求，也不丢失占位符
+    本身（写库前由 :func:`collapse_media_to_placeholders` 还原）。
+    """
+    omitted: list[CONTENT_LIST_TYPE_ITEM] = []
+    for message in messages:
+        parts = _iter_content_parts(message)
+        if (
+            parts is None
+            or not _has_placeholder(parts)
+            or not isinstance(message, Message)
+        ):
+            omitted.append(message)
+            continue
+        replaced = message.model_copy()
+        replaced.content = [
+            TextContent(text=_omitted_text(part))
+            if isinstance(part, PlaceholderContent)
+            else part
+            for part in parts
+        ]
+        omitted.append(replaced)
+    return omitted
+
+
 #  写路径：base64 -> 占位符
+
+
+def _restore_omitted(
+    messages: Iterable[CONTENT_LIST_TYPE_ITEM], foldable: set[str]
+) -> None:
+    """就地把"已省略"文本标记还原成占位符。
+
+    只还原 ``foldable``（库里确实存在）的 media_id：标记本身只是普通文本，任何
+    用户都能照着格式发一条，不能让它变成"凭空引用某张图片"的入口。
+    """
+    for message in messages:
+        parts = _iter_content_parts(message)
+        if parts is None or not isinstance(message, Message):
+            continue
+        replaced: list[Content] = []
+        changed = False
+        for part in parts:
+            restored = (
+                _parse_omitted(part.text) if isinstance(part, TextContent) else None
+            )
+            if restored is not None and restored.media_id in foldable:
+                replaced.append(restored)
+                changed = True
+                continue
+            replaced.append(part)
+        if changed:
+            message.content = replaced
 
 
 async def collapse_media_to_placeholders(
@@ -233,30 +367,50 @@ async def collapse_media_to_placeholders(
 ) -> None:
     """就地把 base64 的 ``ImageContent`` 折叠回占位符。
 
-    只有确实存在于 :class:`ContextMedia` 中的二进制（即由本插件落库的内容）才会被折叠，
-    其它来源的 data URI 保持原样，避免"看起来像"却取不回来的内容被静默丢弃。
+    判定只看内容：data URI 合法（严格校验 MIME 与 base64）即折叠。**不查询**
+    :class:`ContextMedia` 是否存在——"行还在"并不是折叠的前提，媒体随时可能被 TTL
+    淘汰，此时若不折叠，base64 就会被持久化进 ``memory_json``。
+
+    例外：来源不明的 data URI（既不在库里、也不是本插件展开出来的）保持原样，
+    避免静默丢弃；这类内容应由产生方先调用 :func:`store_media` 落库。
+
+    顺带把非多模态运行留下的"已省略"文本标记还原成占位符。
     """
     messages = list(messages)
-    decoded: dict[str, tuple[str, int]] = {}
+    #  按 url 缓存解码结果：同一张图在收集与折叠两个阶段只解码一次
+    decoded: dict[str, tuple[str, str, bytes]] = {}
+    omitted: set[str] = set()
     for message in messages:
         for part in _iter_content_parts(message) or ():
-            if not isinstance(part, ImageContent):
-                continue
-            parsed = _decode_data_uri(part.image_url.url)
-            if parsed is not None:
-                decoded[parsed[1]] = (parsed[0], len(parsed[2]))
-    if not decoded:
+            if isinstance(part, ImageContent):
+                url = part.image_url.url
+                if url in decoded:
+                    continue
+                if (parsed := _decode_data_uri(url)) is not None:
+                    decoded[url] = parsed
+            elif (
+                isinstance(part, TextContent)
+                and (marker := _parse_omitted(part.text)) is not None
+            ):
+                omitted.add(marker.media_id)
+    if not decoded and not omitted:
         return
 
     async with get_session() as session:
         rows = await session.execute(
             select(ContextMedia.media_id).where(
-                ContextMedia.media_id.in_(list(decoded))
+                ContextMedia.media_id.in_(
+                    [item[1] for item in decoded.values()] + list(omitted)
+                )
             )
         )
-        known = set(rows.scalars().all())
-    if not known:
+        foldable = set(rows.scalars().all())
+    foldable |= _expanded_ids
+    if not foldable:
         return
+
+    #  先还原"已省略"标记（非多模态运行留下的文本替身），再折叠 base64
+    _restore_omitted(messages, foldable)
 
     for message in messages:
         parts = _iter_content_parts(message)
@@ -266,11 +420,11 @@ async def collapse_media_to_placeholders(
         changed = False
         for part in parts:
             parsed = (
-                _decode_data_uri(part.image_url.url)
+                decoded.get(part.image_url.url)
                 if isinstance(part, ImageContent)
                 else None
             )
-            if parsed is not None and parsed[1] in known:
+            if parsed is not None and parsed[1] in foldable:
                 replaced.append(
                     PlaceholderContent(
                         media_id=parsed[1],

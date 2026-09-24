@@ -240,6 +240,9 @@ class UsageLimitConfig(BaseModel):
 _MAX_TTL_HOURS = 87600
 #  单张图片体积上限（KB），与采集侧的硬上限保持一致
 _HARD_MAX_IMAGE_KB = 32 * 1024
+#  上面对应的字节数：采集侧（message.py）与内联解码侧（context_store.py）
+#  共用同一份硬上限，避免三处各写一个 32MB 后慢慢跑偏
+HARD_MAX_IMAGE_BYTES = _HARD_MAX_IMAGE_KB * 1024
 #  淘汰任务节流间隔上限（分钟，一天）
 _MAX_PRUNE_INTERVAL_MINUTES = 1440
 #  read_context 单次返回条数上限，拦住把整库记录一次性塑进上下文的配置

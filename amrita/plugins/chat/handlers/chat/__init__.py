@@ -41,7 +41,7 @@ from amrita.plugins.chat.utils.context import build_train_dict
 from amrita.plugins.chat.utils.context_store import resolve_placeholders_in_content
 from amrita.plugins.chat.utils.functions import get_friend_name, synthesize_message
 from amrita.plugins.chat.utils.lock import get_group_lock, get_private_lock
-from amrita.plugins.chat.utils.preset import resolve_preset
+from amrita.plugins.chat.utils.preset import is_multimodal_enabled, resolve_preset
 from amrita.plugins.chat.utils.sql import get_uni_user_id
 
 from .lock import get_pending_mode_strategy
@@ -152,6 +152,9 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     # 构建定制化的 system prompt（与 /compact、/session info 共用同一构建逻辑）
     train_dict = await build_train_dict(event, memory, config)
 
+    #  多模态能力同时受预设与 AmritaCore 全局开关约束，只按其中一个判断会错配
+    multimodal = await is_multimodal_enabled()
+
     #  阶段 4：创建 ChatObject
     ctx: AmritaBotContext = {
         "matcher": matcher,
@@ -172,7 +175,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         chat_man=bot_chat_manager,
         backend=BackendSlots(
             NoopAbilityBackend(),
-            ChatMemoryBackend(memory),
+            ChatMemoryBackend(memory, multimodal=multimodal),
         ),
         backend_options=DatabackendOptions(
             skip_mcp_fetch=True,

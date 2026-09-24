@@ -35,3 +35,27 @@ async def resolve_preset(
     if preset is None:
         raise LookupError(f"预设 {name} 不存在")
     return preset
+
+
+async def is_multimodal_enabled() -> bool:
+    """当前运行是否真的能把图片交给模型。
+
+    两个开关必须同时打开，缺一不可：
+
+    - ``preset.config.multimodal``：本插件据此决定是否采集 / 落库图片；
+    - ``config.llm.enable_multi_modal``（AmritaCore）：Core 据此决定是否在记忆
+      限流时把图片内容剥成纯文本。
+
+    只看其中一个就会出现错配：预设说支持而 Core 剥图（图片连同占位符一起消失），
+    或预设说不支持而 Core 不剥图（base64 被送给纯文本模型，接口直接报错）。
+    """
+    if not config_manager.config.core.llm.enable_multi_modal:
+        return False
+    presets = [
+        await resolve_preset(preset)
+        for preset in [
+            config_manager.config.preset,
+            *config_manager.config.preset_extension.backup_preset_list,
+        ]
+    ]
+    return any(p.config.multimodal for p in presets)

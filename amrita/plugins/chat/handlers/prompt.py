@@ -7,6 +7,7 @@ from nonebot.matcher import Matcher
 from nonebot.params import CommandArg
 from nonebot_plugin_amrita import CachedUserDataRepository
 
+from amrita.plugins.chat.utils.data_access import update_memory
 from amrita.plugins.chat.utils.sql import get_uni_user_id
 
 from ..config import config_manager
@@ -24,7 +25,7 @@ async def _set_extra(event: MessageEvent, matcher: Matcher, text: str) -> None:
         await matcher.finish("prompt 过长，预期的参数不超过 1000 字。")
     data = await CachedUserDataRepository().get_memory(get_uni_user_id(event))
     data.extra_prompt = text
-    await CachedUserDataRepository().update_memory_data(data)
+    await update_memory(data)
     await matcher.send(f"✅ prompt 已设置为：\n{text}")
 
 
@@ -32,7 +33,7 @@ async def _clear_extra(event: MessageEvent, matcher: Matcher) -> None:
     """清空自定义提示词"""
     data = await CachedUserDataRepository().get_memory(get_uni_user_id(event))
     data.extra_prompt = ""
-    await CachedUserDataRepository().update_memory_data(data)
+    await update_memory(data)
     await matcher.send("✅ prompt 已清空。")
 
 

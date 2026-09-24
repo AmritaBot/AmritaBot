@@ -16,7 +16,13 @@ from amrita.plugins.perm.API.rules import any_has_permission
 
 from ..check_rule import is_bot_admin
 from ..config import config_manager
-from ..utils.sql import get_uni_user_id, get_user_metadata_or_none
+from ..utils.sql import (
+    get_uni_user_id,
+    get_user_metadata_or_none,
+    is_group_uni_id,
+    make_uni_id,
+    parse_uni_user_id,
+)
 
 _TOP_RE = re.compile(r"^top(\d+)$", re.IGNORECASE)
 _TOP_MAX = 50  # 排名数量上限，防止刷屏
@@ -24,9 +30,10 @@ _TOP_MAX = 50  # 排名数量上限，防止刷屏
 
 def _format_user_entry(i: int, user: UserMetadata, label: str) -> str:
     """格式化排名条目"""
-    user_id = user.user_id.split("_", 1)[1] if "_" in user.user_id else user.user_id
+    parsed = parse_uni_user_id(user.user_id)
+    display_id = str(parsed[1]) if parsed else user.user_id
     total_tokens = user.tokens_input + user.tokens_output
-    return f"{i}. {label}{user_id}: {user.called_count}次, {total_tokens}tokens\n"
+    return f"{i}. {label}{display_id}: {user.called_count}次, {total_tokens}tokens\n"
 
 
 def _parse_inspect(arg: str) -> tuple[str, str] | None:
@@ -47,7 +54,9 @@ async def insights(event: MessageEvent, matcher: Matcher, args: Message = Comman
     msg = "未知参数。"
     config = config_manager.config
     if not (arg := args.extract_plain_text().strip()):
-        data = await CachedUserDataRepository().get_metadata(f"user_{event.user_id}")
+        data = await CachedUserDataRepository().get_metadata(
+            make_uni_id(event.user_id, is_group=False)
+        )
         user_limit = config.usage_limit.user_daily_limit
         user_token_limit = config.usage_limit.user_daily_token_limit
         group_limit = config.usage_limit.group_daily_limit
@@ -91,7 +100,7 @@ async def insights(event: MessageEvent, matcher: Matcher, args: Message = Comman
             msg = "用法：/insights inspect [group|user] <id>"
         else:
             kind, target = parsed
-            uni_id = f"{kind}_{target}"
+            uni_id = make_uni_id(target, is_group=kind == "group")
             data = await get_user_metadata_or_none(uni_id)
             if data is None:
                 msg = f"未找到{kind} {target} 的使用数据。"
@@ -120,10 +129,10 @@ async def insights(event: MessageEvent, matcher: Matcher, args: Message = Comman
         else:
             # 按 group/private 分类
             group_users: Sequence[UserMetadata] = [
-                u for u in top_users if u.user_id.startswith("group_")
+                u for u in top_users if is_group_uni_id(u.user_id)
             ]
             private_users: Sequence[UserMetadata] = [
-                u for u in top_users if not u.user_id.startswith("group_")
+                u for u in top_users if not is_group_uni_id(u.user_id)
             ]
 
             msg = f"今日使用量Top{n}：\n"

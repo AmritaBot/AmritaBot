@@ -130,9 +130,7 @@ async def auth_middleware(request: Request, call_next):
     return response
 
 
-# SPA catch-all：非 /api 的 GET 请求回退到 index.html（React Router 前端路由）。
-# 注意：必须在所有插件（含 chat 等）的 API 路由注册完成后调用，
-# 因此注册挂在 NoneBot on_startup 事件上（见 __init__.py）。
+# SPA catch-all：非 /api 的 GET 回退 index.html；须在所有插件 API 路由注册后调用，故挂在 on_startup
 def register_spa_fallback():
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa_fallback(full_path: str):

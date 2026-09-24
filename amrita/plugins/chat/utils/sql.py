@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import TYPE_CHECKING, Literal, cast
+from typing import Literal
 
 from aiologic import Lock
 from nonebot.adapters.onebot.v11 import Event
@@ -29,12 +29,23 @@ from typing_extensions import Self
 
 from .lock import database_lock
 
+QQ_PLATFORM = "QQPlatform"
+"""QQ 系平台在会话 ID 中的适配器名"""
+
+#  nonebot_plugin_amrita 推荐格式：AdapterType_ExtraType_UserPayload（如 QQPlatform_Private_12345）
+_UNI_ID_PATTERN = re.compile(r"^[A-Za-z0-9]+_(Private|Group|Channel)_([0-9]+)$")
+#  v1.8.0 及更早的历史格式：user_{qq} / group_{群号}
+_LEGACY_UNI_ID_PATTERN = re.compile(r"^(user|group)_([0-9]+)$")
+
+_EXTRA_PRIVATE = "Private"
+_EXTRA_GROUP = "Group"
+
 
 def get_uni_user_id(event: Event) -> str:
     if uid := getattr(event, "group_id", None):
-        return f"group_{uid!s}"
+        return make_uni_id(uid, is_group=True)
     else:
-        return f"user_{event.get_user_id()!s}"
+        return make_uni_id(event.get_user_id(), is_group=False)
 
 
 async def get_user_metadata_or_none(uni_user_id: str) -> UserMetadata | None:
@@ -52,16 +63,35 @@ def get_any_id(event: Event) -> tuple[int, bool]:
         return int(event.get_user_id()), False
 
 
-def make_uni_id(id: int, is_group: bool) -> str:
-    return f"{'group' if is_group else 'user'}_{id!s}"
+def make_uni_id(id: int | str, is_group: bool) -> str:
+    """生成会话 ID：``QQPlatform_Group_{群号}`` / ``QQPlatform_Private_{QQ}``"""
+    extra = _EXTRA_GROUP if is_group else _EXTRA_PRIVATE
+    return f"{QQ_PLATFORM}_{extra}_{id!s}"
 
 
-VALIDATE_PATTERN = re.compile(r"^(user|group)_[0-9]+$")
-UNWRAP_PATTERN = re.compile(r"^(user|group)_[0-9]+$")
+def parse_uni_user_id(user_id: str) -> tuple[str, int] | None:
+    """解析会话 ID 为 ``(ExtraType, payload)``，格式不符返回 None
+
+    兼容 v1.8.0 及更早的 ``user_{qq}`` / ``group_{群号}``，用于读取尚未迁移的历史数据。
+    """
+    if match := _UNI_ID_PATTERN.match(user_id):
+        return match.group(1), int(match.group(2))
+    if match := _LEGACY_UNI_ID_PATTERN.match(user_id):
+        kind = match.group(1)
+        return (_EXTRA_GROUP if kind == "group" else _EXTRA_PRIVATE), int(
+            match.group(2)
+        )
+    return None
 
 
 def validate_uni_user_id(user_id: str) -> bool:
-    return bool(VALIDATE_PATTERN.match(user_id))
+    return parse_uni_user_id(user_id) is not None
+
+
+def is_group_uni_id(user_id: str) -> bool:
+    """判断会话 ID 是否代表群聊（兼容历史 ``group_`` 前缀）"""
+    parsed = parse_uni_user_id(user_id)
+    return parsed is not None and parsed[0] == _EXTRA_GROUP
 
 
 def validate_and_ret(uid: str) -> str:
@@ -71,13 +101,11 @@ def validate_and_ret(uid: str) -> str:
 
 
 def unwrap_uni_user_id(user_id: str) -> tuple[Literal["user", "group"], int]:
-    match = UNWRAP_PATTERN.match(user_id)
-    if not match:
+    parsed = parse_uni_user_id(user_id)
+    if parsed is None:
         raise ValueError(f"Invalid uni_user_id: {user_id}")
-    if TYPE_CHECKING:
-        return cast(Literal["user", "group"], match.group(1)), int(match.group(2))
-    else:
-        return match.group(1), int(match.group(2))
+    kind: Literal["user", "group"] = "group" if parsed[0] == _EXTRA_GROUP else "user"
+    return kind, parsed[1]
 
 
 class GroupConfig(Model, HasUserIDModel):
@@ -173,7 +201,7 @@ class GroupConfigExecutor:
         return obj
 
     async def get_or_create_group_config(self) -> GroupConfig:
-        if not self.group_id.startswith("group_"):
+        if not is_group_uni_id(self.group_id):
             raise ValueError("Group config can only be accessed for group users")
         if self._group_config_temp is not None:
             return self._group_config_temp

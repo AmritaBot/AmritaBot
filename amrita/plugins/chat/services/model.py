@@ -29,7 +29,6 @@ class ModelConfigService:
         """
         if default_value is None:
             default_value = "null"
-        # default 预设以磁盘 default.json 承载（配置不再内嵌），
-        # 先同步兜底确保其存在，再给所有已加载预设补默认值并存盘
+        # default 预设以磁盘 default.json 承载，先同步兜底确保其存在，再给所有已加载预设补默认值并存盘
         self._preset_store.ensure_default_sync()
         self._preset_store.register_extra(key, default_value)

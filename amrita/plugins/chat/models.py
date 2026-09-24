@@ -40,11 +40,7 @@ __all__ = [
     "PlaceholderContent",
 ]
 
-#  二进制列类型：
-#  - SQLite -> BLOB（上限 1GB）、PostgreSQL -> BYTEA（上限 1GB），直接用 LargeBinary 即可；
-#  - MySQL / MariaDB 方言把不带 length 的 LargeBinary 渲染成 BLOB，上限仅 64KB，
-#    会与 max_image_kb 的默认值（2MB）冲突（严格模式报 Data too long，
-#    非严格模式则静默截断导致图片损坏），因此显式改用 LONGBLOB。
+#  二进制列类型：MySQL 方言把不带 length 的 LargeBinary 渲染成 64KB BLOB，与 max_image_kb 冲突，故显式改用 LONGBLOB
 _MEDIA_BINARY_TYPE = LargeBinary().with_variant(LONGBLOB(), "mysql")
 
 
@@ -63,9 +59,7 @@ class PlaceholderContent(Content[Literal["placeholder"]]):
     description: str = Field(default="", description="媒体描述，可为空")
 
 
-# 向 AmritaCore 注册自定义 Content 类型。
-# 必须在任何 Message.model_validate（含记忆反序列化）之前完成，
-# 因此本模块由 amrita/plugins/chat/__init__.py 在插件加载时最早导入。
+# 向 AmritaCore 注册自定义 Content 类型，必须早于任何 Message.model_validate（含记忆反序列化），故本模块最早导入
 register_content(PlaceholderContent)
 
 
@@ -75,7 +69,7 @@ class ContextRecord(Model):
     __tablename__ = "amrita_chat_context_record"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    #  会话 ID（group_xxx / user_xxx），见 utils/sql.py:make_uni_id
+    #  会话 ID（QQPlatform_Group_xxx / QQPlatform_Private_xxx），见 utils/sql.py:make_uni_id
     uni_id: Mapped[str] = mapped_column(String(64), nullable=False)
     user_id: Mapped[str] = mapped_column(String(32), nullable=False)
     nickname: Mapped[str] = mapped_column(String(128), default="")

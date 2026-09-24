@@ -21,6 +21,7 @@ from nonebot.log import logger
 from nonebot.matcher import Matcher
 from nonebot_plugin_amrita import CachedUserDataRepository
 
+from amrita.plugins.chat.utils.data_access import update_memory
 from amrita.plugins.chat.utils.sql import (
     get_uni_user_id,
 )
@@ -96,7 +97,7 @@ async def text_check(
                 if config_manager.config.llm.tools.report_then_block:
                     data = await dm.get_memory(get_uni_user_id(nonebot_event))
                     data.memory_json.messages = []
-                    await dm.update_memory_data(data)
+                    await update_memory(data)
                     await bot.send(
                         nonebot_event,
                         random.choice(config_manager.config.llm.block_msg),

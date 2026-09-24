@@ -183,10 +183,7 @@ class PresetSwitch(BaseModel):
     backup_preset_list: list[str] = Field(
         default=[], description="主模型不可用时自动切换的备选模型预设列表"
     )
-    # multi_modal_preset_list: list[str] = Field(
-    #    default=[], description="多模态场景预设调用顺序"
-    # )
-    # TODO: 完成hook适配
+    # TODO: 完成 hook 适配后恢复 multi_modal_preset_list（多模态场景预设调用顺序）
 
 
 class ExtendConfig(BaseModel):
@@ -240,6 +237,8 @@ class UsageLimitConfig(BaseModel):
 _MAX_TTL_HOURS = 87600
 #  单张图片体积上限（KB），与采集侧的硬上限保持一致
 _HARD_MAX_IMAGE_KB = 32 * 1024
+#  上面对应的字节数：采集侧（message.py）与内联解码侧（context_store.py）共用同一硬上限
+HARD_MAX_IMAGE_BYTES = _HARD_MAX_IMAGE_KB * 1024
 #  淘汰任务节流间隔上限（分钟，一天）
 _MAX_PRUNE_INTERVAL_MINUTES = 1440
 #  read_context 单次返回条数上限，拦住把整库记录一次性塑进上下文的配置
@@ -408,8 +407,7 @@ class Config(BaseModel):
         if not isinstance(data, dict):
             return data
 
-        # 迁移内嵌 default_preset -> models/default.json（若目标不存在），
-        # 随后移除该键：default 预设一律由磁盘承载，配置不再内嵌模型预设。
+        # 迁移内嵌 default_preset -> models/default.json（若目标不存在），随后移除该键：default 预设一律由磁盘承载
         if isinstance(data.get("default_preset"), dict):
             try:
                 default_json = CONFIG_DIR / "models" / "default.json"
@@ -543,8 +541,7 @@ class ConfigManager(EnvfulConfigManager[Config]):
     __lateinit__ = True
 
     def __init__(self) -> None:
-        # 领域服务（阶段 3）：配置读写与业务语义解耦。
-        # 服务构造只依赖惰性回调，配置加载前后均可安全初始化。
+        # 领域服务（阶段 3）：配置读写与业务语义解耦，构造只依赖惰性回调，配置加载前后均可安全初始化
         self.presets = PresetService(
             self.preset_store,
             get_ins_config=lambda: self.ins_config,
@@ -608,10 +605,7 @@ class ConfigManager(EnvfulConfigManager[Config]):
             lambda *_: models_callback(),
             owner_name="chat",
         )
-        # 技能目录回调：目录内文件变化自动重新 discover（复用 uniconf 监听）。
-        # 注意：自定义 filter 会替换默认过滤（final_filter = filter or default_filter），
-        # 故需自行检查路径前缀。不限后缀：技能目录除 SKILL.md 外还可能含脚本
-        # （.py/.sh 等，渐进披露 L3 的 skill.scripts），任何文件变化都应触发重载。
+        # 技能目录回调：文件变化自动重新 discover（自定义 filter 会替换默认过滤，故需自行检查路径前缀）
         await UniConfigManager().add_directory(
             "skills",
             lambda *_: skills_callback(),

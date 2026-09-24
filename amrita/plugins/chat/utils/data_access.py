@@ -15,6 +15,7 @@ from nonebot_plugin_amrita.memory import (
 )
 
 from .app import CachedGroupDataRepository, GroupConfigSchema
+from .context_store import fold_media_in_messages
 
 __all__ = [
     "get_group_config",
@@ -40,5 +41,11 @@ async def get_memory(uni_id: str) -> MemorySchema:
 
 
 async def update_memory(data: MemorySchema) -> None:
-    """更新用户/群聊记忆"""
+    """更新用户/群聊记忆（写库前先把图片内容折回占位符）
+
+    所有绕过 ``ChatMemoryBackend.commit_memory`` 的写库路径都必须走这里。
+    一次中断的运行可能把展开出来的图片内容留在共享缓存中，直接写库就会把它
+    持久化进 ``memory_json``。
+    """
+    fold_media_in_messages(data.memory_json.messages)
     await CachedUserDataRepository().update_memory_data(data)

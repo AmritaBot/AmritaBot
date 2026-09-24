@@ -59,8 +59,7 @@ _LEVEL_META: dict[str, tuple[str, str]] = {
 class ChannelHub:
     def __init__(self) -> None:
         self._subscribers: dict[str, set[WebSocket]] = {}
-        # 每个 WS 的发送锁：广播（dispatcher）与回放（订阅时）可能并发 send_json，
-        # 不加锁会导致 FastAPI WebSocket 并发发送抛错 -> 连接异常断开 -> 无限重连循环
+        # 每个 WS 的发送锁：广播与回放可能并发 send_json，不加锁会让 FastAPI 并发发送抛错并导致无限重连
         self._locks: dict[WebSocket, asyncio.Lock] = {}
 
     def lock(self, ws: WebSocket) -> asyncio.Lock:
@@ -252,9 +251,7 @@ class _LogSink:
             "icon_color": color,
             "icon": icon,
         }
-        # deque 的 append/popleft 是原子的：sink 线程写、dispatcher 线程读安全。
-        # 队列在首次 WS 连接时才创建（见 _ensure_loops），之前产生的日志
-        # 只落 jsonl 文件不排队——无人消费，广播无意义，回放可覆盖。
+        # deque 的 append/popleft 原子：sink 写、dispatcher 读安全；队列首次 WS 连接才创建，之前日志只落 jsonl
         if _pending_logs is not None:
             _pending_logs.append(item)
         # 持久化到文件（sink 在 loguru 后台线程执行，同步写即可）
@@ -269,9 +266,7 @@ _wake: asyncio.Event | None = None
 _main_loop: asyncio.AbstractEventLoop | None = None
 _sink_id: int | None = None
 
-# jsonl 临时文件持久化（本次启动完整日志，永不丢弃；每次启动删除重建）
-# 懒加载：模块加载时只删除旧文件 + 计算路径（轻量）；
-# 文件句柄在首次写入日志时才打开；回放读取在订阅 logs 时才进行。
+# jsonl 临时文件持久化（本次启动完整日志，永不丢弃；每次启动删除重建）；懒加载，句柄首次写入才打开
 
 _log_path: Path | None = None
 _file_lock = threading.Lock()
@@ -310,8 +305,7 @@ def _append_log_file(level: str, payload: str, time_str: str) -> None:
             _file_handle.write(line + "\n")
             _file_handle.flush()
     except Exception:
-        # 失败不阻塞实时日志流（sink 线程内）；留 debug 线索便于排查 IO/序列化问题。
-        # 注意：此处用 stdlib logging（模块 logger），不经 loguru sink，不会递归。
+        # 失败不阻塞实时日志流（sink 线程内），留 debug 线索；此处用 stdlib logging 不经 loguru sink，不会递归
         logger.debug("写入实时日志文件失败", exc_info=True)
 
 
@@ -386,8 +380,7 @@ async def _read_log_tail(limit: int) -> list[dict[str, Any]]:
             try:
                 items.append(json.loads(line))
             except json.JSONDecodeError:
-                # 尾部块边界处的半行是并发追加的正常现象，静默跳过；
-                # 其他 JSON 损坏会在外层兜底记录
+                # 尾部块边界处的半行是并发追加的正常现象，静默跳过；其他 JSON 损坏由外层兜底记录
                 continue
         return items[-limit:]
     except Exception:
@@ -478,15 +471,12 @@ async def _ensure_loops() -> None:
     global _started, _pending_logs
     if _started:
         return
-    # 待广播队列依赖配置（maxlen），只能在事件循环里异步初始化；
-    # 首次 WS 连接前 sink 产生的日志已全部落 jsonl，回放可覆盖，不丢失。
-    # 初始化失败不置 _started，下次连接可重试。
+    # 待广播队列依赖配置（maxlen），只能在事件循环里异步初始化；失败不置 _started，下次连接可重试
     if _pending_logs is None:
         cfg = await data_manager.safe_get_config()
         _pending_logs = deque(maxlen=cfg.log_pending_max)
     _started = True
-    # 注意：不再调用 _install_log_capture() —— sink 在模块加载时已安装，
-    # 重复安装会重建 jsonl 文件（unlink 旧文件），导致「本次启动」日志丢失
+    # 不再调用 _install_log_capture()：sink 在模块加载时已安装，重复安装会重建 jsonl 导致本次启动日志丢失
     _spawn_background(_system_loop())
     _spawn_background(_bot_loop())
     _spawn_background(_log_dispatcher())
@@ -541,9 +531,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     try:
         while True:
             cfg = await data_manager.safe_get_config()
-            # 配置为 ≤0 时视为「不复检」：timeout 置 None（永久等待），避免
-            # 0/负值导致每次迭代立即超时的空转（pydantic gt=0 已拦截，这里
-            # 兜底防御热重载等旁路路径）
+            # 配置 ≤0 视为「不复检」：timeout 置 None 永久等待，避免 0/负值导致每次迭代立即超时空转
             timeout = cfg.auth_check_interval if cfg.auth_check_interval > 0 else None
             try:
                 raw = await asyncio.wait_for(ws.receive_json(), timeout=timeout)
@@ -567,11 +555,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                 for ch in raw.get("channels", []):
                     if ch in ("system", "bot", "logs"):
                         if ch == "logs" and ch not in channels:
-                            # 首次订阅 logs：后台回放本次启动以来最后 logs_limit 条
-                            # （tail 语义）。回放放后台任务：同步逐条发送会阻塞
-                            # 订阅循环（无法处理 ping/退订），且实时日志（dispatcher）
-                            # 被回放占锁直到回放结束——回放量大时前端长时间只
-                            # 看到历史、实时日志滞后（“卡半天”）。
+                            # 首次订阅 logs：后台回放本次启动最后 logs_limit 条（tail 语义）；同步发送会阻塞订阅循环并占锁
                             _spawn_background(
                                 _send_log_replay(
                                     ws,
@@ -580,9 +564,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                                 )
                             )
                         elif ch not in channels:
-                            # 首次订阅 bot/system：立即推当前状态快照，
-                            # 避免新订阅者要等下一次变化才能拿到数据；
-                            # 无快照的频道跳过推送
+                            # 首次订阅 bot/system：立即推当前状态快照，避免新订阅者要等下一次变化；无快照的频道跳过
                             snapshot = await _channel_snapshot(ch)
                             if snapshot is not None:
                                 await _send_json_locked(ws, snapshot)

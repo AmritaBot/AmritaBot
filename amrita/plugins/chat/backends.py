@@ -8,10 +8,7 @@ from amrita_core.tools.manager import MultiToolsManager
 from amrita_core.tools.mcp import MultiClientManager
 from nonebot_plugin_amrita.memory import CachedUserDataRepository, MemorySchema
 
-from .utils.context_store import (
-    collapse_media_to_placeholders,
-    resolve_placeholders_in_messages,
-)
+from .utils.context_store import fold_media_in_messages
 
 
 class ChatMemoryBackend(MemoryBackend):
@@ -22,26 +19,26 @@ class ChatMemoryBackend(MemoryBackend):
     增量写回数据库。由 Core 工作流在 ``LOAD_STATE`` / ``COMMIT_MEMORY``
     节点自动调用，无需手动注入 / 回写 ``chat.data``。
 
-    多模态约定：读路径把 ``PlaceholderContent`` 展开成 base64 的
-    ``ImageContent``（模型真正需要的是图片本体），写路径再折叠回占位符，
-    保证数据库里永远只存占位符。
+    多模态约定：展开（占位符 -> 图片内容）在**聊天触发阶段**完成一次，本后端
+    不碰图片二进制。``load_memory`` 只交付预展开好的视图（纯拷贝），
+    ``commit_memory`` 的折叠是纯哈希运算（见 ``utils/context_store.py``）。
     """
 
     repo = CachedUserDataRepository()
 
-    def __init__(self, memory: MemorySchema):
+    def __init__(self, memory: MemorySchema, memory_view: MemoryModel):
         self.memory_val = memory
+        self.memory_view = memory_view
 
     async def load_memory(self, session_id: str) -> MemoryModel:
         del session_id
-        #  占位符 -> base64（仅展开内存中的对象，写库前会折叠回去）
-        await resolve_placeholders_in_messages(self.memory_val.memory_json.messages)
-        return self.memory_val.memory_json
+        #  纯拷贝，零图片 IO（必须拷贝：JINJA2_RENDER 会 append 本轮 user_input，直接返回共享对象会污染缓存）
+        return self.memory_view.model_copy()
 
     async def commit_memory(self, session_id: str, memory: MemoryModel) -> None:
         del session_id
-        #  base64 -> 占位符：必须在写库前完成，否则记忆表会被二进制污染
-        await collapse_media_to_placeholders(memory.messages)
+        #  图片内容 -> 占位符（纯函数，不读库、不入库）
+        fold_media_in_messages(memory.messages)
         if self.memory_val.memory_json is not memory:
             self.memory_val.memory_json = memory
         await self.repo.update_memory_data(self.memory_val)

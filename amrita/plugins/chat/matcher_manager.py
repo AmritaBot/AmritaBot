@@ -42,8 +42,7 @@ from .handlers import (
 # 创建基础匹配器组，所有匹配器都需满足is_bot_enabled规则
 base_matcher = MatcherGroup(rule=is_bot_enabled)
 
-# 聊天开关匹配器组：仅检查全局开关，不受每群 enable 标记影响，
-# 避免 /chat off 关闭群聊后无法再次执行 /chat on
+# 聊天开关匹配器组：仅检查全局开关，不受每群 enable 标记影响（否则 /chat off 后无法再 /chat on）
 chat_switch_matcher = MatcherGroup(rule=is_bot_globally_enabled)
 
 
@@ -277,9 +276,7 @@ def _register(spec: MatcherSpec) -> None:
     else:
         assert spec.command is not None, "command 类匹配器必须提供 command"
         kwargs["aliases"] = spec.aliases
-        # 仅当显式指定时才传入，避免 False 覆盖 NoneBot 默认的 None
-        # （NoneBot 中 force_whitespace=False 表示命令后必须无空白，
-        #  会导致 `/chat on` 这类带空格参数的命令静默失配）
+        # 仅当显式指定时才传入，避免 False 覆盖 NoneBot 默认的 None（force_whitespace=False 要求命令后无空白）
         if spec.force_whitespace is not None:
             kwargs["force_whitespace"] = spec.force_whitespace
         kwargs["state"] = spec.state

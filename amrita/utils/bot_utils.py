@@ -20,8 +20,7 @@ from amrita.utils.utils import get_amrita_version
 _loop_running: bool = False
 
 if TYPE_CHECKING:
-    # avoid sphinx autodoc resolve annotation failed
-    # because loguru module do not have `Logger` class actually
+    # avoid sphinx autodoc resolve annotation failed (loguru has no real Logger class)
     from loguru import Record
 
 
@@ -32,8 +31,7 @@ class EventRecorder:
         formatted_tb: str | None = None
         exc_message = ""
         if exc:
-            # loguru exception 是 (type, value, traceback) 三元组：
-            # traceback/frame 不可序列化 -> 先格式化为字符串再存储
+            # loguru exception 是 (type, value, traceback) 三元组，traceback/frame 不可序列化，需先格式化为字符串
             exc_type, exc_value, exc_tb = exc
             exc_message = str(exc_value)
             formatted_tb = "".join(

@@ -26,8 +26,7 @@ async def create_model(request: Request):
         protocol = data.get("protocol", "__main__")
         config_data = data.get("config", {})
         thinking_data = data.get("thinking_config")
-        # NOTE: 目前不对单个预设计费，rate 先注释掉；需要时恢复即可。
-        # rate = data.get("rate")
+        # NOTE: rate 先注释掉（ModelPreset.rate 默认 None = 不计费），需要时恢复
         if not name:
             return JSONResponse(
                 {"success": False, "message": "缺少模型预设名称"}, status_code=400
@@ -40,7 +39,6 @@ async def create_model(request: Request):
             api_key=api_key,
             protocol=protocol,
             # NOTE: rate 先注释掉（ModelPreset.rate 默认 None = 不计费）
-            # rate=rate,
             config=ModelConfig(**config_data),
             thinking_config=thinking_cfg,
         )
@@ -94,8 +92,7 @@ async def update_model(request: Request, name: str):
                         if hasattr(preset.thinking_config, tc_key):
                             setattr(preset.thinking_config, tc_key, tc_value)
             elif hasattr(preset, key) and key != "name":  # 排除不可变的name字段
-                # PATCH 语义：payload 中出现才更新（含 api_key）——
-                # 前端未修改 api_key 时不会提交该键，因此不会误清空
+                # PATCH 语义：payload 中出现才更新（含 api_key）——前端未修改时不提交该键，不会误清空
                 setattr(preset, key, value)
 
         # 所有预设（含 default）统一以磁盘预设文件承载
@@ -121,8 +118,7 @@ async def update_model(request: Request, name: str):
 @router.post("/api/chat/models/{name}/delete")
 async def delete_model(name: str):
     try:
-        # default 预设与普通预设一致（磁盘文件），可删除；
-        # 若删除的是配置选中的预设，重置选中到剩余的第一个预设。
+        # default 预设与普通预设一致（磁盘文件），可删除；若删的是选中预设则重置到剩余第一个
         preset_path = config_manager.get_preset_path(name)
 
         if not preset_path.exists():

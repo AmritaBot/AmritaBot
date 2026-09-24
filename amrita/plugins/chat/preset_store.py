@@ -39,9 +39,7 @@ class PresetStore:
                 logger.opt(colors=True, raw=True).error(
                     f"Failed to validate preset '{path!s}' because '{e!s}'"
                 )
-        # 默认创建：目录为空（或全部文件校验失败）时创建一个 default 预设
-        # （初始状态）。以 _by_name 判断而非 _loaded：validate 只登记
-        # _by_name，_loaded 是 load_all 的缓存（含 env 替换），两者语义不同
+        # 默认创建：目录为空时创建 default 预设；以 _by_name 判断而非 _loaded（后者是 load_all 的缓存，语义不同）
         if not self._by_name:
             self.ensure_default_sync()
 
@@ -61,8 +59,7 @@ class PresetStore:
             self._by_name[model_preset.name] = lp
             self._loaded.append(lp)
 
-        # 默认创建：预设目录为空时创建一个 default 预设（初始状态）。
-        # default 与其他预设无差别：可编辑、可删除，删除后不会自动复活。
+        # 默认创建：预设目录为空时创建 default 预设（可编辑、可删除，删除后不会自动复活）
         if not self._loaded:
             self.ensure_default_sync()
 

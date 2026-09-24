@@ -22,7 +22,7 @@ from amrita.plugins.chat.utils.libchat import add_usage
 from ..check_rule import is_group_admin_if_is_in_group
 from ..config import config_manager
 from ..utils.context import build_train_dict, estimate_tokens
-from ..utils.context_store import collapse_media_to_placeholders
+from ..utils.context_store import fold_media_in_messages
 from ..utils.data_access import update_memory
 from ..utils.preset import resolve_preset
 from ..utils.sql import get_uni_user_id
@@ -113,8 +113,8 @@ async def _session_archive(event: MessageEvent, matcher: Matcher) -> None:
         await matcher.finish("归档当前会话失败。")
     if not memory_data.memory_json.messages:
         await matcher.finish("当前对话为空！")
-    #  归档副本同样不能带 base64：先折叠再深拷贝
-    await collapse_media_to_placeholders(memory_data.memory_json.messages)
+    #  归档副本同样不能带图片内容：先折叠再深拷贝
+    fold_media_in_messages(memory_data.memory_json.messages)
     new_session = AwaredMemory(
         messages=deepcopy(memory_data.memory_json.messages),
         abstract=memory_data.memory_json.abstract,

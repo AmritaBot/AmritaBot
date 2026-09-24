@@ -38,7 +38,10 @@ from amrita.plugins.chat.runtime import (
 )
 from amrita.plugins.chat.runtime_session import SessionManager
 from amrita.plugins.chat.utils.context import build_train_dict
-from amrita.plugins.chat.utils.context_store import resolve_placeholders_in_content
+from amrita.plugins.chat.utils.context_store import (
+    expand_media_in_content,
+    expand_media_in_messages,
+)
 from amrita.plugins.chat.utils.functions import get_friend_name, synthesize_message
 from amrita.plugins.chat.utils.lock import get_group_lock, get_private_lock
 from amrita.plugins.chat.utils.preset import is_multimodal_enabled, resolve_preset
@@ -142,18 +145,22 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     )
     if isinstance(final_content, list):
         final_content.extend(reply_pics)
-    #  占位符 -> base64：只在内存中展开，
-    #  写库前由 ChatMemoryBackend.commit_memory 折叠回占位符
-    final_content = await resolve_placeholders_in_content(final_content)
+
+    #  多模态能力同时受预设与 AmritaCore 全局开关约束，只按其中一个判断会错配
+    multimodal = await is_multimodal_enabled()
+
+    #  展开只在这里做一次且只作用于**副本**：共享缓存全程只有占位符，中断也不会留下图片内容
+    memory_view = memory.memory_json.model_copy()
+    memory_view.messages = await expand_media_in_messages(
+        memory_view.messages, multimodal=multimodal
+    )
+    final_content = await expand_media_in_content(final_content, multimodal=multimodal)
 
     #  阶段 3：构建策略与 prompt
     strategy = select_agent_strategy(config.llm.agent_strategy)
 
     # 构建定制化的 system prompt（与 /compact、/session info 共用同一构建逻辑）
     train_dict = await build_train_dict(event, memory, config)
-
-    #  多模态能力同时受预设与 AmritaCore 全局开关约束，只按其中一个判断会错配
-    multimodal = await is_multimodal_enabled()
 
     #  阶段 4：创建 ChatObject
     ctx: AmritaBotContext = {
@@ -175,12 +182,11 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         chat_man=bot_chat_manager,
         backend=BackendSlots(
             NoopAbilityBackend(),
-            ChatMemoryBackend(memory, multimodal=multimodal),
+            ChatMemoryBackend(memory, memory_view),
         ),
         backend_options=DatabackendOptions(
             skip_mcp_fetch=True,
-            # skip_tools_fetch 保持默认 False：由数据后端 load_tools 注入
-            # faskill Skills 工具池（独立 MultiToolsManager，非全局单例）
+            # skip_tools_fetch 保持默认 False：由数据后端 load_tools 注入 faskill Skills 工具池
             skip_tools_fetch=False,
         ),
     )
@@ -199,8 +205,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         get_group_lock(event.group_id) if is_group else get_private_lock(event.user_id)
     )
 
-    # 按 chat_pending_mode 处理锁占用场景（single / single_with_report /
-    # interactive / queue）。返回 True 表示已停止本次流程。
+    # 按 chat_pending_mode 处理锁占用场景（single / single_with_report / interactive / queue），返回 True 表示已停止本次流程
     if await get_pending_mode_strategy(config.function.chat_pending_mode).handle_locked(
         lock=lock,
         matcher=matcher,
@@ -216,8 +221,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
                 pending_chatobj[session_id].remove(chat)
                 debug_log("继续运行...")
 
-                #  私聊模式后台超时监控：若 Agent 工作时间超过阈值仍未返回，
-                #  发送提示告知用户如何终止任务
+                #  私聊模式后台超时监控：Agent 工作时间超过阈值仍未返回时提示用户如何终止任务
                 stream.start_monitor()
                 try:
                     async with chat.begin():
@@ -239,9 +243,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         if isinstance(e, CancelledError):
             return
 
-        # Panic-Recover：解释器已 dump（panic 现场保留在 interpreter 上），
-        # 触发事件让外部处理器决定是否恢复。恢复成功则继续执行剩余管线
-        # （含 COMMIT_MEMORY 记忆提交）；未恢复则走旧路径，不提交记忆。
+        # Panic-Recover：触发事件让外部处理器决定是否恢复；恢复成功继续剩余管线（含 COMMIT_MEMORY）
         result = await try_panic_recover(chat, e, config)
         if result is RecoveryResult.RECOVERED:
             # 恢复成功：走正常收尾（send_final；usage 统计由外层 finally 完成）

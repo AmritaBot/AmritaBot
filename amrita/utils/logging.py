@@ -12,8 +12,7 @@ from amrita.config import get_amrita_config
 
 _lock = Lock()
 
-# loguru 默认级别（TRACE/DEBUG/INFO/SUCCESS/WARNING/ERROR/CRITICAL）
-# + FATAL（历史 event.json 兼容）。
+# loguru 默认级别（TRACE/DEBUG/INFO/SUCCESS/WARNING/ERROR/CRITICAL）+ FATAL（历史 event.json 兼容）
 LogLevel = Literal[
     "TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL", "FATAL"
 ]
@@ -36,8 +35,7 @@ class LoggingEvent(BaseModel):
     log_level: LogLevel
     description: str
     message: str
-    # 格式化后的完整堆栈（traceback.format_exception 产物，纯字符串，可 JSON 序列化）。
-    # traceback/frame 对象本身不可序列化，因此写入 event.json 前必须格式化。
+    # 格式化后的完整堆栈（纯字符串可 JSON 序列化）；traceback/frame 对象本身不可序列化
     traceback: str | None = None
     time: datetime = Field(default_factory=datetime.now)
 

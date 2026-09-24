@@ -146,8 +146,7 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
                 await update_memory(memory_data)
                 return True
 
-        # 静默落库：只受 context.enable 控制，与 autoreply 是否启用无关——
-        # 关闭 autoreply 时消息仍可能被 @ / 关键字触发，同样需要这些上文。
+        # 静默落库只受 context.enable 控制，与 autoreply 是否启用无关
         if not config_manager.config.context.enable:
             # 未启用静默上下文存储时，不记录未被触发的群消息
             return False
@@ -180,9 +179,7 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
             else event.sender.nickname
         )
 
-        # 生成消息内容并静默落库：不再写入 LLM 记忆，
-        # 改由 read_context 工具在需要时按需读取。
-        # 固定使用 XML 格式，与 function.message_type == "xml" 的主流程一致。
+        # 生成消息内容并静默落库（不再写入 LLM 记忆，改由 read_context 工具按需读取），固定 XML 格式
         await append_context_record(
             uni_id=make_uni_id(ins_id, is_group),
             user_id=str(user_id),

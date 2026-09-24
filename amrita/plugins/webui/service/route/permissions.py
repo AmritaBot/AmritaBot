@@ -67,8 +67,7 @@ async def get_perm_group(name: str):
         data={
             "name": name,
             "permissions": Permissions(group.permissions).permissions_str,
-            # 权限组本身无「关联权限组」概念（关联只存在于成员↔组），
-            # 保持响应契约完整（前端 permission_groups.join 需要数组）
+            # 权限组本身无「关联权限组」概念（关联只存在于成员↔组），保持响应契约完整（前端 join 需要数组）
             "permission_groups": [],
         },
     )

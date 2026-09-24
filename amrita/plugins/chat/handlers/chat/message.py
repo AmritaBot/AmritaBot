@@ -119,8 +119,7 @@ async def handle_reply(
         safe_content = escape_xml(reply_content)
         # 昵称进的是属性值，需要额外转义双引号，否则可以伪造属性
         safe_name = escape_xml_attr(safe_name)
-        # 用户消息内容也需要转义，因为 downstream format_msg_xml
-        # 在检测到已有 <ref> 后会跳过二次转义
+        # 用户消息内容也需要转义：format_msg_xml 检测到已有 <ref> 后会跳过二次转义
         safe_user_content = escape_xml(content)
         result = (
             f"{safe_user_content}\n"
@@ -371,9 +370,7 @@ async def synthesize_message_to_msg(
         #  时间戳让模型能判断消息先后与间隔；两种格式都带
         now = format_current_datetime()
         if config_manager.config.function.message_type == "xml":
-            # handle_reply 在 XML 模式下已对 content 做了 escape_xml，
-            # 且 content 中可能包含 <ref> 标签（已转义好的引用内容），
-            # 因此不能再次经过 format_msg_xml 的转义导致双重转义
+            # handle_reply 在 XML 模式下已对 content 做 escape_xml（可能含 <ref>），不能再转义一次
             body = format_msg_xml(
                 role,
                 str(user_name),

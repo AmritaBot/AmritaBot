@@ -32,8 +32,7 @@ from .lock import database_lock
 QQ_PLATFORM = "QQPlatform"
 """QQ 系平台在会话 ID 中的适配器名"""
 
-#  nonebot_plugin_amrita README 推荐格式：AdapterType_ExtraType_UserPayload
-#  例：QQPlatform_Private_12345 / QQPlatform_Group_1114514
+#  nonebot_plugin_amrita 推荐格式：AdapterType_ExtraType_UserPayload（如 QQPlatform_Private_12345）
 _UNI_ID_PATTERN = re.compile(r"^[A-Za-z0-9]+_(Private|Group|Channel)_([0-9]+)$")
 #  v1.8.0 及更早的历史格式：user_{qq} / group_{群号}
 _LEGACY_UNI_ID_PATTERN = re.compile(r"^(user|group)_([0-9]+)$")

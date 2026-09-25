@@ -7,6 +7,9 @@ on:
     paths:
       - "**" # 监控所有文件变更
 
+permissions:
+  contents: read
+
 jobs:
   build:
     if: ${{ !contains(github.event.head_commit.message, '[ci skip]') && !contains(github.event.head_commit.message, '[skip ci]') }}
@@ -14,13 +17,13 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
 
       - name: Install Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
 
       - name: Set up Python
         run: uv python install
@@ -36,13 +39,13 @@ jobs:
           echo "PYTHON_BIN=$PYTHON_BIN" >> $GITHUB_ENV
 
       - name: Run Pyright
-        uses: jakebailey/pyright-action@v2
+        uses: jakebailey/pyright-action@6cabc0f01c4994be48fd45cd9dbacdd6e1ee6e5e # v2
         with:
           python-path: ${{ env.PYTHON_BIN }}
           pylance-version: latest-release
 
       - name: Check code format
-        uses: astral-sh/ruff-action@v3
+        uses: astral-sh/ruff-action@4919ec5cf1f49eff0871dbcea0da843445b837e6 # v3
         with:
           args: check . --exit-non-zero-on-fix
 

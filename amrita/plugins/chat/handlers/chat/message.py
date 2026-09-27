@@ -8,8 +8,11 @@
 - 将事件消息合成为 ChatObject 输入（含多模态判定）
 
 多模态约定：图片二进制一律先经 ``utils/image_norm.py`` 归一化（解码校验、等比缩小、
-转码为模型支持的格式），再本地落库（``utils/context_store.py``），上下文里只放
-``PlaceholderContent`` 占位符；体积超限的图片直接丢弃。
+转码为模型支持的格式、压缩到 ``max_allowed_size`` 以内），再本地落库
+（``utils/context_store.py``），上下文里只放 ``PlaceholderContent`` 占位符。
+
+两道体积闸职责不同：``max_image_kb`` 是**下载闸**（只管拉取，可放宽让手机原图
+进来被缩放）；``max_allowed_size`` 是**上下文闸**（管最终存入上下文的单张图）。
 """
 
 from __future__ import annotations
@@ -51,8 +54,10 @@ _IMAGE_DOWNLOAD_TIMEOUT = 30
 
 
 def _max_image_bytes() -> int:
-    """当前配置允许的单张图片体积上限（字节）。
+    """下载闸：允许拉取的单张图片体积上限（字节）。
 
+    只约束网络 / 本地读取。真正存入上下文的大小由 ``context.max_allowed_size``
+    在归一化后决定，因此这个上限可以放宽，让手机原图有机会被缩放后再用。
     ``max_image_kb`` 为 0（不限制）时回落到 :data:`HARD_MAX_IMAGE_BYTES`，
     避免单张图片打爆内存。
     """
@@ -63,6 +68,9 @@ def _max_image_bytes() -> int:
 async def _normalize(raw: bytes) -> tuple[bytes, str] | str:
     """归一化图片二进制，返回 ``(raw, mime)``；失败时返回一句说明文本。
 
+    体积上限传的是**上下文闸**：归一化负责把图压到达标，否则 ``store_media``
+    会直接拒掉一张本可以被缩放、降质后正常使用的图。
+
     Pillow 解码是 CPU 密集操作，放到线程里执行，避免阻塞事件循环。
     """
     context = config_manager.config.context
@@ -71,6 +79,9 @@ async def _normalize(raw: bytes) -> tuple[bytes, str] | str:
         raw,
         max_width=context.max_image_width,
         max_height=context.max_image_height,
+        max_bytes=context.max_allowed_size * 1024
+        if context.max_allowed_size > 0
+        else 0,
     )
     if not result.ok:
         return result.reason
@@ -239,11 +250,12 @@ async def _fetch_image_bytes(bot: Bot, seg: MessageSegment) -> _ImageFetchResult
       做 SSRF 校验（仅公网地址）与限流下载；
     - 本地文件只允许读取 ``context.local_media_dirs`` 白名单目录内的常规文件，
       防止 ``file:///etc/passwd`` 之类的任意文件读取；
-    - 所有分支都受 ``context.max_image_kb`` 限制，超限直接丢弃；
+    - 所有分支都受 ``context.max_image_kb``（下载闸）限制，超限直接丢弃；
     - 取到的内容必须能被 Pillow 真正解码为受支持的图片，否则丢弃
       （防止非图片数据外泄，也拦住伪装成图片的任意内容）；
     - 解码后按 ``context.max_image_width`` / ``max_image_height`` 等比缩小，
-      并把不受模型支持的格式转码，见 :mod:`amrita.plugins.chat.utils.image_norm`。
+      把不受模型支持的格式转码，并压缩到 ``context.max_allowed_size`` 以内，
+      见 :mod:`amrita.plugins.chat.utils.image_norm`。
 
     失败时不抛异常，而是返回带 ``summary`` 的结果（最后一个候选地址的失败原因）。
     """
@@ -273,19 +285,24 @@ async def _build_image_contents(
 
     单条消息的图片数量受 ``context.max_images_per_message`` 约束。超出后**立即停止**，
     不再下载后续图片：否则一条塞满图片段的消息就能让我们做任意多次网络往返。
+
+    配额计的是**已检视的图片段**，而不是成功入库的张数：后者意味着失败 / 被拒的
+    图片段不占名额，一条全是坏图的消息仍会触发无上限的下载。
     """
     contents: list[Content] = []
     limit = config_manager.config.context.max_images_per_message
-    collected = 0
+    inspected = 0
     for seg in message:
         if seg.type != "image":
             continue
-        if limit > 0 and collected >= limit:
+        if limit > 0 and inspected >= limit:
             logger.warning(f"单条消息图片数量超出上限 {limit}，已忽略后续图片")
             contents.append(
                 TextContent(text=f"[图片已忽略：单条消息最多 {limit} 张图片]")
             )
             break
+        #  先计数再下载：配额约束的是网络开销，与后续成败无关
+        inspected += 1
         result = await _fetch_image_bytes(bot, seg)
         if not result.ok:
             logger.warning(f"图片获取失败，已跳过该图片：{result.summary}")
@@ -293,12 +310,11 @@ async def _build_image_contents(
             continue
         media_id = await store_media(uni_id=uni_id, raw=result.raw, mime=result.mime)
         if media_id is None:
-            limit_kb = config_manager.config.context.max_image_kb
+            limit_kb = config_manager.config.context.max_allowed_size
             reason = f"体积超出上限 {limit_kb}KB" if limit_kb > 0 else "内容为空"
             logger.warning(f"图片落库被拒绝，已跳过该图片：{reason}")
             contents.append(TextContent(text=f"[图片已丢弃：{reason}]"))
             continue
-        collected += 1
         contents.append(
             PlaceholderContent(
                 media_id=media_id,

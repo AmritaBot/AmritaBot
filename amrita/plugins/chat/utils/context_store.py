@@ -22,6 +22,14 @@
    进程内注册表。入库（:func:`store_media`）与折叠天然闭环。
 3. 任何绕过 ``ChatMemoryBackend.commit_memory`` 的写库路径都必须经
    ``utils/data_access.py:update_memory``（它内部会先折叠）。
+4. 入库前的二进制一律先经 ``utils/image_norm.py`` 归一化：格式收敛到模型支持的
+   集合、尺寸收敛到配置上限。否则不被接受的格式（avif/heic/bmp）会被服务端以
+   400 拒绝，超大图则会平白推高 token 与带宽。
+
+**展开是有配额的。** 历史里的占位符每次请求都要重新展开成图片，不设上限的话图片
+会随对话轮次线性堆积。因此 :func:`expand_media_in_messages` 与
+:func:`expand_media_in_content` 必须共享同一个 :class:`MediaExpandBudget`，
+且调用方应当**先展开本轮输入**，让用户刚发的图优先占用配额。
 
 **不把结构化信息编码成文本。** 早期实现用 ``[图片已省略：<media_id> ...]`` 这样的
 标记来在非多模态运行中暂存占位符，再由正则解析还原——这要求解析器去信任一段
@@ -32,6 +40,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import binascii
 import hashlib
@@ -60,11 +69,13 @@ from amrita.cache import WeakValueLRUCache
 
 from ..config import HARD_MAX_IMAGE_BYTES, config_manager
 from ..models import ContextMedia, ContextRecord, PlaceholderContent
+from .image_norm import normalize_image
 
 if TYPE_CHECKING:
     from amrita_core.hook.event import Event
 
 __all__ = [
+    "MediaExpandBudget",
     "PlaceholderContent",
     "append_context_record",
     "expand_media_in_content",
@@ -155,15 +166,19 @@ def _iter_content_parts(message: CONTENT_LIST_TYPE_ITEM) -> list[Content] | None
 async def store_media(uni_id: str, raw: bytes, mime: str) -> str | None:
     """把图片二进制写入本地存储。
 
+    体积闸用 ``context.max_allowed_size``（**上下文闸**，管的是最终存入上下文的图），
+    不是 ``max_image_kb``（下载闸，只管拉取）。因此这里的入参应当是**已归一化**的
+    二进制：未经归一化的原图会在这里被拒。
+
     :return: 成功时返回 ``media_id``（sha256 hex）；体积超限或内容为空时返回 ``None``
-        （调用方应直接丢弃该图片，即"大图直接不接收"）。
+        （调用方应直接丢弃该图片）。
     """
     if not raw:
         return None
-    limit_kb = config_manager.config.context.max_image_kb
+    limit_kb = config_manager.config.context.max_allowed_size
     if limit_kb > 0 and len(raw) > limit_kb * 1024:
         logger.debug(
-            f"图片体积 {len(raw) / 1024:.1f}KB 超出上限 {limit_kb}KB，已丢弃该图片"
+            f"图片体积 {len(raw) / 1024:.1f}KB 超出上下文上限 {limit_kb}KB，已丢弃"
         )
         return None
 
@@ -219,6 +234,37 @@ async def load_media_data_uri(media_id: str) -> str | None:
 _NO_IMAGE_TEXT = "[图片：当前模型不支持图片输入]"
 #  占位符对应的二进制已被淘汰时的说明文本
 _MEDIA_GONE_TEXT = "[图片已过期或不可用]"
+#  本次请求的图片数量已用完时的说明文本
+_OVER_BUDGET_TEXT = "[图片：超出本次请求的图片数量上限]"
+
+
+class MediaExpandBudget:
+    """单次请求的图片展开预算（当前轮与历史共享）。
+
+    历史里的占位符每次请求都要重新展开成图片，不设上限的话图片会随对话轮次线性
+    堆积，把 token 与带宽吃光。预算在本轮新图与历史之间共享且**本轮优先**：
+    用户刚发的图一定进得去，先被降级的是更早的历史。
+    """
+
+    __slots__ = ("_remaining",)
+
+    def __init__(self, limit: int) -> None:
+        #  非正数表示不限制
+        self._remaining = -1 if limit <= 0 else limit
+
+    @property
+    def exhausted(self) -> bool:
+        """预算是否已耗尽（只读探测，不占用名额）。"""
+        return self._remaining == 0
+
+    def take(self) -> None:
+        """占用一个名额；调用前应确认 :attr:`exhausted` 为 ``False``。"""
+        if self._remaining > 0:
+            self._remaining -= 1
+
+
+#  不限制的预算：``inject_image`` 这类“单张显式注入”不需要配额
+_UNLIMITED_BUDGET = MediaExpandBudget(0)
 
 
 def _has_placeholder(parts: Iterable[Content]) -> bool:
@@ -234,20 +280,31 @@ def has_placeholders(messages: Iterable[CONTENT_LIST_TYPE_ITEM]) -> bool:
     return False
 
 
-async def _expand_part(part: Content, *, multimodal: bool) -> Content:
+async def _expand_part(
+    part: Content, *, multimodal: bool, budget: MediaExpandBudget
+) -> Content:
     if not isinstance(part, PlaceholderContent):
         return part
     if not multimodal:
         return TextContent(text=_NO_IMAGE_TEXT)
+    #  先探测预算再查库：超预算的占位符在长历史里可能很多，没必要为它们各查一次
+    if budget.exhausted:
+        logger.debug("本次请求的图片数量已达上限，占位符降级为说明文本")
+        return TextContent(text=_OVER_BUDGET_TEXT)
     url = await load_media_data_uri(part.media_id)
     if url is None:
         logger.debug(f"上下文媒体已不可用（{part.media_id[:8]}），降级为说明文本")
         return TextContent(text=_MEDIA_GONE_TEXT)
+    #  只在确实产出一张图片时才消耗预算，否则被淘汰的媒体会白占名额
+    budget.take()
     return ImageContent(image_url=ImageUrl(url=url))
 
 
 async def expand_media_in_messages(
-    messages: Iterable[CONTENT_LIST_TYPE_ITEM], *, multimodal: bool
+    messages: Iterable[CONTENT_LIST_TYPE_ITEM],
+    *,
+    multimodal: bool,
+    budget: MediaExpandBudget,
 ) -> list[CONTENT_LIST_TYPE_ITEM]:
     """展开记忆中的占位符，返回**新的**消息列表（不修改传入对象）。
 
@@ -255,7 +312,8 @@ async def expand_media_in_messages(
     ``ChatMemoryBackend.load_memory`` 不再碰图片。
 
     - ``multimodal=True``：占位符 -> ``data:<mime>;base64,...`` 的 ``ImageContent``；
-      二进制已被淘汰时降级为 :data:`_MEDIA_GONE_TEXT`。
+      二进制已被淘汰时降级为 :data:`_MEDIA_GONE_TEXT`，超出 ``budget`` 时降级为
+      :data:`_OVER_BUDGET_TEXT`。
     - ``multimodal=False``：占位符 -> :data:`_NO_IMAGE_TEXT` 固定字面量。既不能
       展开成 base64（纯文本模型会直接报错），也不能把 ``PlaceholderContent``
       原样发出去（Core 会把它序列化成 ``{"type": "placeholder", ...}``，同样报错）。
@@ -263,10 +321,13 @@ async def expand_media_in_messages(
     非多模态分支**不可逆**：写回时占位符已不存在，该会话历史里的图片引用就此消失
     （``ContextMedia`` 行本身仍在，直到 TTL）。这是刻意取舍，见模块 docstring。
 
+    预算按**从最近的消息往前**消耗，但输出顺序不变：历史越长，越早的图片越先被降级。
+
     只含占位符以外的消息原样复用，不做多余拷贝。
     """
+    #  倒序展开以保证"最近的图片优先"拿到预算，最后再翻回原始顺序
     expanded: list[CONTENT_LIST_TYPE_ITEM] = []
-    for message in messages:
+    for message in reversed(list(messages)):
         parts = _iter_content_parts(message)
         if (
             parts is None
@@ -277,21 +338,29 @@ async def expand_media_in_messages(
             continue
         replaced = message.model_copy()
         replaced.content = [
-            await _expand_part(part, multimodal=multimodal) for part in parts
+            await _expand_part(part, multimodal=multimodal, budget=budget)
+            for part in parts
         ]
         expanded.append(replaced)
+    expanded.reverse()
     return expanded
 
 
 async def expand_media_in_content(
-    content: USER_INPUT, *, multimodal: bool
+    content: USER_INPUT, *, multimodal: bool, budget: MediaExpandBudget
 ) -> USER_INPUT:
-    """展开当前轮用户输入中的占位符（语义同 :func:`expand_media_in_messages`）。"""
+    """展开当前轮用户输入中的占位符（语义同 :func:`expand_media_in_messages`）。
+
+    应当在展开历史之前调用，让本轮新图优先占用 ``budget``。
+    """
     if content is None or isinstance(content, str):
         return content
     if not _has_placeholder(content):
         return content
-    return [await _expand_part(part, multimodal=multimodal) for part in content]
+    return [
+        await _expand_part(part, multimodal=multimodal, budget=budget)
+        for part in content
+    ]
 
 
 #  写路径：图片内容 -> 占位符（纯函数）
@@ -363,25 +432,49 @@ async def inject_image(
     """供钩子使用的图片注入 API：由框架负责入库与落位。
 
     调用方只需提供二进制与 MIME，不需要自己算哈希、建占位符或管理生命周期：
-    先经 :func:`store_media` 落库（体积 / 空内容由它统一拒绝），再按本次运行的
-    多模态能力追加到 ``event.original_context.end_messages``。图片属于"附加内容"，
-    不插进历史，以免打乱已有消息顺序。
+    先经 :func:`~amrita.plugins.chat.utils.image_norm.normalize_image` 归一化（与消息
+    采集侧同一套规则：解码校验、等比缩小、转码为模型支持的格式、压缩到
+    ``max_allowed_size`` 以内），再经 :func:`store_media` 落库（体积 / 空内容由它
+    统一拒绝），最后按本次运行的多模态能力追加到 ``event.original_context.end_messages``。
+    图片属于"附加内容"，不插进历史，以免打乱已有消息顺序。
 
-    :return: 注入成功返回 ``True``；``store_media`` 拒绝（体积超限 / 内容为空）
-        时返回 ``False``。
+    :return: 注入成功返回 ``True``；归一化或 ``store_media`` 拒绝
+        （格式不可解码 / 体积超限 / 内容为空）时返回 ``False``。
     """
     chat_object = getattr(event, "chat_object", None)
     uni_id = getattr(chat_object, "session_id", "") or ""
-    media_id = await store_media(uni_id=uni_id, raw=raw, mime=mime)
+    context = config_manager.config.context
+    normalized = await asyncio.to_thread(
+        normalize_image,
+        raw,
+        max_width=context.max_image_width,
+        max_height=context.max_image_height,
+        max_bytes=context.max_allowed_size * 1024
+        if context.max_allowed_size > 0
+        else 0,
+    )
+    if not normalized.ok:
+        logger.debug(f"注入图片归一化失败，已忽略：{normalized.reason}")
+        return False
+    media_id = await store_media(
+        uni_id=uni_id, raw=normalized.raw, mime=normalized.mime
+    )
     if media_id is None:
         return False
     placeholder = PlaceholderContent(
-        media_id=media_id, kind="image", mime=_sanitize_mime(mime), size=len(raw)
+        media_id=media_id,
+        kind="image",
+        mime=normalized.mime,
+        size=len(normalized.raw),
     )
     event.original_context.end_messages.append(
         Message(
             role="user",
-            content=[await _expand_part(placeholder, multimodal=multimodal)],
+            content=[
+                await _expand_part(
+                    placeholder, multimodal=multimodal, budget=_UNLIMITED_BUDGET
+                )
+            ],
         )
     )
     return True

@@ -39,6 +39,7 @@ from amrita.plugins.chat.runtime import (
 from amrita.plugins.chat.runtime_session import SessionManager
 from amrita.plugins.chat.utils.context import build_train_dict
 from amrita.plugins.chat.utils.context_store import (
+    MediaExpandBudget,
     expand_media_in_content,
     expand_media_in_messages,
 )
@@ -150,11 +151,15 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     multimodal = await is_multimodal_enabled()
 
     #  展开只在这里做一次且只作用于**副本**：共享缓存全程只有占位符，中断也不会留下图片内容
+    #  本轮输入先展开：图片配额有限，用户刚发的图必须优先于历史图片
+    media_budget = MediaExpandBudget(config.context.max_images_per_request)
+    final_content = await expand_media_in_content(
+        final_content, multimodal=multimodal, budget=media_budget
+    )
     memory_view = memory.memory_json.model_copy()
     memory_view.messages = await expand_media_in_messages(
-        memory_view.messages, multimodal=multimodal
+        memory_view.messages, multimodal=multimodal, budget=media_budget
     )
-    final_content = await expand_media_in_content(final_content, multimodal=multimodal)
 
     #  阶段 3：构建策略与 prompt
     strategy = select_agent_strategy(config.llm.agent_strategy)

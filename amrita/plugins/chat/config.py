@@ -243,6 +243,11 @@ HARD_MAX_IMAGE_BYTES = _HARD_MAX_IMAGE_KB * 1024
 _MAX_PRUNE_INTERVAL_MINUTES = 1440
 #  read_context 单次返回条数上限，拦住把整库记录一次性塑进上下文的配置
 _MAX_READ_CONTEXT_LIMIT = 1000
+#  单张图片长/宽上限（像素，8K 边长）
+_HARD_MAX_IMAGE_SIDE = 8192
+#  单条消息 / 单次请求的图片数量上限
+_MAX_IMAGES_PER_MESSAGE = 64
+_MAX_IMAGES_PER_REQUEST = 64
 
 
 class ContextStoreConfig(BaseModel):
@@ -277,12 +282,59 @@ class ContextStoreConfig(BaseModel):
         ),
     )
     max_image_kb: int = Field(
+        default=10240,
+        ge=0,
+        le=_HARD_MAX_IMAGE_KB,
+        description=(
+            "下载闸：允许拉取的单张图片原始体积（KB），超出则直接丢弃、不再做归一化。"
+            "只约束网络/本地读取，不决定最终存入上下文的大小，因此可以放宽，"
+            f"让手机原图有机会被缩放后再用；0=不限制（内部兜底 {_HARD_MAX_IMAGE_KB}KB）"
+        ),
+    )
+    max_allowed_size: int = Field(
         default=2048,
         ge=0,
         le=_HARD_MAX_IMAGE_KB,
         description=(
-            "允许接收的单张图片最大体积（KB），超出该体积的图片将被直接丢弃，"
-            f"0=不限制（内部兜底 {_HARD_MAX_IMAGE_KB}KB）"
+            "上下文闸：归一化（缩放 / 转码 / 降质）后允许存入上下文的单张图片体积（KB）。"
+            "仍超出时继续降质、降尺寸压缩直至达标，0=不限制"
+        ),
+    )
+    max_image_width: int = Field(
+        default=2048,
+        ge=0,
+        le=_HARD_MAX_IMAGE_SIDE,
+        description=(
+            "允许的单张图片最大宽度（像素），超出则等比缩小（不会放大），"
+            f"0=不限制（内部兜底 {_HARD_MAX_IMAGE_SIDE}）"
+        ),
+    )
+    max_image_height: int = Field(
+        default=2048,
+        ge=0,
+        le=_HARD_MAX_IMAGE_SIDE,
+        description=(
+            "允许的单张图片最大高度（像素），超出则等比缩小（不会放大），"
+            f"0=不限制（内部兜底 {_HARD_MAX_IMAGE_SIDE}）"
+        ),
+    )
+    max_images_per_message: int = Field(
+        default=4,
+        ge=0,
+        le=_MAX_IMAGES_PER_MESSAGE,
+        description=(
+            "单条消息最多采集的图片数量，超出的图片不再下载、直接忽略，"
+            f"0=不限制（内部兜底 {_MAX_IMAGES_PER_MESSAGE}）"
+        ),
+    )
+    max_images_per_request: int = Field(
+        default=8,
+        ge=0,
+        le=_MAX_IMAGES_PER_REQUEST,
+        description=(
+            "单次请求最多发送给模型的图片数量（含本轮新图与历史图片，本轮优先），"
+            "超出部分降级为文字提示，0=不限制（内部兜底 "
+            f"{_MAX_IMAGES_PER_REQUEST}）"
         ),
     )
     media_ttl_hours: int = Field(

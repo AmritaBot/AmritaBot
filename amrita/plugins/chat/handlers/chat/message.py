@@ -7,8 +7,9 @@
 - 用户角色获取
 - 将事件消息合成为 ChatObject 输入（含多模态判定）
 
-多模态约定：图片二进制一律先本地落库（``utils/context_store.py``），
-上下文里只放 ``PlaceholderContent`` 占位符；体积超限的图片直接丢弃。
+多模态约定：图片二进制一律先经 ``utils/image_norm.py`` 归一化（解码校验、等比缩小、
+转码为模型支持的格式），再本地落库（``utils/context_store.py``），上下文里只放
+``PlaceholderContent`` 占位符；体积超限的图片直接丢弃。
 """
 
 from __future__ import annotations
@@ -34,6 +35,7 @@ from ...utils.format import (
     format_msg_xml,
 )
 from ...utils.functions import format_current_datetime, synthesize_message
+from ...utils.image_norm import normalize_image
 from ...utils.net_guard import (
     FetchResult,
     decode_inline_bytes,
@@ -46,14 +48,6 @@ from ...utils.sql import get_uni_user_id
 
 #  单张图片下载超时（秒）
 _IMAGE_DOWNLOAD_TIMEOUT = 30
-#  受支持的图片格式（文件头 -> MIME）。白名单式匹配，识别不出的内容一律丢弃。
-_IMAGE_SIGNATURES: tuple[tuple[bytes, str], ...] = (
-    (b"\xff\xd8\xff", "image/jpeg"),
-    (b"\x89PNG\r\n\x1a\n", "image/png"),
-    (b"GIF87a", "image/gif"),
-    (b"GIF89a", "image/gif"),
-    (b"BM", "image/bmp"),
-)
 
 
 def _max_image_bytes() -> int:
@@ -64,6 +58,23 @@ def _max_image_bytes() -> int:
     """
     limit_kb = config_manager.config.context.max_image_kb
     return HARD_MAX_IMAGE_BYTES if limit_kb <= 0 else limit_kb * 1024
+
+
+async def _normalize(raw: bytes) -> tuple[bytes, str] | str:
+    """归一化图片二进制，返回 ``(raw, mime)``；失败时返回一句说明文本。
+
+    Pillow 解码是 CPU 密集操作，放到线程里执行，避免阻塞事件循环。
+    """
+    context = config_manager.config.context
+    result = await asyncio.to_thread(
+        normalize_image,
+        raw,
+        max_width=context.max_image_width,
+        max_height=context.max_image_height,
+    )
+    if not result.ok:
+        return result.reason
+    return result.raw, result.mime
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,26 +147,6 @@ async def handle_reply(
     return result
 
 
-def _sniff_mime(raw: bytes) -> str | None:
-    """根据文件头推断图片 MIME 类型（比 Content-Type 可靠）。
-
-    识别不出时返回 ``None``，调用方应丢弃该数据。绝不"猜不到就当 jpeg"：
-    否则被诱导读到的非图片内容（如文本文件）会被当作图片送进模型。
-    """
-    for signature, mime in _IMAGE_SIGNATURES:
-        if raw.startswith(signature):
-            return mime
-    if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
-        return "image/webp"
-    if raw[4:8] == b"ftyp":
-        brand = raw[8:12]
-        if brand in (b"avif", b"avis"):
-            return "image/avif"
-        if brand in (b"heic", b"heix", b"hevc", b"hevx", b"mif1", b"msf1"):
-            return "image/heic"
-    return None
-
-
 async def _resolve_media_bytes(value: str, limit: int) -> FetchResult:
     """按来源类型取出二进制数据。
 
@@ -208,11 +199,12 @@ async def _try_image_source(value: str, limit: int) -> _ImageFetchResult:
         return _ImageFetchResult(summary="下载图片时发生未预期异常")
     if (raw := result.data) is None:
         return _ImageFetchResult(summary=result.reason or "图片不可用")
-    mime = _sniff_mime(raw)
-    if mime is None:
-        debug_log("图片内容不是受支持的图片格式，已丢弃")
-        return _ImageFetchResult(summary="内容不是受支持的图片格式")
-    return _ImageFetchResult(raw=raw, mime=mime)
+    #  必须真正解码一次：文件头可以被伪造，只有解码能识破伪装成图片的任意数据
+    normalized = await _normalize(raw)
+    if isinstance(normalized, str):
+        debug_log(f"图片归一化失败，已丢弃：{normalized}")
+        return _ImageFetchResult(summary=normalized)
+    return _ImageFetchResult(raw=normalized[0], mime=normalized[1])
 
 
 async def _image_candidates(bot: Bot, seg: MessageSegment) -> AsyncIterator[str]:
@@ -248,7 +240,10 @@ async def _fetch_image_bytes(bot: Bot, seg: MessageSegment) -> _ImageFetchResult
     - 本地文件只允许读取 ``context.local_media_dirs`` 白名单目录内的常规文件，
       防止 ``file:///etc/passwd`` 之类的任意文件读取；
     - 所有分支都受 ``context.max_image_kb`` 限制，超限直接丢弃；
-    - 内容必须能被识别为受支持的图片格式，否则丢弃（防止非图片数据外泄）。
+    - 取到的内容必须能被 Pillow 真正解码为受支持的图片，否则丢弃
+      （防止非图片数据外泄，也拦住伪装成图片的任意内容）；
+    - 解码后按 ``context.max_image_width`` / ``max_image_height`` 等比缩小，
+      并把不受模型支持的格式转码，见 :mod:`amrita.plugins.chat.utils.image_norm`。
 
     失败时不抛异常，而是返回带 ``summary`` 的结果（最后一个候选地址的失败原因）。
     """
@@ -272,14 +267,25 @@ async def _build_image_contents(
 ) -> list[Content]:
     """采集消息段中的图片：成功时本地落库并返回占位符，失败时回写一条说明文本。
 
-    失败（下载失败、被安全策略拒绝、体积超限、格式不支持、落库被拒）不会中断流程，
+    失败（下载失败、被安全策略拒绝、体积超限、解码失败、落库被拒）不会中断流程，
     而是 warn 记录后以 ``TextContent`` 的形式写回上下文，让模型知道
     "这里本来有一张图但没拿到"，而不是凭空少一段内容导致误判。
+
+    单条消息的图片数量受 ``context.max_images_per_message`` 约束。超出后**立即停止**，
+    不再下载后续图片：否则一条塞满图片段的消息就能让我们做任意多次网络往返。
     """
     contents: list[Content] = []
+    limit = config_manager.config.context.max_images_per_message
+    collected = 0
     for seg in message:
         if seg.type != "image":
             continue
+        if limit > 0 and collected >= limit:
+            logger.warning(f"单条消息图片数量超出上限 {limit}，已忽略后续图片")
+            contents.append(
+                TextContent(text=f"[图片已忽略：单条消息最多 {limit} 张图片]")
+            )
+            break
         result = await _fetch_image_bytes(bot, seg)
         if not result.ok:
             logger.warning(f"图片获取失败，已跳过该图片：{result.summary}")
@@ -292,6 +298,7 @@ async def _build_image_contents(
             logger.warning(f"图片落库被拒绝，已跳过该图片：{reason}")
             contents.append(TextContent(text=f"[图片已丢弃：{reason}]"))
             continue
+        collected += 1
         contents.append(
             PlaceholderContent(
                 media_id=media_id,

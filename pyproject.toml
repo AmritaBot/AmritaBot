@@ -72,6 +72,8 @@ amrita = { workspace = true }
 [tool.ruff]
 line-length = 88
 target-version = "py310"
+# website/ 是 amrita-docs 文档站子模块，不参与本仓库的 lint
+extend-exclude = ["website"]
 
 [tool.ruff.lint]
 select = [
@@ -112,3 +114,5 @@ typeCheckingMode = "standard"
 venvPath = "."
 venv = ".venv"
 executionEnvironments = [{ root = ".", pythonVersion = "3.10" }]
+# website/ 是 amrita-docs 文档站子模块，不参与本仓库的类型检查
+exclude = ["website"]

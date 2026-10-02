@@ -19,10 +19,30 @@ from ...utils.sql import get_uni_user_id, make_uni_id
 
 if TYPE_CHECKING:
     from amrita_core.chatmanager import ChatObject as CoreChatObject
+    from amrita_core.types import UniResponseUsage
     from nonebot.adapters.onebot.v11 import MessageEvent
     from nonebot_plugin_amrita.memory import CachedUserDataRepository
 
 __all__ = ["record_usage"]
+
+
+def _run_usage(chat: CoreChatObject) -> UniResponseUsage[int] | None:
+    """本轮总消耗 = 最终响应 + agentic 工作流内辅助调用。
+
+    ``extra_usage`` 的语义就是工作流内非最终消息的开销和，与最终响应相加才是
+    本轮总账。
+
+    ``gather_usage`` 是**原地累加** ``base``，而 ``response.usage`` 与
+    ``memory.usage`` 是同一个对象（``LLM_COMPLETION`` 把它直接赋给
+    ``memory.usage``）。若把 ``response.usage`` 直接当作 ``base`` 传入，会把
+    「单次请求的上下文规模」污染成「本轮累计」：``/session info`` 的上下文占用
+    会虚高，下一轮的 ``should_compact`` 也会因为读到虚高值而提前触发压缩。
+    因此先拷贝再累加。
+    """
+    resp = chat._di_resp.response
+    if resp is None or resp.usage is None:
+        return None
+    return gather_usage(resp.usage.model_copy(), chat._di_resp.extra_usage)
 
 
 def _billing_snapshot(chat: CoreChatObject) -> list[BillingRecord]:
@@ -48,8 +68,7 @@ async def record_usage(
     insights = await InsightsModel.get()
     debug_log(f"获取洞察数据完成，使用计数: {insights.usage_count}")
 
-    usg = chat._di_resp.response.usage
-    usage = gather_usage(usg, chat._di_resp.extra_usage) if usg is not None else None
+    usage = _run_usage(chat)
     add_usage(insights, usage)
     await insights.save()
     debug_log(f"更新全局统计完成，使用计数: {insights.usage_count}")

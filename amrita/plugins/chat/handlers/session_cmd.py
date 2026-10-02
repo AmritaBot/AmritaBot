@@ -185,7 +185,7 @@ async def _session_clear(event: MessageEvent, matcher: Matcher) -> None:
 # 元信息
 
 #  上下文占用条：已用 / 响应预留 / 未用
-_BAR_WIDTH = 20
+_BAR_WIDTH = 10
 _BAR_USED = "🟩"
 _BAR_RESERVED = "🟨"
 _BAR_FREE = "⬜"
@@ -219,9 +219,9 @@ def _render_context_bar(used: int, reserved: int, window: int) -> str:
 async def _session_info(event: MessageEvent, matcher: Matcher) -> None:
     """展示当前会话的模型、思考深度与上下文占用
 
-    运行中的会话从活 ``ChatObject`` 取上下文规模与消息数：``repo`` 缓存的
+    运行中的会话从活 ``ChatObject`` 取上下文规模：``repo`` 缓存的
     ``memory_json`` 要等 ``COMMIT_MEMORY`` 才更新，运行中读它拿到的是上一轮的值。
-    会话空闲时才查库。
+    会话空闲时才查库，消息数也只在空闲时展示（见下文说明）。
     """
     config = config_manager.config
     uni_id = get_uni_user_id(event)
@@ -266,10 +266,15 @@ async def _session_info(event: MessageEvent, matcher: Matcher) -> None:
     lines.append(f"  压缩线 {threshold:,}（触发比例 {ratio:.0%}）")
     if window > 0 and used >= threshold:
         lines.append("  ⚠️ 已超过压缩线，下次请求前将自动压缩上下文")
-    roles = Counter(getattr(msg, "role", "?") for msg in data.messages)
-    detail = " ".join(f"{role}:{count}" for role, count in roles.items())
-    lines.append(f"消息数：{len(data.messages)} 条（{detail or '空'}）")
-    if live_memory is not None:
+    #  消息数只在空闲时展示。运行中 ``memory.messages`` 仅在 ``_pre_runner``
+    #  同步过一次，agent 的工具调用与结果要到 ``APPLY_CONTEXT``（藏在
+    #  ``LLM_COMPLETION`` 里）才写回，此刻给不出准确值；展示一个偏小且缺
+    #  工具消息的数字会误导，故运行中略过该行。
+    if live_memory is None:
+        roles = Counter(getattr(msg, "role", "?") for msg in data.messages)
+        detail = " ".join(f"{role}:{count}" for role, count in roles.items())
+        lines.append(f"消息数：{len(data.messages)} 条（{detail or '空'}）")
+    else:
         lines.append("（数据来自本轮运行中的会话）")
     await matcher.send("\n".join(lines))
 

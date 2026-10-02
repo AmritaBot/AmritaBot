@@ -9,7 +9,12 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/hooks/use-auth";
+import { installHostGlobals } from "@/lib/remote";
 import { App } from "./App";
+
+// 把 React 运行时挂到 window，供 register_page(module_url=...) 声明的
+// 运行期 ESM 插件模块共享，避免出现两份 React
+installHostGlobals();
 
 const queryClient = new QueryClient({
   defaultOptions: {

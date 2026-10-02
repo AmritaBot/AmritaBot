@@ -152,8 +152,15 @@ _CORE_ROUTES = [
 
 @app.get("/api/meta/menu")
 async def get_menu():
-    """获取全部页面路由注册表（含隐藏页），前端据此生成菜单与路由。"""
-    routes = list(_CORE_ROUTES) + RouteRegistry().get_routes()
+    """获取全部页面路由注册表（含隐藏页），前端据此生成菜单与路由。
+
+    核心页面未声明 ``external_url`` / ``module_url``，这里统一补 ``None``，
+    保证每条路由的字段集合一致（前端按可选字段解析）。
+    """
+    routes = [
+        {"external_url": None, "module_url": None, **route}
+        for route in (*_CORE_ROUTES, *RouteRegistry().get_routes())
+    ]
     return ok(
         "success",
         data={

@@ -7,6 +7,10 @@ export interface MenuRoute {
   category: string;
   icon: string | null;
   hidden: boolean;
+  /** iframe 页面地址（第三方插件用，无需重新构建前端） */
+  external_url?: string | null;
+  /** 运行期 ESM 模块地址，默认导出 React 组件（第三方插件用） */
+  module_url?: string | null;
 }
 
 export interface MenuData {

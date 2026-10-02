@@ -10,18 +10,22 @@
   - system: 系统资源（CPU/内存/磁盘/网络），按 WsConfig.system_interval 间隔推送，订阅即推快照
   - bot:    Bot 连接状态（变化时广播 + 订阅即推快照）
   - logs:   实时日志（劫持 loguru sink；仅本次 Bot 启动以来的日志，不混入 event.json 历史；订阅时按 tail 语义回放最新 N 条，N 由 WsConfig.log_replay_limit / 前端 opts 控制）
+
+第三方插件可用 :func:`amrita.plugins.webui.API.register_ws_channel` 声明自己的频道，
+并用 :func:`amrita.plugins.webui.API.broadcast_ws` 推送数据；未声明的频道会被忽略。
 """
 
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import logging
 import os
 import threading
 import weakref
 from collections import deque
-from collections.abc import Callable, Coroutine
+from collections.abc import Awaitable, Callable, Coroutine
 from datetime import datetime
 from pathlib import Path
 from typing import Any, TextIO
@@ -56,11 +60,52 @@ _LEVEL_META: dict[str, tuple[str, str]] = {
 }
 
 
+SnapshotProvider = Callable[
+    [], "Awaitable[dict[str, Any] | None] | dict[str, Any] | None"
+]
+"""频道快照提供者：订阅瞬间调用一次，可为同步或异步，返回 ``None`` 表示无快照。"""
+
+
 class ChannelHub:
     def __init__(self) -> None:
         self._subscribers: dict[str, set[WebSocket]] = {}
         # 每个 WS 的发送锁：广播与回放可能并发 send_json，不加锁会让 FastAPI 并发发送抛错并导致无限重连
         self._locks: dict[WebSocket, asyncio.Lock] = {}
+        # 已声明的频道 -> 快照提供者（None 表示无快照）
+        self._channels: dict[str, SnapshotProvider | None] = {}
+
+    def register_channel(
+        self, name: str, snapshot: SnapshotProvider | None = None
+    ) -> None:
+        """声明一个可订阅频道（重复声明覆盖旧的快照提供者）。"""
+        self._channels[name] = snapshot
+
+    def has_channel(self, name: str) -> bool:
+        return name in self._channels
+
+    def channels(self) -> frozenset[str]:
+        return frozenset(self._channels)
+
+    async def snapshot(self, channel: str) -> dict[str, Any] | None:
+        """取频道的订阅快照；未声明或无快照时返回 ``None``。"""
+        provider = self._channels.get(channel)
+        if provider is None:
+            return None
+        result = provider()
+        if inspect.isawaitable(result):
+            return await result
+        return result
+
+    async def broadcast(self, channel: str, data: dict[str, Any]) -> None:
+        """向频道所有订阅者推送；失败的订阅者静默剔除，不阻塞广播循环。"""
+        message = {"channel": channel, "data": data}
+        dead = [
+            ws
+            for ws in self.subscribers(channel)
+            if not await _send_to_subscriber(ws, message)
+        ]
+        for ws in dead:
+            self.remove_ws(ws)
 
     def lock(self, ws: WebSocket) -> asyncio.Lock:
         if ws not in self._locks:
@@ -152,15 +197,8 @@ async def _send_to_subscriber(ws: WebSocket, message: dict) -> bool:
 
 
 async def _broadcast(channel: str, data: dict) -> None:
-    """推送失败的订阅者静默剔除，不阻塞广播循环。"""
-    message = {"channel": channel, "data": data}
-    dead = [
-        ws
-        for ws in hub.subscribers(channel)
-        if not await _send_to_subscriber(ws, message)
-    ]
-    for ws in dead:
-        hub.remove_ws(ws)
+    """兼容旧调用点：直接转发到 :meth:`ChannelHub.broadcast`。"""
+    await hub.broadcast(channel, data)
 
 
 def _system_payload() -> dict:
@@ -327,26 +365,23 @@ def _install_log_capture() -> None:
 _install_log_capture()
 
 
-async def _channel_snapshot(channel: str) -> dict | None:
-    """订阅时立即推送的当前状态快照。
+async def _bot_channel_snapshot() -> dict:
+    from .main import try_get_bot
 
-    bot/system 是事件驱动频道（状态变化才广播）：新订阅者若只等广播，
-    会永远拿不到当前值（首次广播时订阅者往往还没上线）。
+    connected = try_get_bot() is not None
+    return {"channel": "bot", "data": {"status": "online" if connected else "offline"}}
 
-    返回 ``None`` 表示该频道没有快照，调用方应跳过推送——避免新增
-    频道时因未实现快照而抛异常导致 WebSocket 连接被关闭。
-    """
-    if channel == "bot":
-        from .main import try_get_bot
 
-        connected = try_get_bot() is not None
-        return {
-            "channel": "bot",
-            "data": {"status": "online" if connected else "offline"},
-        }
-    if channel == "system":
-        return {"channel": "system", "data": _system_payload()}
-    return None
+async def _system_channel_snapshot() -> dict:
+    return {"channel": "system", "data": _system_payload()}
+
+
+# 内置频道：bot/system 是事件驱动频道，订阅时立即推当前状态；
+# 新订阅者若只等广播，首次广播时往往还没上线，会永远拿不到当前值。
+# logs 走 tail 回放（无快照）。
+hub.register_channel("system", _system_channel_snapshot)
+hub.register_channel("bot", _bot_channel_snapshot)
+hub.register_channel("logs")
 
 
 async def _read_log_tail(limit: int) -> list[dict[str, Any]]:
@@ -553,7 +588,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                     logs_limit = cfg.log_replay_limit
                 logs_limit = min(max(logs_limit, 1), cfg.log_replay_limit_max)
                 for ch in raw.get("channels", []):
-                    if ch in ("system", "bot", "logs"):
+                    if hub.has_channel(ch):
                         if ch == "logs" and ch not in channels:
                             # 首次订阅 logs：后台回放本次启动最后 logs_limit 条（tail 语义）；同步发送会阻塞订阅循环并占锁
                             _spawn_background(
@@ -564,8 +599,8 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                                 )
                             )
                         elif ch not in channels:
-                            # 首次订阅 bot/system：立即推当前状态快照，避免新订阅者要等下一次变化；无快照的频道跳过
-                            snapshot = await _channel_snapshot(ch)
+                            # 首次订阅其他频道：立即推当前状态快照，避免新订阅者要等下一次变化；无快照的频道跳过
+                            snapshot = await hub.snapshot(ch)
                             if snapshot is not None:
                                 await _send_json_locked(ws, snapshot)
                         hub.subscribe(ch, ws)

@@ -95,10 +95,13 @@ class SideBarManager:
 
 
 class RouteRegistry:
-    """页面路由注册表：on_page 注册的页面元数据，前端据此生成 SPA 路由。
+    """页面路由注册表：on_page / register_page 注册的页面元数据，前端据此生成 SPA 路由。
 
     与侧边栏不同，这里包含所有页面（含 __HIDDEN__ 页），
     因为隐藏页面同样需要前端路由匹配。
+
+    ``external_url`` / ``module_url`` 用于让第三方插件在不重新构建前端的前提下
+    接入自定义页面（见 :func:`amrita.plugins.webui.API.register_page`）。
     """
 
     _instance: Self | None = None
@@ -117,6 +120,8 @@ class RouteRegistry:
         category: str,
         icon: str | None = None,
         hidden: bool = False,
+        external_url: str | None = None,
+        module_url: str | None = None,
     ):
         self._routes.append(
             {
@@ -125,6 +130,8 @@ class RouteRegistry:
                 "category": category,
                 "icon": icon,
                 "hidden": hidden,
+                "external_url": external_url,
+                "module_url": module_url,
             }
         )
 

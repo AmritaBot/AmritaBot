@@ -26,7 +26,12 @@ from ..check_rule import is_group_admin_if_is_in_group
 from ..config import config_manager
 from ..events import SessionCompactEvent
 from ..utils.context_store import fold_media_in_messages
-from ..utils.data_access import clear_history, restore_history, update_memory
+from ..utils.data_access import (
+    clear_abstract,
+    clear_history,
+    restore_history,
+    update_memory,
+)
 from ..utils.preset import resolve_preset
 from ..utils.session_guard import active_chat_object, is_session_busy, session_lock
 from ..utils.sql import get_uni_user_id
@@ -380,7 +385,7 @@ async def _session_abstract(event: MessageEvent, matcher: Matcher, clear: bool) 
     repo = CachedUserDataRepository()
     data = await repo.get_memory(get_uni_user_id(event))
     if clear:
-        data.memory_json.abstract = ""
+        clear_abstract(data.memory_json)
         await update_memory(data)
         await matcher.send("已清空对话上下文摘要")
     else:

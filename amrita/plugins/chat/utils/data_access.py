@@ -26,6 +26,7 @@ from .app import CachedGroupDataRepository, GroupConfigSchema
 from .context_store import fold_media_in_messages
 
 __all__ = [
+    "clear_abstract",
     "clear_history",
     "get_group_config",
     "get_memory",
@@ -76,6 +77,16 @@ def invalidate_usage(memory: MemoryModel) -> None:
     memory.usage = None
 
 
+def clear_abstract(memory: MemoryModel) -> None:
+    """清空摘要（调用方负责写库）
+
+    ``abstract`` 会被 train 模板渲染进系统提示，它本身就是 payload 的一部分，
+    所以只清摘要也会让上一次请求的测量值失效。
+    """
+    memory.abstract = ""
+    invalidate_usage(memory)
+
+
 def clear_history(memory: MemoryModel) -> None:
     """清空历史（调用方负责写库）
 
@@ -84,8 +95,7 @@ def clear_history(memory: MemoryModel) -> None:
     模型依旧记得旧对话；``usage`` 描述的是已不存在的 payload。
     """
     memory.messages.clear()
-    memory.abstract = ""
-    invalidate_usage(memory)
+    clear_abstract(memory)
 
 
 def restore_history(memory: MemoryModel, source: MemoryModel) -> None:

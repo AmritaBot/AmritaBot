@@ -69,14 +69,17 @@ function buildFieldTree(fields: ConfeditField[]): FieldTreeNode[] {
     const parts = field.name.split(".");
     let level = root;
     let path = "";
-    for (const part of parts) {
+    //  必须按下标判断「最后一段」：字段名可能出现重复段（如 core.cookie.cookie），
+    //  用值比较会把中间段误判为末段，导致父节点被标成叶子、真正的叶子被吞掉
+    const last = parts.length - 1;
+    for (const [i, part] of parts.entries()) {
       path = path ? `${path}.${part}` : part;
       let node = level.find((n) => n.key === path);
       if (!node) {
         node = { key: path, label: part, field: null, children: [] };
         level.push(node);
       }
-      if (part === parts[parts.length - 1]) {
+      if (i === last) {
         node.field = field;
       } else {
         level = node.children;

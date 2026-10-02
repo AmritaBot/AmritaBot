@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections import Counter
-from copy import deepcopy
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -27,7 +26,7 @@ from ..check_rule import is_group_admin_if_is_in_group
 from ..config import config_manager
 from ..events import SessionCompactEvent
 from ..utils.context_store import fold_media_in_messages
-from ..utils.data_access import update_memory
+from ..utils.data_access import clear_history, restore_history, update_memory
 from ..utils.preset import resolve_preset
 from ..utils.session_guard import active_chat_object, is_session_busy, session_lock
 from ..utils.sql import get_uni_user_id
@@ -104,7 +103,8 @@ async def _session_use(event: MessageEvent, matcher: Matcher, index: str) -> Non
     target = user_sessions[session_index]
     try:
         memory_data = await repo.get_memory(get_uni_user_id(event))
-        memory_data.memory_json.messages = deepcopy(target.data.messages)
+        #  恢复的是完整快照：消息、摘要、用量一起换回来
+        restore_history(memory_data.memory_json, target.data)
         await update_memory(memory_data)
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).exception("覆盖记忆文件失败。")
@@ -154,15 +154,15 @@ async def _session_archive(event: MessageEvent, matcher: Matcher) -> None:
         await matcher.finish("当前对话为空！")
     #  归档副本同样不能带图片内容：先折叠再深拷贝
     fold_media_in_messages(memory_data.memory_json.messages)
-    new_session = AwaredMemory(
-        messages=deepcopy(memory_data.memory_json.messages),
-        abstract=memory_data.memory_json.abstract,
-    )
+    #  副本要连 abstract 与 usage 一起带走，它才是这份历史的完整快照，
+    #  否则 /session use 恢复回来时摘要与占用都丢了
+    new_session = AwaredMemory()
+    restore_history(new_session, memory_data.memory_json)
     try:
         async with get_session() as session:
             async with UserDataExecutor(uni_id, session) as executor:
                 await executor.add_session(new_session)
-        memory_data.memory_json.messages = []
+        clear_history(memory_data.memory_json)
         await update_memory(memory_data)
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).exception("归档当前会话失败。")
@@ -370,7 +370,7 @@ async def _session_forget(event: MessageEvent, matcher: Matcher) -> None:
     """清空当前记忆"""
     repo = CachedUserDataRepository()
     data = await repo.get_memory(get_uni_user_id(event))
-    data.memory_json.messages.clear()
+    clear_history(data.memory_json)
     await update_memory(data)
     await matcher.send("上下文已清除")
 

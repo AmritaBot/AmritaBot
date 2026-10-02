@@ -30,7 +30,11 @@ from nonebot_plugin_orm import get_session
 from pydantic import BaseModel, Field
 
 from amrita.plugins.chat.config import Config
-from amrita.plugins.chat.utils.data_access import update_memory
+from amrita.plugins.chat.utils.data_access import (
+    clear_history,
+    restore_history,
+    update_memory,
+)
 from amrita.plugins.chat.utils.sql import (
     get_uni_user_id,
 )
@@ -169,7 +173,7 @@ class SessionManager:
                         db_session, uni_id, cfg.session_control_history
                     )
                     await db_session.commit()
-                data.messages = []
+                clear_history(data)
                 timestamp = data.time
                 data.time = time_now
                 CachedUserDataRepository._cached_memory.pop(uni_id, None)
@@ -206,8 +210,9 @@ class SessionManager:
                 session_clear_map.pop(session_id, None)
 
                 sessions = await self._repo.get_sesssions(get_uni_user_id(event))
-                data.messages = sessions[-1].data.messages
                 last_session = sessions[-1]
+                #  恢复的是完整快照：消息、摘要、用量一起换回来
+                restore_history(data, last_session.data)
 
                 async with UserDataExecutor(uni_id) as executor:
                     await executor.remove_session(last_session.id)

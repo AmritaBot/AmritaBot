@@ -36,7 +36,7 @@ def _run_usage(chat: CoreChatObject) -> UniResponseUsage[int] | None:
     ``memory.usage`` 是同一个对象（``LLM_COMPLETION`` 把它直接赋给
     ``memory.usage``）。若把 ``response.usage`` 直接当作 ``base`` 传入，会把
     「单次请求的上下文规模」污染成「本轮累计」：``/session info`` 的上下文占用
-    会虚高，下一轮的 ``should_compact`` 也会因为读到虚高值而提前触发压缩。
+    会虚高，下一轮的历史管理也会因为读到虚高值而提前触发。
     因此先拷贝再累加。
     """
     resp = chat._di_resp.response

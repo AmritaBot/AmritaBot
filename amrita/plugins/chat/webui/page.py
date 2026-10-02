@@ -239,8 +239,9 @@ async def inspect_model(name: str):
                         else "fallback",
                     },
                     "compaction": {
-                        "enabled": core.llm.enable_compaction,
+                        "strategy": core.llm.context_strategy,
                         "trigger_ratio": ratio,
+                        "slide_target_ratio": core.llm.slide_target_ratio,
                         "threshold": int(budget * ratio),
                         "max_tokens": core.llm.compaction_max_tokens,
                         "message_limit": core.llm.memory_length_limit,

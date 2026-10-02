@@ -249,7 +249,7 @@ wheels = [
 
 [[package]]
 name = "amrita"
-version = "1.10.1"
+version = "1.10.2"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
@@ -301,7 +301,7 @@ requires-dist = [
     { name = "aiomysql", specifier = ">=0.3.2" },
     { name = "aiosqlite", specifier = ">=0.21.0" },
     { name = "alembic", specifier = ">=1.16.4" },
-    { name = "amrita-core", specifier = ">=1.0.0,<2.0.0" },
+    { name = "amrita-core", specifier = ">=1.2.0,<2.0.0" },
     { name = "amrita-sense", specifier = ">=1.0.0,<2.0.0" },
     { name = "async-lru", specifier = ">=2.0.5" },
     { name = "bcrypt", specifier = ">=4.3.0" },
@@ -338,7 +338,7 @@ dev = [
 
 [[package]]
 name = "amrita-core"
-version = "1.0.0"
+version = "1.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -355,9 +355,9 @@ dependencies = [
     { name = "pytz" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a0/54/3dbcb6d72a9f6fb811e34abd2f99cf68138fe2ed00092ded610209346764/amrita_core-1.0.0.tar.gz", hash = "sha256:379ca574eb67a2e277e4220f83736af0339850cc79ae75cdceeac946762dd488", size = 193850, upload-time = "2026-10-02T02:12:48.579Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3d/8f/ce3eead2ee516a3594a9b0b633cd745bd6c72a009970fb6a9e974026ef34/amrita_core-1.2.0.tar.gz", hash = "sha256:95ab0181500e1e62bb34c7992e83cc9c6d9bdbe97bf99f518f09d1da42b6de23", size = 200484, upload-time = "2026-10-02T16:11:41.433Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/da/9c/5ef1f78ce968ab3e9343841b9b947e7ef774cfb2a01cf1649d6133f54996/amrita_core-1.0.0-py3-none-any.whl", hash = "sha256:08f040a5b963c737996c89aaec5bc5dacb11c3b19d8a72ad3e3bf2cf59582756", size = 155224, upload-time = "2026-10-02T02:12:47.263Z" },
+    { url = "https://files.pythonhosted.org/packages/98/37/fa0a2742bb18e5b408d073ed6d36899564ff8688a0aa6d35554bfca7ffb2/amrita_core-1.2.0-py3-none-any.whl", hash = "sha256:7659e5773cb78fe2e3a991d1fd007730b86b4b18ae9d1ffc3a8511a3983aa044", size = 159684, upload-time = "2026-10-02T16:11:40.303Z" },
 ]
 
 [[package]]

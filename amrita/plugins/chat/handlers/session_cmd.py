@@ -226,7 +226,16 @@ async def _session_info(event: MessageEvent, matcher: Matcher) -> None:
 
 
 async def _session_compact(event: MessageEvent, matcher: Matcher, force: bool) -> None:
-    """压缩当前会话上下文：将早期消息总结为摘要"""
+    """压缩当前会话上下文：将早期消息总结为摘要
+
+    调用方已持有 ``session_lock``，本函数内的改内存与写库都在该锁内完成，
+    因此不会与本轮对话结束时的 ``commit_memory`` 竞争。
+
+    ``repo.make_lock`` 只用于在耗时的摘要调用期间占住数据库行，
+    防止其他数据库侧写入者读到半压缩状态；它**不是**与 chat 路径互斥的锁。
+    ``update_memory`` 不能嵌进这个 ``with``：其内部会再次获取同一把
+    ``aiologic.Lock``，而该锁不可重入，嵌套会直接抛 ``RuntimeError``。
+    """
     config = config_manager.config
     repo = CachedUserDataRepository()
     uni_id = get_uni_user_id(event)
@@ -413,14 +422,14 @@ async def session(
     sub = arg_list[0] if arg_list else "info"
     force = any(a in _FORCE_FLAGS for a in arg_list[1:])
 
-    if sub in _DESTRUCTIVE_SUBS and is_session_busy(get_uni_user_id(event)):
-        if not force:
+    if sub in _DESTRUCTIVE_SUBS:
+        if is_session_busy(get_uni_user_id(event)) and not force:
             await matcher.finish(
                 "⚠️ 当前会话正在运行中，该指令的结果会被本轮结束时的记忆回写覆盖。\n"
                 f"   请等待回复完成，或追加 force 等待本轮结束后执行："
                 f"/session {sub} force"
             )
-        #  force：复用 chat 主路径的同一把锁，等本轮运行结束后再执行
+        #  空闲路径同样必须持锁：否则「检查通过」到「执行」之间可以插入新一轮对话，本轮结束时的记忆回写会覆盖指令刚做的修改
         async with session_lock(event):
             await _dispatch_subcommand(sub, arg_list, force, event, matcher)
         return

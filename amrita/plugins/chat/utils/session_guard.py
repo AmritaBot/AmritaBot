@@ -3,7 +3,11 @@
 破坏性 ``/session`` 子命令与正在运行的对话共享同一份 ``memory_json``：
 本轮结束时 ``ChatMemoryBackend.commit_memory`` 会把运行中的消息写回，
 覆盖掉指令刚做的修改（归档被复活、恢复被覆盖、清空被回填）。
-因此执行前必须确认会话空闲，或在用户显式 ``force`` 时等待本轮结束。
+
+因此破坏性指令**必须**始终持有 ``session_lock``，不能只在检测到忙碌时才持锁：
+``is_session_busy`` 与真正的执行之间存在窗口，空闲检查通过后仍可能插入新一轮对话。
+``is_session_busy`` 只用于决定是否直接拒绝（未显式 ``force`` 时给出提示），
+真正的互斥由 ``session_lock`` 保证。
 """
 
 from __future__ import annotations

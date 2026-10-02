@@ -1,13 +1,10 @@
-"""上下文构建与统计工具
+"""上下文构建工具
 
-- build_train_dict(): 构建与 chat 主流程完全一致的 system prompt（含格式说明与 EXTRA 规则）
-- estimate_tokens(): 全列表分词计算，口径对齐 Core MemoryLimiter._limit_tokens
+build_train_dict(): 构建与 chat 主流程完全一致的 system prompt（含格式说明与 EXTRA 规则）
 """
 
 from __future__ import annotations
 
-from amrita_core.libchat import text_generator
-from amrita_core.tokenizer import hybrid_token_count
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent
 from nonebot_plugin_amrita.memory import MemorySchema
 
@@ -99,30 +96,3 @@ async def build_train_dict(
         + (await build_skill_usage_prompt())
     )
     return {"role": "system", "content": train_content}
-
-
-def estimate_tokens(train: dict[str, str], memory: MemorySchema, config: Config) -> int:
-    """按 MemoryLimiter 口径计算 train + 全部消息的总 token 数
-
-    对齐 Core `MemoryLimiter._limit_tokens` 的 `get_token()`：
-    - 全列表（system prompt + 全部消息）
-    - text_generator(full_message=True) 生成文本
-    - hybrid_token_count(tokens_count_mode, tokenizer_used)
-
-    Args:
-        train: system prompt
-        memory: 用户记忆
-        config: 插件配置
-
-    Returns:
-        总 token 数
-    """
-    messages = [train, *memory.memory_json.messages]
-    return sum(
-        hybrid_token_count(
-            msg,
-            config.core.llm.tokens_count_mode,
-            tokenizer_type=config.core.function_config.tokenizer_used,
-        )
-        for msg in text_generator(messages, full_message=True)
-    )

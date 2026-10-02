@@ -161,7 +161,8 @@ async def get_models():
             # 敏感字段不回传：api_key 置空，仅暴露是否已配置
             has_key = bool(model.api_key)
             model.api_key = ""
-            dump = model.model_dump()
+            #  rate 含 Decimal，裸 model_dump 会让 JSONResponse 抛 TypeError
+            dump = model.model_dump(mode="json")
             dump["has_api_key"] = has_key
             model_data.append(dump)
 

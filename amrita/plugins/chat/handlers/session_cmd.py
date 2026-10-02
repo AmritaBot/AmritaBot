@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-import asyncio
 from collections import Counter
 from copy import deepcopy
 from datetime import datetime
 
-from amrita_core.chatmanager import MemoryLimiter
+from amrita_core.components.compaction import ContextCompactor
 from amrita_core.types import MemoryModel as AwaredMemory
+from amrita_core.types.preset import resolve_max_context
+from amrita_core.usage import SessionUsageProxy
 from nonebot import logger
 from nonebot.adapters.onebot.v11 import Bot, Message, MessageEvent
 from nonebot.matcher import Matcher
@@ -21,7 +22,6 @@ from amrita.plugins.chat.utils.libchat import add_usage
 
 from ..check_rule import is_group_admin_if_is_in_group
 from ..config import config_manager
-from ..utils.context import build_train_dict, estimate_tokens
 from ..utils.context_store import fold_media_in_messages
 from ..utils.data_access import update_memory
 from ..utils.preset import resolve_preset
@@ -154,9 +154,8 @@ async def _session_info(event: MessageEvent, matcher: Matcher) -> None:
     data = memory.memory_json
 
     preset = await resolve_preset()
-    train = await build_train_dict(event, memory, config)
-    max_tokens = config.core.llm.session_tokens_windows
-    total = await asyncio.to_thread(estimate_tokens, train, memory, config)
+    max_tokens = resolve_max_context(preset, config.core)
+    total = data.usage.prompt_tokens if data.usage is not None else 0
 
     roles = Counter(getattr(msg, "role", "?") for msg in data.messages)
 
@@ -189,64 +188,50 @@ async def _session_compact(event: MessageEvent, matcher: Matcher, force: bool) -
     if not data.messages:
         await matcher.finish("当前会话为空，无需压缩。")
 
-    train = await build_train_dict(event, memory, config)
-    max_tokens = config.core.llm.session_tokens_windows
-    current_tokens = await asyncio.to_thread(estimate_tokens, train, memory, config)
+    preset = await resolve_preset()
+    budget = resolve_max_context(preset, config.core)
+    current_tokens = data.usage.prompt_tokens if data.usage is not None else 0
 
-    ratio = current_tokens / max_tokens if max_tokens > 0 else 1.0
+    ratio = current_tokens / budget if budget > 0 else 1.0
     if not force and ratio < COMPACT_MIN_RATIO:
         await matcher.finish(
-            f"当前上下文 {current_tokens}/{max_tokens} tokens（{ratio:.1%}），"
+            f"当前上下文 {current_tokens}/{budget} tokens（{ratio:.1%}），"
             f"未达到 {COMPACT_MIN_RATIO:.0%} 的压缩阈值，暂不需要压缩。"
         )
 
-    work_config = config.core
-    llm = work_config.llm
-    saved_llm: tuple[bool, int] | None = None
-    if force:
-        saved_llm = (llm.enable_memory_abstract, llm.memory_length_limit)
-        llm.enable_memory_abstract = True
-        llm.memory_length_limit = max(
-            1,
-            int(len(data.messages) * (1 - llm.memory_abstract_proportion)),
-        )
-
+    #  摘要调用单独记账；compact() 成功后会把 usage 清空，
+    #  因此压缩前的占用与消息数需提前留存
+    ledger = SessionUsageProxy(session_id=uni_id, stream_id=f"compact:{uni_id}")
+    compactor = ContextCompactor(config=config.core, preset=preset, usage=ledger)
+    before_count = len(data.messages)
     try:
         async with repo.make_lock(uni_id):
-            async with MemoryLimiter(
-                data,
-                train,
-                config=work_config,
-                preset=await resolve_preset(config.preset),
-            ) as lim:
-                await lim.run_enforce()
-                usage = lim.usage
+            compacted = await compactor.compact(data)
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).exception("压缩会话上下文失败。")
         await matcher.finish("压缩失败，会话已回滚。")
-    finally:
-        if saved_llm is not None:
-            llm.enable_memory_abstract, llm.memory_length_limit = saved_llm
 
-    after_tokens = await asyncio.to_thread(estimate_tokens, train, memory, config)
     await update_memory(memory)
 
-    if usage is not None:
+    usage = ledger.extra_total
+    if usage.prompt_tokens or usage.completion_tokens:
         ins = await repo.get_metadata(uni_id)
         add_usage(ins, usage)
         await repo.update_metadata(ins)
 
-    if after_tokens >= current_tokens:
-        await matcher.send(
-            f"当前上下文未超出限制（{current_tokens}/{max_tokens} tokens），无需压缩。"
+    if not compacted:
+        await matcher.finish(
+            f"当前上下文 {current_tokens}/{budget} tokens，没有可折叠的历史，无需压缩。"
         )
-    else:
-        msg = f"✅ 压缩完成：{current_tokens} -> {after_tokens} tokens"
-        if usage is not None:
-            msg += (
-                f"（摘要消耗 {usage.prompt_tokens + usage.completion_tokens} tokens）"
-            )
-        await matcher.send(msg)
+
+    folded = before_count - len(data.messages)
+    msg = (
+        f"✅ 压缩完成：折叠 {folded} 条历史消息"
+        f"（压缩前占用 {current_tokens}/{budget} tokens）"
+    )
+    if usage.prompt_tokens or usage.completion_tokens:
+        msg += f"（摘要消耗 {usage.prompt_tokens + usage.completion_tokens} tokens）"
+    await matcher.send(msg)
 
 
 # 记忆

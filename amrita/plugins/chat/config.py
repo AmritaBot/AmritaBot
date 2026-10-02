@@ -83,6 +83,12 @@ class MetaInfoConfig(BaseModel):
     stream_reasoning: bool = Field(
         default=False, description="流式思考块（单token粒度，默认关闭避免刷屏）"
     )
+    reasoning: bool = Field(
+        default=True, description="整段思考块（reasoning / structured_reasoning_step）"
+    )
+    tool_call: bool = Field(
+        default=False, description="工具调用通知（工具预测与调用结果）"
+    )
     skill_trigger: bool = Field(
         default=True, description="技能触发通知（使用了xxx技能）"
     )
@@ -384,7 +390,10 @@ class LLM_Config(BaseModel):
     )
     agent_strategy: Literal["react", "hybrid-react", "no-action"] = Field(
         default="react",
-        description="代理策略：react(仅使用ReAct) / hybrid-react(使用混合ReAct) / no-action(跳过Agent运行)",
+        description=(
+            "代理策略：react(仅使用ReAct) / hybrid-react(已废弃，归并到 react) / "
+            "no-action(跳过Agent运行)"
+        ),
     )
     agent_workflow: Literal["react", "step-react"] = Field(
         default="react",
@@ -440,6 +449,28 @@ class Config(BaseModel):
         default="default", description="私聊场景使用的提示词模板名称"
     )
 
+    @staticmethod
+    def _migrate_hide_switches(data: dict[str, Any], source: Any) -> None:
+        """把 AmritaCore 1.0 已移除的 hide 开关搬到本插件的 meta 开关。
+
+        ``agent_tool_call_notice`` / ``agent_reasoning_hide`` 已不在 1.0 的
+        ``BuiltinAgentConfig`` 中，残留值会被 pydantic 静默忽略；这里翻译成
+        ``meta.tool_call`` / ``meta.reasoning``，避免用户设置无声失效。
+        """
+        if not isinstance(source, dict):
+            return
+        notice = source.pop("agent_tool_call_notice", None)
+        hide_reasoning = source.pop("agent_reasoning_hide", None)
+        if notice is None and hide_reasoning is None:
+            return
+        meta = data.setdefault("meta", {})
+        if not isinstance(meta, dict):
+            return
+        if notice is not None:
+            meta.setdefault("tool_call", notice == "notify")
+        if hide_reasoning is not None:
+            meta.setdefault("reasoning", not hide_reasoning)
+
     @model_validator(mode="before")
     @classmethod
     def migrate_old_config(cls, data: Any) -> Any:
@@ -473,7 +504,12 @@ class Config(BaseModel):
             data.pop("default_preset")
 
         if "core" in data:
-            return data  # 已迁移
+            #  已迁移的配置也可能残留 1.0 已移除的 hide 开关，一并搬走
+            core = data.get("core")
+            cls._migrate_hide_switches(
+                data, core.get("builtin") if isinstance(core, dict) else None
+            )
+            return data
 
         core_data: dict[str, Any] = {}
 
@@ -505,19 +541,13 @@ class Config(BaseModel):
             # llm.tools.* -> core.builtin & core.function_config
             if "tools" in llm and isinstance(llm["tools"], dict):
                 tools = llm["tools"]
-                tools.pop("use_minimal_context", None)
-                tools.pop("agent_tool_call_limit", None)
 
-                builtin = {
-                    "tool_calling_mode": tools.pop("tool_calling_mode", "agent"),
-                    "agent_tool_call_notice": tools.pop(
-                        "agent_tool_call_notice", "hide"
-                    ),
-                    "agent_thought_mode": tools.pop("agent_thought_mode", "chat"),
-                    "agent_reasoning_hide": tools.pop("agent_reasoning_hide", False),
-                }
+                #  1.0 已移除的 hide 开关 -> 本插件的 meta 开关
+                cls._migrate_hide_switches(data, tools)
+
                 core_data["builtin"] = {
-                    k: v for k, v in builtin.items() if v is not None
+                    "tool_calling_mode": tools.pop("tool_calling_mode", "agent"),
+                    "agent_thought_mode": tools.pop("agent_thought_mode", "chat"),
                 }
 
                 func_cfg = {

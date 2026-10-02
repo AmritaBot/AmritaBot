@@ -1,16 +1,14 @@
 """Token 用量统计与持久化（从原 chat.py 抽出）
 
-- usage 缺失时用 tokenizer 估算 prompt/completion tokens
-- 汇总后写入全局 InsightsModel 与用户/群元数据
+usage 完全依赖 provider 随响应上报（AmritaCore 1.0 已移除本地分词器），
+汇总后写入全局 InsightsModel 与用户/群元数据。
 """
 
 from __future__ import annotations
 
-import asyncio
 from typing import TYPE_CHECKING
 
-from amrita_core import UniResponseUsage, debug_log, text_generator
-from amrita_core.tokenizer import hybrid_token_count
+from amrita_core import debug_log
 from amrita_core.utils import gather_usage
 from nonebot_plugin_amrita.database import InsightsModel
 
@@ -25,43 +23,23 @@ if TYPE_CHECKING:
 __all__ = ["record_usage"]
 
 
-async def _estimate_usage(chat: CoreChatObject) -> UniResponseUsage:
-    """响应未携带 usage 时，用 tokenizer 估算 prompt/completion tokens"""
-    assert chat._di_working.context_wrap is not None
-    response = chat._di_resp.response
-    assert response is not None
-    resp: str = response.content
-    usg_prompt: int = 0
-    for i in text_generator(chat._di_working.context_wrap.unwrap(), full_message=True):
-        usg_prompt += await asyncio.to_thread(
-            hybrid_token_count, i, tokenizer_type="jieba"
-        )
-    usg_gen = await asyncio.to_thread(hybrid_token_count, resp, tokenizer_type="jieba")
-    return UniResponseUsage(
-        prompt_tokens=usg_prompt,
-        completion_tokens=usg_gen,
-        total_tokens=usg_prompt + usg_gen,
-    )
-
-
 async def record_usage(
     chat: CoreChatObject,
     event: MessageEvent,
     cudr: CachedUserDataRepository,
 ) -> None:
-    """统计本次对话 token 用量并持久化到全局洞察与用户/群元数据"""
+    """统计本次对话 token 用量并持久化到全局洞察与用户/群元数据
+
+    provider 未上报 usage 时只计次、不计 token。
+    """
     if chat._di_resp.response is None:
         return
 
     insights = await InsightsModel.get()
     debug_log(f"获取洞察数据完成，使用计数: {insights.usage_count}")
-    assert chat._di_working.context_wrap is not None
 
     usg = chat._di_resp.response.usage
-    if usg is None:
-        usg = await _estimate_usage(chat)
-
-    usage = gather_usage(usg, chat._di_resp.extra_usage)
+    usage = gather_usage(usg, chat._di_resp.extra_usage) if usg is not None else None
     add_usage(insights, usage)
     await insights.save()
     debug_log(f"更新全局统计完成，使用计数: {insights.usage_count}")

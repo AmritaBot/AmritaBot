@@ -3,7 +3,7 @@ import random
 import sys
 import traceback
 
-from amrita_core import UniResponse, UniResponseUsage, call_completion
+from amrita_core import UniResponse, call_completion
 from amrita_core.types import Message as CoreMessage
 from amrita_sense.hook.event import BaseEvent
 from amrita_sense.hook.matcher import MatcherFactory
@@ -25,7 +25,7 @@ from ..utils.functions import (
     get_friend_name,
     split_message_into_chats,
 )
-from ..utils.libchat import add_usage, get_tokens, usage_enough
+from ..utils.libchat import add_usage, usage_enough
 from ..utils.lock import get_group_lock, get_private_lock
 from ..utils.preset import resolve_preset
 
@@ -242,18 +242,8 @@ async def process_poke_event(
     if response is None:
         return "(发生了错误)"
 
-    # 记录token使用情况
-    tokens = get_tokens(send_messages, response)
-    assert tokens is not None, "tokens is None"
-    input_tokens = tokens.prompt_tokens if hasattr(tokens, "prompt_tokens") else 0
-    output_tokens = (
-        tokens.completion_tokens if hasattr(tokens, "completion_tokens") else 0
-    )
-    usage = UniResponseUsage(
-        prompt_tokens=input_tokens,
-        completion_tokens=output_tokens,
-        total_tokens=input_tokens + output_tokens,
-    )
+    #  usage 由 provider 上报，缺失时 add_usage 只计次不计 token
+    usage = response.usage
 
     insights = await InsightsModel.get()
     add_usage(insights, usage)

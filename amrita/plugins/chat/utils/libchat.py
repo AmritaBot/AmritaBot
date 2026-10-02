@@ -1,6 +1,5 @@
 from amrita_core import UniResponseUsage, call_completion
 from amrita_core.libchat import (
-    get_tokens,
     text_generator,
     tools_caller,
 )
@@ -110,7 +109,6 @@ async def usage_enough(event: Event) -> bool:
 __all__ = [
     "add_usage",
     "call_completion",
-    "get_tokens",
     "text_generator",
     "tools_caller",
 ]

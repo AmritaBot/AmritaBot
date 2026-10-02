@@ -192,18 +192,15 @@ class ChatStreamSender:
                     await self._matcher.send(message.content)
             case "reasoning":
                 # 框架整段思考块（pre_resolve）
-                if not self._config.core.builtin.agent_reasoning_hide:
+                if meta.enable and meta.reasoning:
                     await self._matcher.send(f"💭 {message.content}")
             case "tool_prediction":
-                if self._config.core.builtin.agent_tool_call_notice == "notify":
+                if meta.enable and meta.tool_call:
                     await self._matcher.send("⏩ 优化了工具选择")
             case "middle_message":
                 await self._matcher.send(f"💬 {message.content}")
             case "function_call":
-                if (
-                    metadata.get("is_done")
-                    and self._config.core.builtin.agent_tool_call_notice == "notify"
-                ):
+                if metadata.get("is_done") and meta.enable and meta.tool_call:
                     function_name = metadata.get("function_name")
                     if (err := metadata.get("err")) is not None:
                         logger.opt(exception=err, colors=True, raw=True).exception(
@@ -235,7 +232,8 @@ class ChatStreamSender:
             case "text":
                 if (
                     extra_type == "structured_reasoning_step"
-                    and not self._config.core.builtin.agent_reasoning_hide
+                    and meta.enable
+                    and meta.reasoning
                 ):
                     await self._matcher.send(message.content)
             case "error":

@@ -356,6 +356,10 @@ _DESTRUCTIVE_SUBS = frozenset(
 
 _FORCE_FLAGS = frozenset({"force", "-f", "--force"})
 
+#  abstract 的查看是只读的，只有带这些参数时才会写库
+_ABSTRACT_SUBS = frozenset({"abstract", "摘要"})
+_ABSTRACT_CLEAR_FLAGS = frozenset({"clear", "clean", "reset"})
+
 _HELP_TEXT = (
     "用法：\n"
     "/session info — 会话元信息（模型/思考/上下文占用）\n"
@@ -368,8 +372,26 @@ _HELP_TEXT = (
     "/session compact [force] — 压缩上下文\n"
     "/session forget — 清除当前对话上下文（不影响历史归档）\n"
     "/session abstract [clear] — 查看/清空摘要\n"
-    "破坏性指令在会话运行中会被拒绝，追加 force 可等待本轮结束后执行。"
+    "会修改记忆的指令（含 clear 类的 abstract）在会话运行中会被拒绝，追加 force 可等待本轮结束后执行。"
 )
+
+
+def _sub_arg(arg_list: list[str]) -> str:
+    """取子命令之后的第一个非 force 参数（无则为空串）"""
+    return next((a for a in arg_list[1:] if a not in _FORCE_FLAGS), "")
+
+
+def _is_destructive(sub: str, arg_list: list[str]) -> bool:
+    """该子命令本次调用是否会修改记忆。
+
+    ``abstract`` 是条件破坏性的：查看摘要只读，带 ``clear`` 类参数才写库。
+    因此不能整体放进 ``_DESTRUCTIVE_SUBS`` —— 那会让运行中的会话连查看摘要
+    都被拒绝；但 ``abstract clear`` 必须和其余破坏性指令一样持锁，
+    否则清空摘要会被本轮结束时的记忆回写静默撤销。
+    """
+    if sub in _DESTRUCTIVE_SUBS:
+        return True
+    return sub in _ABSTRACT_SUBS and _sub_arg(arg_list) in _ABSTRACT_CLEAR_FLAGS
 
 
 async def _dispatch_subcommand(
@@ -380,7 +402,7 @@ async def _dispatch_subcommand(
     matcher: Matcher,
 ) -> None:
     """按子命令分发（``force`` 对 compact 另有跳过阈值检查的含义）"""
-    rest = next((a for a in arg_list[1:] if a not in _FORCE_FLAGS), "")
+    rest = _sub_arg(arg_list)
     match sub:
         case "info" | "信息" | "元信息":
             await _session_info(event, matcher)
@@ -405,7 +427,7 @@ async def _dispatch_subcommand(
         case "forget" | "失忆" | "清除记忆":
             await _session_forget(event, matcher)
         case "abstract" | "摘要":
-            clear = rest in ("clear", "clean", "reset")
+            clear = rest in _ABSTRACT_CLEAR_FLAGS
             await _session_abstract(event, matcher, clear)
         case _:
             await matcher.finish(_HELP_TEXT)
@@ -422,7 +444,7 @@ async def session(
     sub = arg_list[0] if arg_list else "info"
     force = any(a in _FORCE_FLAGS for a in arg_list[1:])
 
-    if sub in _DESTRUCTIVE_SUBS:
+    if _is_destructive(sub, arg_list):
         if is_session_busy(get_uni_user_id(event)) and not force:
             await matcher.finish(
                 "⚠️ 当前会话正在运行中，该指令的结果会被本轮结束时的记忆回写覆盖。\n"

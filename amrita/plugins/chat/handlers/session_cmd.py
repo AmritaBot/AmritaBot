@@ -8,7 +8,7 @@ from datetime import datetime
 
 from amrita_core.components.compaction import ContextCompactor
 from amrita_core.types import MemoryModel as AwaredMemory
-from amrita_core.types.preset import resolve_max_context
+from amrita_core.types.preset import resolve_max_context, resolve_max_output
 from amrita_core.usage import SessionUsageProxy
 from nonebot import logger
 from nonebot.adapters.onebot.v11 import Bot, Message, MessageEvent
@@ -25,6 +25,7 @@ from ..config import config_manager
 from ..utils.context_store import fold_media_in_messages
 from ..utils.data_access import update_memory
 from ..utils.preset import resolve_preset
+from ..utils.session_guard import is_session_busy, session_lock
 from ..utils.sql import get_uni_user_id
 
 # 上下文占用低于 MaxTokens 该比例时拒绝压缩
@@ -145,19 +146,53 @@ async def _session_clear(event: MessageEvent, matcher: Matcher) -> None:
 
 # 元信息
 
+#  上下文占用条：已用 / 响应预留 / 未用
+_BAR_WIDTH = 20
+_BAR_USED = "🟩"
+_BAR_RESERVED = "🟨"
+_BAR_FREE = "⬜"
+
+
+def _render_context_bar(used: int, reserved: int, window: int) -> str:
+    """把上下文占用渲染成方块条形图。
+
+    Args:
+        used: 已用 prompt tokens；provider 未上报时传 0
+        reserved: 为响应输出预留的 tokens
+        window: 注意力窗口（``resolve_max_context``）
+
+    Returns:
+        由 🟩 / 🟨 / ⬜ 组成的定宽条形图；窗口非法时全为未用
+    """
+    if window <= 0:
+        return _BAR_FREE * _BAR_WIDTH
+    used_blocks = min(_BAR_WIDTH, round(used / window * _BAR_WIDTH))
+    reserved_blocks = min(
+        _BAR_WIDTH - used_blocks, round(reserved / window * _BAR_WIDTH)
+    )
+    free_blocks = max(0, _BAR_WIDTH - used_blocks - reserved_blocks)
+    return (
+        _BAR_USED * used_blocks
+        + _BAR_RESERVED * reserved_blocks
+        + _BAR_FREE * free_blocks
+    )
+
 
 async def _session_info(event: MessageEvent, matcher: Matcher) -> None:
-    """展示当前会话的模型、思考深度与上下文 token 占用"""
+    """展示当前会话的模型、思考深度与上下文占用"""
     config = config_manager.config
     repo = CachedUserDataRepository()
     memory = await repo.get_memory(get_uni_user_id(event))
     data = memory.memory_json
 
     preset = await resolve_preset()
-    max_tokens = resolve_max_context(preset, config.core)
-    total = data.usage.prompt_tokens if data.usage is not None else 0
-
-    roles = Counter(getattr(msg, "role", "?") for msg in data.messages)
+    window = resolve_max_context(preset, config.core)
+    reserved = resolve_max_output(preset, config.core)
+    #  usage 来自 provider 对上一次请求的上报，天然滞后一轮
+    usage = data.usage
+    used = usage.prompt_tokens if usage is not None else 0
+    free = max(0, window - used - reserved)
+    ratio = config.core.llm.compaction_trigger_ratio
 
     lines = ["📊 当前会话元信息"]
     lines.append(f"模型：{preset.name}（{preset.model}）")
@@ -166,10 +201,20 @@ async def _session_info(event: MessageEvent, matcher: Matcher) -> None:
         enabled = tc.thinking_type == "enabled" or tc.enable_thinking is True
         state = "已启用" if enabled else "已关闭"
         lines.append(f"思考深度：{tc.thinking_effort or '—'}（{state}）")
-    lines.append(
-        f"上下文：{total} / {max_tokens} tokens"
-        + (f"（{total / max_tokens:.1%}）" if max_tokens > 0 else "")
-    )
+    lines.append(_render_context_bar(used, reserved, window))
+    if usage is None:
+        lines.append("  已用   尚无数据（本轮尚未发起请求）")
+    elif window > 0:
+        lines.append(f"  已用   {used:,} / {window:,}（{used / window:.1%}）")
+    else:
+        lines.append(f"  已用   {used:,}")
+    lines.append(f"  预留   {reserved:,}（响应输出）")
+    lines.append(f"  未用   {free:,}")
+    threshold = int(window * ratio)
+    lines.append(f"  压缩线 {threshold:,}（触发比例 {ratio:.0%}）")
+    if window > 0 and used >= threshold:
+        lines.append("  ⚠️ 已超过压缩线，下次请求前将自动压缩上下文")
+    roles = Counter(getattr(msg, "role", "?") for msg in data.messages)
     detail = " ".join(f"{role}:{count}" for role, count in roles.items())
     lines.append(f"消息数：{len(data.messages)} 条（{detail or '空'}）")
     await matcher.send("\n".join(lines))
@@ -263,6 +308,85 @@ async def _session_abstract(event: MessageEvent, matcher: Matcher, clear: bool) 
 
 # 入口
 
+#  运行中的会话不能被破坏性指令改写：本轮结束时 ChatMemoryBackend 会把记忆
+#  写回，覆盖掉指令刚做的修改（归档被复活、恢复被覆盖、清空被回填）
+_DESTRUCTIVE_SUBS = frozenset(
+    {
+        "use",
+        "set",
+        "覆盖",
+        "恢复",
+        "del",
+        "delete",
+        "删除",
+        "archive",
+        "归档",
+        "forget",
+        "失忆",
+        "清除记忆",
+        "compact",
+        "压缩",
+        "clear",
+        "清空",
+    }
+)
+
+_FORCE_FLAGS = frozenset({"force", "-f", "--force"})
+
+_HELP_TEXT = (
+    "用法：\n"
+    "/session info — 会话元信息（模型/思考/上下文占用）\n"
+    "/session list — 历史会话\n"
+    "/session use <编号> — 恢复指定会话\n"
+    "/session del <编号> — 删除指定会话\n"
+    "/session archive — 归档当前会话\n"
+    "/session clear — 删除全部历史会话（需二次确认）\n"
+    "/session clear confirm — 确认删除全部历史会话\n"
+    "/session compact [force] — 压缩上下文\n"
+    "/session forget — 清除当前对话上下文（不影响历史归档）\n"
+    "/session abstract [clear] — 查看/清空摘要\n"
+    "破坏性指令在会话运行中会被拒绝，追加 force 可等待本轮结束后执行。"
+)
+
+
+async def _dispatch_subcommand(
+    sub: str,
+    arg_list: list[str],
+    force: bool,
+    event: MessageEvent,
+    matcher: Matcher,
+) -> None:
+    """按子命令分发（``force`` 对 compact 另有跳过阈值检查的含义）"""
+    rest = next((a for a in arg_list[1:] if a not in _FORCE_FLAGS), "")
+    match sub:
+        case "info" | "信息" | "元信息":
+            await _session_info(event, matcher)
+        case "list" | "历史" | "列表":
+            await _session_list(event, matcher)
+        case "use" | "set" | "覆盖" | "恢复":
+            await _session_use(event, matcher, rest)
+        case "del" | "delete" | "删除":
+            await _session_del(event, matcher, rest)
+        case "archive" | "归档":
+            await _session_archive(event, matcher)
+        case "clear" | "清空":
+            if rest not in ("confirm", "确认"):
+                await matcher.finish(
+                    "⚠️ /session clear 会删除全部历史会话，不可恢复。\n"
+                    "   如果你只是想清空当前对话上下文，请用 /session forget。\n\n"
+                    "确认请发送：/session clear confirm"
+                )
+            await _session_clear(event, matcher)
+        case "compact" | "压缩":
+            await _session_compact(event, matcher, force)
+        case "forget" | "失忆" | "清除记忆":
+            await _session_forget(event, matcher)
+        case "abstract" | "摘要":
+            clear = rest in ("clear", "clean", "reset")
+            await _session_abstract(event, matcher, clear)
+        case _:
+            await matcher.finish(_HELP_TEXT)
+
 
 async def session(
     bot: Bot, event: MessageEvent, matcher: Matcher, args: Message = CommandArg()
@@ -273,38 +397,18 @@ async def session(
 
     arg_list = args.extract_plain_text().strip().split()
     sub = arg_list[0] if arg_list else "info"
+    force = any(a in _FORCE_FLAGS for a in arg_list[1:])
 
-    match sub:
-        case "info" | "信息" | "元信息":
-            await _session_info(event, matcher)
-        case "list" | "历史" | "列表":
-            await _session_list(event, matcher)
-        case "use" | "set" | "覆盖" | "恢复":
-            await _session_use(event, matcher, arg_list[1] if len(arg_list) > 1 else "")
-        case "del" | "delete" | "删除":
-            await _session_del(event, matcher, arg_list[1] if len(arg_list) > 1 else "")
-        case "archive" | "归档":
-            await _session_archive(event, matcher)
-        case "clear" | "清空":
-            await _session_clear(event, matcher)
-        case "compact" | "压缩":
-            force = len(arg_list) > 1 and arg_list[1] in ("force", "-f", "--force")
-            await _session_compact(event, matcher, force)
-        case "forget" | "失忆" | "清除记忆":
-            await _session_forget(event, matcher)
-        case "abstract" | "摘要":
-            clear = len(arg_list) > 1 and arg_list[1] in ("clear", "clean", "reset")
-            await _session_abstract(event, matcher, clear)
-        case _:
+    if sub in _DESTRUCTIVE_SUBS and is_session_busy(get_uni_user_id(event)):
+        if not force:
             await matcher.finish(
-                "用法：\n"
-                "/session info — 会话元信息（模型/思考/tokens）\n"
-                "/session list — 历史会话\n"
-                "/session use <编号> — 恢复指定会话\n"
-                "/session del <编号> — 删除指定会话\n"
-                "/session archive — 归档当前会话\n"
-                "/session clear — 清空全部历史\n"
-                "/session compact [force] — 压缩上下文\n"
-                "/session forget — 清除当前记忆\n"
-                "/session abstract [clear] — 查看/清空摘要"
+                "⚠️ 当前会话正在运行中，该指令的结果会被本轮结束时的记忆回写覆盖。\n"
+                f"   请等待回复完成，或追加 force 等待本轮结束后执行："
+                f"/session {sub} force"
             )
+        #  force：复用 chat 主路径的同一把锁，等本轮运行结束后再执行
+        async with session_lock(event):
+            await _dispatch_subcommand(sub, arg_list, force, event, matcher)
+        return
+
+    await _dispatch_subcommand(sub, arg_list, force, event, matcher)

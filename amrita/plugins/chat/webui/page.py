@@ -227,12 +227,16 @@ async def inspect_model(name: str):
                     "max_context": {
                         "declared": preset.max_context,
                         "resolved": budget,
-                        "source": "preset" if preset.max_context is not None else "fallback",
+                        "source": "preset"
+                        if preset.max_context is not None
+                        else "fallback",
                     },
                     "max_output": {
                         "declared": preset.max_output,
                         "resolved": output,
-                        "source": "preset" if preset.max_output is not None else "fallback",
+                        "source": "preset"
+                        if preset.max_output is not None
+                        else "fallback",
                     },
                     "compaction": {
                         "enabled": core.llm.enable_compaction,
@@ -241,7 +245,9 @@ async def inspect_model(name: str):
                         "max_tokens": core.llm.compaction_max_tokens,
                         "message_limit": core.llm.memory_length_limit,
                     },
-                    "rate": preset.rate.model_dump(mode="json") if preset.rate else None,
+                    "rate": preset.rate.model_dump(mode="json")
+                    if preset.rate
+                    else None,
                 },
             },
             status_code=200,

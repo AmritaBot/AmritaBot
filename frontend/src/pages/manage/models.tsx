@@ -90,9 +90,7 @@ function ModelForm({
   const [maxContext, setMaxContext] = useState(
     numToInput(initial?.max_context),
   );
-  const [maxOutput, setMaxOutput] = useState(
-    numToInput(initial?.max_output),
-  );
+  const [maxOutput, setMaxOutput] = useState(numToInput(initial?.max_output));
 
   // 模型参数（对应后端 ModelConfig）
   const mc = initial?.config ?? {};

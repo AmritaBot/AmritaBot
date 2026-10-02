@@ -5,9 +5,11 @@ from __future__ import annotations
 from collections import Counter
 from copy import deepcopy
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from amrita_core.components.compaction import ContextCompactor
 from amrita_core.types import MemoryModel as AwaredMemory
+from amrita_core.types import UniResponseUsage
 from amrita_core.types.preset import resolve_max_context, resolve_max_output
 from amrita_core.usage import SessionUsageProxy
 from amrita_sense.hook.matcher import MatcherFactory
@@ -27,11 +29,45 @@ from ..events import SessionCompactEvent
 from ..utils.context_store import fold_media_in_messages
 from ..utils.data_access import update_memory
 from ..utils.preset import resolve_preset
-from ..utils.session_guard import is_session_busy, session_lock
+from ..utils.session_guard import active_chat_object, is_session_busy, session_lock
 from ..utils.sql import get_uni_user_id
+
+if TYPE_CHECKING:
+    from amrita_core.chatmanager import ChatObject as CoreChatObject
 
 # 上下文占用低于 MaxTokens 该比例时拒绝压缩
 COMPACT_MIN_RATIO = 0.15
+
+
+def _live_memory(chat: CoreChatObject) -> AwaredMemory | None:
+    """取运行中对象的活记忆；DI 上下文未就绪（``LOAD_STATE`` 之前）时返回 ``None``。"""
+    try:
+        return chat.data
+    except RuntimeError:
+        return None
+
+
+def _live_usage(chat: CoreChatObject) -> UniResponseUsage[int] | None:
+    """运行中会话的当前用量。
+
+    颗粒度是 per-req：返回的是**最新一次** provider 请求的上下文规模，
+    不是本轮多步调用的累加（累加在 ``memory.billing`` 里）。
+
+    优先取账本最新一条：provider 一上报就入账，比 ``memory.usage`` 更早可见。
+    账本为空（本轮尚未发起请求）时回落到 ``memory.usage``，即上一轮的规模。
+    """
+    proxy = chat._di_resp.usage
+    if proxy is not None and proxy.records:
+        last = proxy.records[-1]
+        return UniResponseUsage(
+            prompt_tokens=last.prompt_tokens,
+            completion_tokens=last.completion_tokens,
+            total_tokens=last.total_tokens,
+            cache_hit=last.cache_hit,
+            cache_creation=last.cache_creation,
+        )
+    live = _live_memory(chat)
+    return live.usage if live is not None else None
 
 
 # 会话管理
@@ -181,17 +217,31 @@ def _render_context_bar(used: int, reserved: int, window: int) -> str:
 
 
 async def _session_info(event: MessageEvent, matcher: Matcher) -> None:
-    """展示当前会话的模型、思考深度与上下文占用"""
+    """展示当前会话的模型、思考深度与上下文占用
+
+    运行中的会话从活 ``ChatObject`` 取上下文规模与消息数：``repo`` 缓存的
+    ``memory_json`` 要等 ``COMMIT_MEMORY`` 才更新，运行中读它拿到的是上一轮的值。
+    会话空闲时才查库。
+    """
     config = config_manager.config
-    repo = CachedUserDataRepository()
-    memory = await repo.get_memory(get_uni_user_id(event))
-    data = memory.memory_json
+    uni_id = get_uni_user_id(event)
+
+    chat = active_chat_object(uni_id)
+    live_memory = _live_memory(chat) if chat is not None else None
+    if live_memory is not None:
+        data = live_memory
+    else:
+        data = (await CachedUserDataRepository().get_memory(uni_id)).memory_json
 
     preset = await resolve_preset()
     window = resolve_max_context(preset, config.core)
     reserved = resolve_max_output(preset, config.core)
-    #  usage 来自 provider 对上一次请求的上报，天然滞后一轮
+    #  usage 是 per-req：provider 上报的最新一次请求的上下文规模
     usage = data.usage
+    if chat is not None:
+        live = _live_usage(chat)
+        if live is not None:
+            usage = live
     used = usage.prompt_tokens if usage is not None else 0
     free = max(0, window - used - reserved)
     ratio = config.core.llm.compaction_trigger_ratio
@@ -219,6 +269,8 @@ async def _session_info(event: MessageEvent, matcher: Matcher) -> None:
     roles = Counter(getattr(msg, "role", "?") for msg in data.messages)
     detail = " ".join(f"{role}:{count}" for role, count in roles.items())
     lines.append(f"消息数：{len(data.messages)} 条（{detail or '空'}）")
+    if live_memory is not None:
+        lines.append("（数据来自本轮运行中的会话）")
     await matcher.send("\n".join(lines))
 
 

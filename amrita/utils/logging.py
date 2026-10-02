@@ -2,13 +2,28 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Literal, cast
+from typing import TYPE_CHECKING, Literal, Protocol, cast
 
 import aiofiles
 from aiologic import Lock
 from pydantic import BaseModel, Field
 
 from amrita.config import get_amrita_config
+
+if TYPE_CHECKING:
+    from loguru import Logger
+
+
+class _LoggerInternals(Protocol):
+    """描述 loguru ``Logger`` 未公开的内部结构。
+
+    loguru 的类型声明不包含私有的 ``_core``，但把 AmritaSense 的独立 Logger
+    并入 AmritaBot 的日志体系必须访问它；用 Protocol 显式表达这一依赖，
+    比忽略类型错误更能暴露风险。
+    """
+
+    _core: object
+
 
 _lock = Lock()
 
@@ -129,3 +144,27 @@ class LoggingData(BaseModel):
     async def append(self, event: LoggingEvent):
         self.data.append(event)
         await self.save()
+
+
+def takeover_amrita_sense_logger(target: Logger, target_id: int) -> None:
+    """将 AmritaSense 的独立 Logger 并入目标 Logger 的日志核心。
+
+    ``amrita_sense.logging`` 暴露的是一个**独立的 loguru Logger 实例**，
+    而 AmritaCore / AmritaSense 的所有模块都以
+    ``from amrita_sense.logging import logger`` 在**导入时**绑定该对象。
+    因此重绑定 ``amrita_sense.logging.logger`` 这个模块属性对已导入的模块
+    无效；只有就地替换 Logger 内部的 core，才能让所有持有者一起生效，
+    且与导入顺序无关。
+
+    Args:
+        target: 要接管日志的 Logger，通常是 ``nonebot.logger``。
+        target_id: ``target`` 在其自身 core 中的 sink id。
+    """
+    from amrita_sense import logging as amlog
+
+    #  _core 是 loguru Logger 的核心参数，替换它即可让所有持有者共享同一套
+    #  sink；这是唯一能覆盖「导入时绑定」的方式，私有属性属必要取舍。
+    cast("_LoggerInternals", amlog.logger)._core = cast(
+        "_LoggerInternals", target
+    )._core
+    amlog.logger_id.value = target_id

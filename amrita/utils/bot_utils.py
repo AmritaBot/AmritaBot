@@ -8,13 +8,17 @@ from typing import TYPE_CHECKING
 
 import nonebot
 import nonebot.log
-from amrita_sense import logging as amlog
 from amrita_sense.logging import default_filter
 from amrita_sense.logging import default_format as CUSTOM_FORMAT
 from nonebot.log import default_format
 
 from amrita.config import get_amrita_config
-from amrita.utils.logging import LoggingData, LoggingEvent, normalize_log_level
+from amrita.utils.logging import (
+    LoggingData,
+    LoggingEvent,
+    normalize_log_level,
+    takeover_amrita_sense_logger,
+)
 from amrita.utils.utils import get_amrita_version
 
 _loop_running: bool = False
@@ -115,7 +119,7 @@ def init():
                 logger.warning(f"发送群消息失败: {e}")
 
     Path("plugins").mkdir(exist_ok=True)
-    logger.remove(amlog.logger_id.value)
+    logger.remove(nonebot.log.logger_id)
     new_id = logger.add(
         sys.stdout,
         level=0,
@@ -124,8 +128,7 @@ def init():
         filter=default_filter,
     )
     nonebot.log.logger_id = new_id
-    amlog.logger = logger
-    amlog.logger_id.value = new_id
+    takeover_amrita_sense_logger(logger, new_id)
     logger.add(AsyncErrorHandler(), level="ERROR")
     logger.add(EventRecorder(), level="WARNING")
     nonebot.init()

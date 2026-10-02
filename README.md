@@ -30,14 +30,14 @@ Amrita 是一个基于[NoneBot2](https://nonebot.dev/)与[AmritaCore](https://co
 - [官方文档](https://bot.amritabot.com)
 - [Core开发文档](https://core.amritabot.com)
 - [AmritaSense 开发文档](https://sense.amritabot.com)
-- [问题反馈](https://github.com/AmritaBot/Amrita/issues)
+- [问题反馈](https://github.com/AmritaBot/AmritaBot/issues)
 
 > 官方文档的源文件位于独立的 [amrita-docs](https://github.com/AmritaBot/amrita-docs) 仓库，
 > 通过 Git 子模块挂载在本仓库的 [`website/`](./website) 目录 —— 即此处是文档的唯一事实源，
 > 本仓库不再复制一份。克隆时请带上子模块：
 >
 > ```bash
-> git clone --recurse-submodules https://github.com/AmritaBot/Amrita.git
+> git clone --recurse-submodules https://github.com/AmritaBot/AmritaBot.git
 > ```
 >
 > 已克隆的仓库补拉子模块：

@@ -40,9 +40,9 @@ dependencies = [
 amrita = "amrita.__main__:main"
 
 [project.urls]
-"Homepage" = "https://github.com/LiteSuggarDEV/Amrita"
-"Source" = "https://github.com/LiteSuggarDEV/Amrita"
-"Issue Tracker" = "https://github.com/LiteSuggarDEV/Amrita/issues"
+"Homepage" = "https://github.com/AmritaBot/AmritaBot"
+"Source" = "https://github.com/AmritaBot/AmritaBot"
+"Issue Tracker" = "https://github.com/AmritaBot/AmritaBot/issues"
 
 [tool.setuptools.packages.find]
 include = ["amrita", "amrita.*"]

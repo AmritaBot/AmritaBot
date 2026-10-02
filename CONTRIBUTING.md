@@ -33,7 +33,7 @@ Amrita 是一个基于 [NoneBot2](https://nonebot.dev/) 的强大聊天机器人
 ### 1. 克隆项目
 
 ```bash
-git clone https://github.com/LiteSuggarDEV/Amrita.git
+git clone https://github.com/AmritaBot/AmritaBot.git
 cd Amrita
 ```
 
@@ -227,7 +227,7 @@ git push origin feature/your-feature-name
 
 ## 联系方式
 
-- [GitHub Issues](https://github.com/LiteSuggarDEV/Amrita/issues)
+- [GitHub Issues](https://github.com/AmritaBot/AmritaBot/issues)
 - 项目文档: `https://amrita.suggar.top`
 
 感谢您的贡献！

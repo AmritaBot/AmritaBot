@@ -23,7 +23,7 @@ __plugin_meta__ = PluginMetadata(
     name="Amrita 权限管理模块",
     description="Amrita内置的权限组件",
     usage="https://amrita.suggar.top/amrita/plugins/liteperm/",
-    homepage="https://github.com/AmritaBot/Amrita",
+    homepage="https://github.com/AmritaBot/AmritaBot",
     type="library",
     supported_adapters={"~onebot.v11"},
 )

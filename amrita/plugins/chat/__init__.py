@@ -35,7 +35,7 @@ __plugin_meta__ = PluginMetadata(
     name="Amrita LLM聊天模块",
     description="Amrita内置的LLM聊天能力",
     usage="https://amrita.suggar.top/amrita/plugins/suggarchat/",
-    homepage="https://github.com/AmritaBot/Amrita",
+    homepage="https://github.com/AmritaBot/AmritaBot",
     type="application",
     supported_adapters={"~onebot.v11"},
 )

@@ -270,7 +270,10 @@ async def _session_info(event: MessageEvent, matcher: Matcher) -> None:
     #  同步过一次，agent 的工具调用与结果要到 ``APPLY_CONTEXT``（藏在
     #  ``LLM_COMPLETION`` 里）才写回，此刻给不出准确值；展示一个偏小且缺
     #  工具消息的数字会误导，故运行中略过该行。
-    if live_memory is None:
+    #  判据用 ``chat is None`` 而非 ``live_memory is None``：对象已注册但尚未
+    #  走到 ``LOAD_STATE`` 时活记忆读不到（回落到缓存），会话却已经在跑，
+    #  按活记忆判断会把这种情况当成空闲。
+    if chat is None:
         roles = Counter(getattr(msg, "role", "?") for msg in data.messages)
         detail = " ".join(f"{role}:{count}" for role, count in roles.items())
         lines.append(f"消息数：{len(data.messages)} 条（{detail or '空'}）")

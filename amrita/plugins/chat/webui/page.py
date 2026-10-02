@@ -5,14 +5,34 @@ import aiofiles
 from amrita_core import ModelPreset
 from amrita_core.tools.mcp import ClientManager
 from amrita_core.types import ModelConfig, ThinkingConfig
+from amrita_core.types.preset import resolve_max_context, resolve_max_output
 from fastapi import Request
 from nonebot import logger
 from nonebot_plugin_amrita.database import InsightsModel
+from nonebot_plugin_amrita.memory import CachedUserDataRepository
 
 from amrita.plugins.chat.config import SkillConfig, config_manager
 from amrita.plugins.chat.skills import reload_skills, validate_skills
 from amrita.plugins.webui.API import JSONResponse
 from amrita.plugins.webui.API import app as router
+
+
+def _optional_int(value: Any) -> int | None:
+    """把前端传来的可选整数字段归一为 ``int | None``。
+
+    ``None`` / 空串 / 布尔 / 非法值一律视为未声明，交给 Core 的兜底值；
+    数值串（含小数）按整数截断。
+    """
+    if value is None or value == "" or isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        pass
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return None
 
 
 @router.post("/api/chat/models")
@@ -38,6 +58,9 @@ async def create_model(request: Request):
             base_url=base_url,
             api_key=api_key,
             protocol=protocol,
+            #  1.0 起注意力窗口由预设声明，留空则回退到 Core 的全局兜底值
+            max_context=_optional_int(data.get("max_context")),
+            max_output=_optional_int(data.get("max_output")),
             # NOTE: rate 先注释掉（ModelPreset.rate 默认 None = 不计费）
             config=ModelConfig(**config_data),
             thinking_config=thinking_cfg,
@@ -174,6 +197,89 @@ async def get_models():
         return JSONResponse(
             {"success": False, "message": "获取模型预设列表失败"},
             status_code=500,
+        )
+
+
+@router.get("/api/chat/models/{name}/inspect")
+async def inspect_model(name: str):
+    """只读展示预设解析后的上下文预算，便于核对 1.0 的窗口声明。
+
+    ``max_context`` / ``max_output`` 未在预设中声明时会回退到 Core 的全局
+    兜底值，这里把「声明值 / 实际生效值 / 来源」一并返回。
+    """
+    try:
+        preset = await config_manager.get_preset(name, fix=False, cache=False)
+        if preset is None:
+            return JSONResponse(
+                {"success": False, "message": f"模型预设 {name} 不存在"},
+                status_code=404,
+            )
+        core = config_manager.config.core
+        budget = resolve_max_context(preset, core)
+        output = resolve_max_output(preset, core)
+        ratio = core.llm.compaction_trigger_ratio
+        return JSONResponse(
+            {
+                "success": True,
+                "data": {
+                    "name": preset.name,
+                    "model": preset.model,
+                    "max_context": {
+                        "declared": preset.max_context,
+                        "resolved": budget,
+                        "source": "preset" if preset.max_context is not None else "fallback",
+                    },
+                    "max_output": {
+                        "declared": preset.max_output,
+                        "resolved": output,
+                        "source": "preset" if preset.max_output is not None else "fallback",
+                    },
+                    "compaction": {
+                        "enabled": core.llm.enable_compaction,
+                        "trigger_ratio": ratio,
+                        "threshold": int(budget * ratio),
+                        "max_tokens": core.llm.compaction_max_tokens,
+                        "message_limit": core.llm.memory_length_limit,
+                    },
+                    "rate": preset.rate.model_dump(mode="json") if preset.rate else None,
+                },
+            },
+            status_code=200,
+        )
+    except Exception as e:
+        logger.opt(exception=e, colors=True, raw=True).error("检查模型预设失败")
+        return JSONResponse(
+            {"success": False, "message": "检查模型预设失败"}, status_code=500
+        )
+
+
+@router.get("/api/chat/sessions/{session_id}/usage")
+async def inspect_session_usage(session_id: str):
+    """只读展示某个会话累计的 token 用量与计费记录。
+
+    ``usage`` 来自 provider 对上一次请求的上报，天然滞后一轮；
+    ``billing`` 是 Core 逐次请求写入 ``MemoryModel.billing`` 的账目快照，
+    预设未声明 ``rate`` 时仍会记录 token 数（仅缺价格）。
+    """
+    try:
+        memory = await CachedUserDataRepository().get_memory(session_id)
+        mm = memory.memory_json
+        return JSONResponse(
+            {
+                "success": True,
+                "data": {
+                    "session_id": session_id,
+                    "usage": mm.usage.model_dump(mode="json") if mm.usage else None,
+                    "billing": [r.model_dump(mode="json") for r in mm.billing],
+                    "billing_count": len(mm.billing),
+                },
+            },
+            status_code=200,
+        )
+    except Exception as e:
+        logger.opt(exception=e, colors=True, raw=True).error("检查会话用量失败")
+        return JSONResponse(
+            {"success": False, "message": "检查会话用量失败"}, status_code=500
         )
 
 

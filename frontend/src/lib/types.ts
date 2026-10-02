@@ -161,6 +161,10 @@ export interface ChatModel {
   /** 是否已配置 API Key（敏感字段不回传，仅暴露状态） */
   has_api_key?: boolean;
   protocol: string;
+  /** 注意力窗口（输入 token 预算）；留空 = 回退到 Core 全局兜底值 */
+  max_context?: number | null;
+  /** 响应输出预留 token 上限；留空 = 回退到 Core 全局兜底值 */
+  max_output?: number | null;
   // NOTE: 目前不对单个预设计费，rate 先注释掉；需要时恢复即可。
   // /** Token 计费费率（用于成本估算，可选） */
   // rate?: number | null;

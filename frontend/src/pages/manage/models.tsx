@@ -86,6 +86,14 @@ function ModelForm({
   const [apiKeyTouched, setApiKeyTouched] = useState(false);
   const [protocol, setProtocol] = useState(initial?.protocol ?? "__main__");
 
+  // 上下文预算（ModelPreset.max_context / max_output，1.0 起窗口由预设声明）
+  const [maxContext, setMaxContext] = useState(
+    numToInput(initial?.max_context),
+  );
+  const [maxOutput, setMaxOutput] = useState(
+    numToInput(initial?.max_output),
+  );
+
   // 模型参数（对应后端 ModelConfig）
   const mc = initial?.config ?? {};
   const [temperature, setTemperature] = useState(numToInput(mc.temperature));
@@ -159,6 +167,9 @@ function ModelForm({
       protocol,
       config: buildConfig(),
       thinking_config: buildThinkingConfig(),
+      // 留空 = null = 回退到 Core 全局兜底值（与「不提交」区分：本键总是提交）
+      max_context: inputToNum(maxContext) ?? null,
+      max_output: inputToNum(maxOutput) ?? null,
       // NOTE: rate 先注释掉（不提交该键 = 后端不改动已有值）
       // 留空 = 显式清空（null），与「不提交」语义区分
       // rate: inputToNum(rate) ?? null,
@@ -220,6 +231,39 @@ function ModelForm({
               onChange={(e) => setProtocol(e.target.value)}
             />
           </div>
+        </div>
+
+        {/* 上下文预算（ModelPreset.max_context / max_output） */}
+        <div className="space-y-3 rounded-md border p-3">
+          <Label className="text-base font-medium">上下文预算</Label>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label className="text-xs">max_context（输入 token 窗口）</Label>
+              <Input
+                type="number"
+                step="1"
+                min="0"
+                value={maxContext}
+                placeholder="留空 = 回退全局兜底值"
+                onChange={(e) => setMaxContext(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">max_output（响应输出预留）</Label>
+              <Input
+                type="number"
+                step="1"
+                min="0"
+                value={maxOutput}
+                placeholder="留空 = 回退全局兜底值"
+                onChange={(e) => setMaxOutput(e.target.value)}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            窗口由模型自己声明，压缩阈值按 max_context ×
+            触发比例推导；留空则回退到 AmritaCore 的全局兜底值。
+          </p>
         </div>
 
         {/* 模型参数（ModelConfig） */}

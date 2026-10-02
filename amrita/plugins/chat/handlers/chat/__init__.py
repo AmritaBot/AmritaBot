@@ -21,6 +21,7 @@ from amrita_core.chatmanager import ChatObject as CoreChatObject
 from amrita_core.chatmanager.chat_object import DatabackendOptions
 from amrita_core.types import USER_INPUT, Content, Message
 from amrita_sense.hook.exception import MatcherException as ChatException
+from amrita_sense.hook.matcher import MatcherFactory
 from nonebot import get_driver
 from nonebot.adapters.onebot.v11 import Bot
 from nonebot.adapters.onebot.v11.event import GroupMessageEvent, MessageEvent
@@ -30,6 +31,7 @@ from nonebot_plugin_amrita.memory import CachedUserDataRepository, MemorySchema
 
 from amrita.plugins.chat.backends import ChatMemoryBackend, NoopAbilityBackend
 from amrita.plugins.chat.config import config_manager
+from amrita.plugins.chat.events import ChatEntryEvent, ChatRequestEvent
 from amrita.plugins.chat.runtime import (
     AMRITA_CTX_KEY,
     AmritaBotContext,
@@ -88,6 +90,19 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
 
     #  阶段 1：加载 memory 与会话管理
     is_group: bool = isinstance(event, GroupMessageEvent)
+
+    #  扩展点：接消息前的观察/否决钩子（ChatEntryEvent.cancel() 可终止本次对话）
+    entry_event = ChatEntryEvent(
+        event=event,
+        matcher=matcher,
+        bot=bot,
+        session_id=session_id,
+        is_group=is_group,
+    )
+    await MatcherFactory.trigger_event(entry_event)
+    if entry_event.cancelled:
+        return
+
     memory: MemorySchema = await cudr.get_memory(
         get_uni_user_id(event),
     )
@@ -166,6 +181,19 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
 
     # 构建定制化的 system prompt（与 /compact、/session info 共用同一构建逻辑）
     train_dict = await build_train_dict(event, memory, config)
+
+    #  扩展点：请求构建完成后的改写钩子（user_input 与 train 均可在钩子中替换）
+    request_event = ChatRequestEvent(
+        event=event,
+        matcher=matcher,
+        bot=bot,
+        session_id=session_id,
+        user_input=final_content,
+        train=train_dict,
+    )
+    await MatcherFactory.trigger_event(request_event)
+    final_content = request_event.user_input
+    train_dict = request_event.train
 
     #  阶段 4：创建 ChatObject
     ctx: AmritaBotContext = {

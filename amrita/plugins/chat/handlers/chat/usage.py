@@ -8,10 +8,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from amrita_core import debug_log
+from amrita_core import BillingRecord, debug_log
 from amrita_core.utils import gather_usage
+from amrita_sense.hook.matcher import MatcherFactory
 from nonebot_plugin_amrita.database import InsightsModel
 
+from ...events import ChatUsageRecordedEvent
 from ...utils.libchat import add_usage
 from ...utils.sql import get_uni_user_id, make_uni_id
 
@@ -21,6 +23,14 @@ if TYPE_CHECKING:
     from nonebot_plugin_amrita.memory import CachedUserDataRepository
 
 __all__ = ["record_usage"]
+
+
+def _billing_snapshot(chat: CoreChatObject) -> list[BillingRecord]:
+    """读取账目快照；DI 上下文未就绪（异常收尾路径）时返回空列表。"""
+    try:
+        return list(chat.data.billing)
+    except RuntimeError:
+        return []
 
 
 async def record_usage(
@@ -56,3 +66,13 @@ async def record_usage(
         d.called_count
         add_usage(d, usage)
         await cudr.update_metadata(d)
+
+    #  扩展点：用量落库后的钩子（计费、配额、审计的挂载点）
+    await MatcherFactory.trigger_event(
+        ChatUsageRecordedEvent(
+            event=event,
+            session_id=get_uni_user_id(event),
+            usage=usage,
+            billing=_billing_snapshot(chat),
+        )
+    )

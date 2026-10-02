@@ -9,6 +9,7 @@ require("nonebot_plugin_amrita")
 
 from . import (
     config,
+    events,
     hooks,
     matcher_manager,
     models,
@@ -22,6 +23,7 @@ from .utils.llm_tools import context_tools
 __all__ = [
     "config",
     "context_tools",
+    "events",
     "hooks",
     "matcher_manager",
     "models",

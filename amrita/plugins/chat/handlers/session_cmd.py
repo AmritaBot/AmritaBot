@@ -10,6 +10,7 @@ from amrita_core.components.compaction import ContextCompactor
 from amrita_core.types import MemoryModel as AwaredMemory
 from amrita_core.types.preset import resolve_max_context, resolve_max_output
 from amrita_core.usage import SessionUsageProxy
+from amrita_sense.hook.matcher import MatcherFactory
 from nonebot import logger
 from nonebot.adapters.onebot.v11 import Bot, Message, MessageEvent
 from nonebot.matcher import Matcher
@@ -22,6 +23,7 @@ from amrita.plugins.chat.utils.libchat import add_usage
 
 from ..check_rule import is_group_admin_if_is_in_group
 from ..config import config_manager
+from ..events import SessionCompactEvent
 from ..utils.context_store import fold_media_in_messages
 from ..utils.data_access import update_memory
 from ..utils.preset import resolve_preset
@@ -275,6 +277,20 @@ async def _session_compact(event: MessageEvent, matcher: Matcher, force: bool) -
     )
     if usage.prompt_tokens or usage.completion_tokens:
         msg += f"（摘要消耗 {usage.prompt_tokens + usage.completion_tokens} tokens）"
+
+    #  扩展点：压缩完成后的钩子（消息条数、占用与摘要用量均已确定）
+    await MatcherFactory.trigger_event(
+        SessionCompactEvent(
+            event=event,
+            matcher=matcher,
+            session_id=uni_id,
+            before_count=before_count,
+            after_count=len(data.messages),
+            before_tokens=current_tokens,
+            budget=budget,
+            summary_usage=usage,
+        )
+    )
     await matcher.send(msg)
 
 

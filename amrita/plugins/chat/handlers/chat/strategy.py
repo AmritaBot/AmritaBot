@@ -20,6 +20,11 @@ __all__ = ["build_workflow", "select_agent_strategy"]
 def select_agent_strategy(name: str) -> type[AgentStrategy]:
     """根据配置选择 Agent 执行策略类
 
+    ``hybrid-react`` 归并到 ``ReActAgentStrategy``：AmritaCore 1.0 移除了
+    ``HybridReActAgentStrategy``，而前者现在同样以
+    ``assistant(tool_calls)`` + ``tool`` 消息对表达调用与结果，
+    ``get_category()`` 仍为 ``agent-mixed``。
+
     Args:
         name: 策略名（react / hybrid-react / no-action）
 
@@ -31,9 +36,6 @@ def select_agent_strategy(name: str) -> type[AgentStrategy]:
     """
     match name:
         case "react" | "hybrid-react":
-            #  AmritaCore 1.0 移除了 HybridReActAgentStrategy；ReActAgentStrategy
-            #  现在以 assistant(tool_calls) + tool 消息对表达调用与结果，
-            #  get_category() 仍为 agent-mixed，故 hybrid-react 归并到同一实现
             return ReActAgentStrategy
         case "no-action":
             return NoActionAgentStrategy

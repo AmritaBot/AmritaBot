@@ -244,8 +244,7 @@ async def _session_compact(event: MessageEvent, matcher: Matcher, force: bool) -
             f"未达到 {COMPACT_MIN_RATIO:.0%} 的压缩阈值，暂不需要压缩。"
         )
 
-    #  摘要调用单独记账；compact() 成功后会把 usage 清空，
-    #  因此压缩前的占用与消息数需提前留存
+    #  摘要调用单独记账；compact() 成功后清空 usage，故占用与消息数需提前留存
     ledger = SessionUsageProxy(session_id=uni_id, stream_id=f"compact:{uni_id}")
     compactor = ContextCompactor(config=config.core, preset=preset, usage=ledger)
     before_count = len(data.messages)
@@ -308,8 +307,7 @@ async def _session_abstract(event: MessageEvent, matcher: Matcher, clear: bool) 
 
 # 入口
 
-#  运行中的会话不能被破坏性指令改写：本轮结束时 ChatMemoryBackend 会把记忆
-#  写回，覆盖掉指令刚做的修改（归档被复活、恢复被覆盖、清空被回填）
+#  破坏性指令会与运行中的对话抢同一份记忆，详见 utils/session_guard.py
 _DESTRUCTIVE_SUBS = frozenset(
     {
         "use",

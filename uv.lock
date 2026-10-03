@@ -15,7 +15,7 @@ resolution-markers = [
     "python_full_version < '3.11'",
 ]
 dependencies = [
-    { name = "caio", version = "0.9.25", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "caio", version = "0.9.25", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/41/6d/e03ef9694346a55da965538f3e28461bd9fc71e21f997269d03b3cfc8755/aiofile-3.8.8.tar.gz", hash = "sha256:41f3dc40bd730459d58610476e82e5efb2f84ae6e9fa088a9545385d838b8a43", size = 19456, upload-time = "2023-08-22T12:48:38.88Z" }
 wheels = [
@@ -31,7 +31,7 @@ resolution-markers = [
     "(python_full_version >= '3.11' and sys_platform != 'emscripten') or (python_full_version == '3.11.*' and sys_platform == 'emscripten')",
 ]
 dependencies = [
-    { name = "caio", version = "0.12.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "caio", version = "0.12.4", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/14/31/edb06aabd8f8f0b56d659f30800795f40b93cba96be946ce179f6931e3a5/aiofile-3.12.3.tar.gz", hash = "sha256:caa6aa746b5e47e2165f7abd741b6415e49cf4d44fddc0f61844612cc3924d41", size = 21600, upload-time = "2026-08-04T22:59:27.171Z" }
 wheels = [
@@ -217,16 +217,16 @@ wheels = [
 
 [[package]]
 name = "ambot-inlinectl"
-version = "0.1.2"
+version = "0.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "amctl" },
     { name = "amrita" },
     { name = "click" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/be/35/9f800596554484c783e86993e83797334523639029a239baee73fbe679b5/ambot_inlinectl-0.1.2.tar.gz", hash = "sha256:71b13e3428279f4f36507d40e9f55ed199cfa6936aaaa508ca957c2976e725a7", size = 6260, upload-time = "2026-07-13T07:11:08.788Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/33/bd/f3477022a8863416621104f67989efcce9834672bbf00df2f44997969259/ambot_inlinectl-0.2.1.tar.gz", hash = "sha256:fa15d2a8382f5b65abe7bfcb54f80e740428ce4c0894291c8673c8da66a2ac52", size = 14830, upload-time = "2026-09-25T09:57:50.789Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f2/d9/0ce1fef17e849e13970aa32e3f3b621f63a2fd21c9444d77f3f734128c51/ambot_inlinectl-0.1.2-py3-none-any.whl", hash = "sha256:1cc38b59822bb14352568f464a912907bef6735c15f38d28e8e0cae9a3a5e5c0", size = 6614, upload-time = "2026-07-13T07:11:07.968Z" },
+    { url = "https://files.pythonhosted.org/packages/fd/f6/6309be3fb1f52063d69fa8827d59253307cd3c1e2d2af09ea19e656d515f/ambot_inlinectl-0.2.1-py3-none-any.whl", hash = "sha256:d948a4bb06fdc66a9b3ad286b8d2b7d369ba187b6082e2cfe6fa25b67a61475b", size = 15102, upload-time = "2026-09-25T09:57:49.879Z" },
 ]
 
 [[package]]
@@ -1164,8 +1164,8 @@ name = "httpcore2"
 version = "2.13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "h11", marker = "python_full_version < '3.12' or sys_platform != 'emscripten'" },
-    { name = "truststore", marker = "python_full_version < '3.12' or sys_platform != 'emscripten'" },
+    { name = "h11" },
+    { name = "truststore" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/15/8c/e925b1c92018abb3a1863ce1549d76d2381e334d21d65d4ac8f65dabd78a/httpcore2-2.13.0.tar.gz", hash = "sha256:2adc8be4fb285fbcd6d894298db3b52c177e74b6674eda3a76bd36be3292a3db", size = 67740, upload-time = "2026-09-14T14:18:04.717Z" }
 wheels = [
@@ -1269,7 +1269,7 @@ name = "importlib-metadata"
 version = "9.0.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "zipp", marker = "python_full_version < '3.12' or sys_platform != 'emscripten'" },
+    { name = "zipp" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/6f/7e/1e7e8dc30634b93ebb3d58a3dea569ad146e656218d3960ab04f62047b29/importlib_metadata-9.0.1.tar.gz", hash = "sha256:ab830580bc0ef3db61ce8fae716389e5462b67e033018bab6d8f80ef17172f99", size = 59124, upload-time = "2026-08-28T15:30:34.646Z" }
 wheels = [
@@ -2844,8 +2844,8 @@ name = "secretstorage"
 version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cryptography", marker = "python_full_version < '3.12' or sys_platform != 'emscripten'" },
-    { name = "jeepney", marker = "python_full_version < '3.12' or sys_platform != 'emscripten'" },
+    { name = "cryptography" },
+    { name = "jeepney" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1c/03/e834bcd866f2f8a49a85eaff47340affa3bfa391ee9912a952a1faa68c7b/secretstorage-3.5.0.tar.gz", hash = "sha256:f04b8e4689cbce351744d5537bf6b1329c6fc68f91fa666f60a380edddcd11be", size = 19884, upload-time = "2025-11-23T19:02:53.191Z" }
 wheels = [

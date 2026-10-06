@@ -139,7 +139,10 @@ def register_spa_fallback():
         index_file = STATIC_PATH / "index.html"
         if not index_file.exists():
             return fail(503, "WebUI 尚未构建，请先在 frontend/ 目录执行构建")
-        return FileResponse(index_file)
+        # 入口文档每次回源：chunk 名随构建变，缓存旧 index.html 会连旧哈希资源一起用
+        return FileResponse(
+            index_file, headers={"Cache-Control": "no-cache, must-revalidate"}
+        )
 
 
 def mount_spa_fallback_on_startup():

@@ -16,12 +16,16 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-export type WsChannel = "system" | "bot" | "logs";
+import type { PluginTask, PluginTaskEvent } from "@/lib/types";
+
+export type WsChannel = "system" | "bot" | "logs" | "plugins";
 
 /** 订阅 logs 时请求的回放条数（后端 tail 语义） */
 export const LOG_REPLAY_LIMIT = 500;
 /** 前端内存中保留的日志快照上限（超过则丢弃最旧） */
 const MAX_LOG_SNAPSHOT = 1000;
+/** 前端内存中保留的插件任务事件上限 */
+const MAX_PLUGIN_EVENTS = 400;
 
 export interface SystemUsage {
   status: string;
@@ -53,6 +57,7 @@ type ChannelData = {
   system: SystemUsage;
   bot: BotState;
   logs: LogEvent;
+  plugins: PluginTaskEvent;
   meta: WsMeta;
 };
 
@@ -70,6 +75,7 @@ interface GlobalState {
     system: SystemUsage | null;
     bot: BotState | null;
     logs: LogEvent[];
+    plugins: PluginTaskEvent[];
   };
   /** 频道 -> 订阅回调集合 */
   listeners: Map<WsChannel, Set<() => void>>;
@@ -84,7 +90,7 @@ const global: GlobalState = {
   retry: 0,
   reconnectTimer: null,
   reconnectToastId: null,
-  snapshots: { system: null, bot: null, logs: [] },
+  snapshots: { system: null, bot: null, logs: [], plugins: [] },
   listeners: new Map(),
   statusListeners: new Set(),
 };
@@ -134,6 +140,12 @@ function sendSubscribe(ws: WebSocket, channels: WsChannel[]) {
     msg.opts = { logs: { limit: effectiveLogLimit() } };
   }
   ws.send(JSON.stringify(msg));
+}
+
+/** 追加一条插件任务事件；订阅快照（tasks 数组）则整体替换 */
+function applyPluginEvent(ev: PluginTaskEvent) {
+  const events = global.snapshots.plugins;
+  updateSnapshot("plugins", [...events, ev].slice(-MAX_PLUGIN_EVENTS));
 }
 
 function connect() {
@@ -186,9 +198,7 @@ function connect() {
       else if (msg.channel === "bot")
         updateSnapshot("bot", msg.data as BotState);
       else if (msg.channel === "logs") {
-        // 正序存储（最新在尾部，渲染即最早在上/最新在下，配合
-        // 自动滚动到底 = tail -f 直觉）；去重只查尾部几条——后端
-        // 回放与实时推送的重叠只会出现在边界；截断防无限增长
+        // 正序存储，去重只查尾部几条（重叠只会出现在回放与实时推送的边界）
         const ev = msg.data as LogEvent;
         const logs = global.snapshots.logs;
         const dup = logs
@@ -199,6 +209,19 @@ function connect() {
           );
         if (!dup) {
           updateSnapshot("logs", [...logs, ev].slice(-MAX_LOG_SNAPSHOT));
+        }
+      } else if (msg.channel === "plugins") {
+        // 订阅瞬间后端推的是快照 {tasks: [...]}，之后是逐条事件 {task, line}
+        const data = msg.data as Partial<PluginTaskEvent> & {
+          tasks?: PluginTask[];
+        };
+        if (Array.isArray(data.tasks)) {
+          updateSnapshot(
+            "plugins",
+            data.tasks.map((task) => ({ task, line: null })),
+          );
+        } else if (data.task) {
+          applyPluginEvent({ task: data.task, line: data.line ?? null });
         }
       }
     } catch {
@@ -256,6 +279,9 @@ export function useWs({ channels, logLimit, onStatusChange }: UseWsOptions) {
   );
   const [bot, setBot] = useState<BotState | null>(global.snapshots.bot);
   const [logs, setLogs] = useState<LogEvent[]>(global.snapshots.logs);
+  const [plugins, setPlugins] = useState<PluginTaskEvent[]>(
+    global.snapshots.plugins,
+  );
 
   // channels 引用不稳定（调用处每次渲染新建数组）-> 用稳定 key 做 effect 依赖
   const channelsKey = channels.join(",");
@@ -265,8 +291,7 @@ export function useWs({ channels, logLimit, onStatusChange }: UseWsOptions) {
   const onStatusChangeRef = useRef(onStatusChange);
   onStatusChangeRef.current = onStatusChange;
 
-  // 登记/注销本订阅者的回放条数：仅订阅 logs 且显式指定时生效；
-  // 卸载或 channels 变化时自动注销，避免请求过大值后永久抬高后续订阅者的回放量
+  // 登记本订阅者的回放条数，卸载或 channels 变化时注销，避免永久抬高后续订阅量
   useEffect(() => {
     const token = ++nextLogLimitToken;
     if (channels.includes("logs") && logLimit !== undefined) {
@@ -303,6 +328,7 @@ export function useWs({ channels, logLimit, onStatusChange }: UseWsOptions) {
         if (ch === "system") setSystem(global.snapshots.system);
         else if (ch === "bot") setBot(global.snapshots.bot);
         else if (ch === "logs") setLogs(global.snapshots.logs);
+        else if (ch === "plugins") setPlugins(global.snapshots.plugins);
       };
       set.add(cb);
       return { ch, set, cb };
@@ -330,5 +356,5 @@ export function useWs({ channels, logLimit, onStatusChange }: UseWsOptions) {
     onStatusChangeRef.current?.(connected);
   }, [connected]);
 
-  return { connected, system, bot, logs };
+  return { connected, system, bot, logs, plugins };
 }

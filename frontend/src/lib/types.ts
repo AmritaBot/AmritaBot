@@ -68,13 +68,99 @@ export interface BotStatusData {
 }
 
 /** 插件 */
-export interface PluginInfo {
+/** 插件状态，与后端 PluginState 一一对应 */
+export type PluginState =
+  | "running"
+  | "pending_enable"
+  | "pending_remove"
+  | "load_failed"
+  | "disabled"
+  | "not_installed";
+
+export type PluginKind =
+  "builtin" | "amrita_pkg" | "nonebot_pkg" | "local" | null;
+
+/** 已安装插件条目（六态视图） */
+export interface PluginEntry {
+  module_name: string;
   name: string;
+  state: PluginState;
+  kind: PluginKind;
+  version: string | null;
+  project_link: string | null;
+  path: string | null;
+  error: string | null;
+  /** 是否属于「被别的插件间接依赖」而豁免的 */
+  is_dependency: boolean;
+  /** 非空表示不可禁用/卸载，内容为原因 */
+  protected_reason: string | null;
+}
+
+export interface PluginListData {
+  plugins: PluginEntry[];
+  summary: Record<string, number>;
+}
+
+/** 插件商店条目 */
+export interface PluginStoreEntry {
+  module_name: string;
+  name: string;
+  source: "nonebot" | "amrita";
+  target: "amrita" | "nonebot";
+  project_link: string | null;
+  desc: string;
+  author: string | null;
   homepage: string | null;
-  is_local: boolean;
+  tags: string[];
+  is_official: boolean;
   type: string;
-  description: string;
-  version: string;
+  supported_adapters: string[] | null;
+  version: string | null;
+  valid: boolean;
+  /** 该条目当前的状态；商店接口会附带 */
+  state: PluginState | null;
+  /** 该插件对宿主环境的版本约束 */
+  requires: Record<string, string>;
+  /** 版本约束是否与当前环境相容 */
+  compatible: boolean;
+  /** 不相容时的说明 */
+  incompatible_reason: string | null;
+  /** 是否被当前运行时已注册的适配器支持（无适配器限制视为支持） */
+  supported_by_current: boolean;
+}
+
+export interface PluginStoreData {
+  plugins: PluginStoreEntry[];
+  total: number;
+  /** 被「当前适配器支持」这个筛选挡掉的数量，0 表示没开筛选 */
+  hidden_by_adapter: number;
+  page: number;
+  size: number;
+  warnings: string[];
+  /** 当前运行时已注册的适配器 */
+  adapters: { name: string; module: string }[];
+}
+
+/** 安装 / 卸载任务 */
+export type PluginTaskState = "pending" | "running" | "succeeded" | "failed";
+
+export interface PluginTask {
+  id: string;
+  action: "install" | "uninstall";
+  package: string;
+  module_name: string;
+  target: string;
+  state: PluginTaskState;
+  error: string | null;
+  created_at: number;
+  finished_at: number | null;
+  lines?: string[];
+}
+
+/** WebSocket plugins 频道推送的单条事件 */
+export interface PluginTaskEvent {
+  task: PluginTask;
+  line: string | null;
 }
 
 /** 黑名单 */
@@ -169,9 +255,7 @@ export interface ChatModel {
   max_context?: number | null;
   /** 响应输出预留 token 上限；留空 = 回退到 Core 全局兜底值 */
   max_output?: number | null;
-  // NOTE: 目前不对单个预设计费，rate 先注释掉；需要时恢复即可。
-  // /** Token 计费费率（用于成本估算，可选） */
-  // rate?: number | null;
+  // NOTE: 目前不对单个预设计费，rate 字段需要时再恢复。
   config: ChatModelConfig;
   thinking_config: Record<string, unknown> | null;
 }

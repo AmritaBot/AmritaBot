@@ -52,7 +52,7 @@ include = ["amrita", "amrita.*"]
 # 添加资源文件包含配置
 [tool.setuptools.package-data]
 # templates 已随 Jinja2 SSR 重构移除，仅保留 static 构建产物
-"amrita.plugins.webui.service" = ["static/**/*"]
+"amrita.plugins.webui.service" = ["static/**/*", "*.json"]
 
 [dependency-groups]
 dev = [

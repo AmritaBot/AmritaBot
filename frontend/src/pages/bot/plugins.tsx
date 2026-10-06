@@ -415,7 +415,14 @@ export function BotPluginsPage() {
       key: "version",
       header: "版本",
       render: (p) => (
-        <span className="text-muted-foreground">{p.version ?? "—"}</span>
+        <span className="text-muted-foreground">
+          {p.version ?? "—"}
+          {p.outdated && (
+            <span className="ml-1 text-xs text-amber-600 dark:text-amber-400">
+              可能已过期
+            </span>
+          )}
+        </span>
       ),
     },
     {

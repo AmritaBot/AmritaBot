@@ -116,6 +116,10 @@ export interface PluginStoreEntry {
   type: string;
   supported_adapters: string[] | null;
   version: string | null;
+  /** 版本号来源：pypi / cache / cache-expired / identity */
+  version_source: string;
+  /** 版本信息可能已经过期 */
+  outdated: boolean;
   valid: boolean;
   /** 该条目当前的状态；商店接口会附带 */
   state: PluginState | null;

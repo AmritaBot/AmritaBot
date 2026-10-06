@@ -1,61 +1,33 @@
 {
-  "_note": "Amrita 官方插件清单。随包分发，离线可用，不依赖网络。新增插件时补 module_name / project_link / name / desc / version 即可；module_name 必须与 pip 安装后可导入的模块名一致。requires 填该插件对宿主环境的版本约束，用于在安装前提示不兼容。",
-  "updated_at": "2026-10-06",
+  "_note": "Amrita 官方插件清单：只存身份。版本、描述与依赖约束都在运行时从 PyPI 解析，不落进仓库——手抄的版本号一旦过期，安装时就会锁到旧版本。新增插件时补 module_name / project_link / name 即可；module_name 必须与 pip 安装后可导入的模块名一致。",
   "plugins": [
     {
       "module_name": "amrita_plugin_deepseek",
       "project_link": "amrita_plugin_deepseek",
       "name": "DeepSeek 模型安全增强",
-      "desc": "Model security enhancement package for deepseek models in Amrita",
-      "version": "0.2.0",
       "target": "amrita",
-      "is_official": true,
-      "type": "application",
-      "requires": {
-        "amrita": ">=1.10",
-        "amrita-core": ">=1.0.0,<2.0.0"
-      }
+      "is_official": true
     },
     {
       "module_name": "amrita_plugin_exec",
       "project_link": "amrita-plugin-exec",
       "name": "命令执行",
-      "desc": "Command execution plugin for Amrita",
-      "version": "0.1.4",
       "target": "amrita",
-      "is_official": true,
-      "type": "application",
-      "requires": {
-        "amrita": ">=1.0.1"
-      }
+      "is_official": true
     },
     {
       "module_name": "amrita_plugin_memory",
       "project_link": "amrita_plugin_memory",
       "name": "长期记忆",
-      "desc": "Amrita长期记忆插件",
-      "version": "0.5.0",
       "target": "amrita",
-      "is_official": true,
-      "type": "application",
-      "requires": {
-        "amrita": ">=1.10",
-        "amrita-core": ">=1.0.0,<2.0.0",
-        "nonebot-plugin-amrita": ">=0.4.0"
-      }
+      "is_official": true
     },
     {
       "module_name": "amrita_plugin_omikuji",
       "project_link": "amrita-plugin-omikuji",
       "name": "御神签",
-      "desc": "AmritaBot的御神签插件",
-      "version": "0.2.0",
       "target": "amrita",
-      "is_official": true,
-      "type": "application",
-      "requires": {
-        "amrita": ">=1.10"
-      }
+      "is_official": true
     }
   ]
 }

@@ -25,7 +25,8 @@ from typing import Any, Literal
 
 import aiohttp
 import nonebot
-from packaging.requirements import Requirement
+from amctl import resolve_meta
+from packaging.requirements import InvalidRequirement, Requirement
 
 from amrita.utils.pyproject_io import PluginTarget
 
@@ -46,6 +47,8 @@ __all__ = [
 
 NONEBOT_REGISTRY_URL = "https://registry.nonebot.dev/plugins.json"
 OFFICIAL_PLUGINS_PATH = Path(__file__).resolve().parent / "official_plugins.json"
+#: 官方清单的 PyPI 元数据缓存文件名，跟 amctl CLI 的 versions_cache.json 分开
+OFFICIAL_CACHE_NAME = "plugins_cache.json"
 
 DEFAULT_TTL = 24 * 3600.0
 DEFAULT_TIMEOUT = 10.0
@@ -77,6 +80,10 @@ class PluginSourceEntry:
     type: str = "application"
     supported_adapters: list[str] | None = None
     version: str | None = None
+    version_source: str = "identity"
+    """版本号的来源：``pypi`` / ``cache`` / ``cache-expired`` / ``identity``。"""
+    outdated: bool = False
+    """版本信息可能已经过期。"""
     valid: bool = True
     requires: dict[str, str] = field(default_factory=dict)
     """该插件对宿主环境的版本约束，形如 ``{"amrita": ">=1.10"}``。"""
@@ -101,6 +108,8 @@ class PluginSourceEntry:
                 else None
             ),
             "version": self.version,
+            "version_source": self.version_source,
+            "outdated": self.outdated,
             "valid": self.valid,
             "requires": dict(self.requires),
         }
@@ -148,7 +157,11 @@ def _parse_nonebot(raw: Mapping[str, Any]) -> PluginSourceEntry | None:
 
 
 def _parse_official(raw: Mapping[str, Any]) -> PluginSourceEntry | None:
-    """解析一条 Amrita 官方清单条目，缺模块名则丢弃。"""
+    """解析一条 Amrita 官方清单条目，缺模块名则丢弃。
+
+    清单里只有身份字段；版本、描述与依赖约束由 :meth:`PluginStore._enrich_official`
+    从 PyPI 补上。
+    """
     module_name = str(raw.get("module_name") or "").strip()
     if not module_name:
         return None
@@ -159,17 +172,30 @@ def _parse_official(raw: Mapping[str, Any]) -> PluginSourceEntry | None:
         source="amrita",
         target=target if target in ("amrita", "nonebot") else "amrita",
         project_link=raw.get("project_link") or module_name,
-        desc=str(raw.get("desc") or ""),
-        author=raw.get("author"),
-        homepage=raw.get("homepage"),
         tags=[str(t) for t in raw.get("tags") or []],
         is_official=bool(raw.get("is_official", True)),
-        type=str(raw.get("type") or "application"),
-        supported_adapters=raw.get("supported_adapters"),
-        version=raw.get("version"),
         valid=bool(raw.get("valid", True)),
-        requires={str(k): str(v) for k, v in (raw.get("requires") or {}).items()},
     )
+
+
+def _requires_map(requires: Iterable[str]) -> dict[str, str]:
+    """把 PyPI 的 ``requires_dist`` 折成 ``{发行包名: 版本约束}``。
+
+    ``requires_dist`` 是 pip 真正执行的那份约束，比手抄的可靠。带 extra 标记的
+    条目跳过——那是可选项，不该算作不兼容。
+    """
+    result: dict[str, str] = {}
+    for raw in requires:
+        try:
+            req = Requirement(str(raw))
+        except InvalidRequirement:
+            continue
+        if req.marker is not None:
+            continue
+        spec = str(req.specifier)
+        if spec:
+            result[req.name] = spec
+    return result
 
 
 class PluginStore:
@@ -230,6 +256,35 @@ class PluginStore:
             if entry is not None
         ]
 
+    async def _enrich_official(
+        self, entries: list[PluginSourceEntry]
+    ) -> list[PluginSourceEntry]:
+        """用 PyPI 上的元数据补齐官方条目。
+
+        清单里只存身份，版本 / 描述 / 依赖约束都现取。取不到就保持「没有版本号」，
+        安装时自然退化成不锁版本——那条路径本来就在。
+        """
+        for entry in entries:
+            link = entry.project_link
+            if not link:
+                continue
+            try:
+                result = await asyncio.to_thread(
+                    resolve_meta, link, name=OFFICIAL_CACHE_NAME
+                )
+            except Exception as exc:  # 元数据取不到不该拖垮整个商店
+                logger.debug("解析 %s 的 PyPI 元数据失败：%s", link, exc)
+                continue
+            entry.version_source = result.source
+            entry.outdated = result.outdated
+            if not result.data:
+                continue
+            entry.version = result.data.get("version") or None
+            entry.desc = entry.desc or str(result.data.get("desc") or "")
+            entry.homepage = entry.homepage or result.data.get("homepage") or None
+            entry.requires = _requires_map(result.data.get("requires") or [])
+        return entries
+
     async def _fetch_nonebot(self) -> list[PluginSourceEntry]:
         """拉取 NoneBot 商店 registry。"""
         timeout = aiohttp.ClientTimeout(total=self.timeout)
@@ -263,7 +318,7 @@ class PluginStore:
                 return self._cache
 
             self.warnings = []
-            official = self._load_official()
+            official = await self._enrich_official(self._load_official())
             try:
                 remote = await self._fetch_nonebot()
             except PluginSourceError as exc:
@@ -366,6 +421,10 @@ def adapter_supported(
 def incompatible_reason(requires: Mapping[str, str]) -> str | None:
     """检查版本约束与当前环境是否相容。
 
+    只对**环境中已安装**的发行包下判断：没装的依赖交给 uv 去装，不算冲突。
+    ``requires_dist`` 是插件对全部依赖的声明，其中大部分本来就不在环境里，
+    按「未安装即不兼容」处理会把整张表染红。
+
     Returns:
         相容返回 ``None``；否则返回一句人话，形如
         ``需要 amrita>=1.10，当前为 1.9.0``。
@@ -374,7 +433,7 @@ def incompatible_reason(requires: Mapping[str, str]) -> str | None:
         try:
             installed = dist_version(name)
         except PackageNotFoundError:
-            return f"需要 {name}{spec}，但环境中未安装 {name}"
+            continue
         try:
             ok = Requirement(f"{name}{spec}").specifier.contains(
                 installed, prereleases=True

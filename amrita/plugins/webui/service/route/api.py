@@ -5,7 +5,6 @@ RESTful 风格：读 = GET，写 = POST。统一响应 { success, message, data 
 
 from __future__ import annotations
 
-import importlib.metadata
 import logging
 from typing import Literal
 
@@ -107,38 +106,6 @@ async def get_bot_status():
             **calculate_system_usage(),
         },
     )
-
-
-@app.get("/api/bot/plugins")
-async def list_plugins():
-    """已加载插件列表。"""
-    plugins = nonebot.get_loaded_plugins()
-    plugin_list = [
-        {
-            "name": (plugin.metadata.name if plugin.metadata else plugin.name),
-            "homepage": (plugin.metadata.homepage if plugin.metadata else None),
-            "is_local": "." in plugin.module_name,
-            "type": (
-                (plugin.metadata.type or "Unknown") if plugin.metadata else "Unknown"
-            ),
-            "description": (
-                plugin.metadata.description or "（还没有介绍呢）"
-                if plugin.metadata
-                else "（还没有介绍呢）"
-            ),
-            "version": (
-                importlib.metadata.version(plugin.module_name)
-                if "." not in plugin.module_name
-                else (
-                    "(不适用)"
-                    if "amrita.plugins." not in plugin.module_name
-                    else "Amrita内置插件"
-                )
-            ),
-        }
-        for plugin in plugins
-    ]
-    return ok("success", data={"plugins": plugin_list})
 
 
 @app.get("/api/blacklists")

@@ -23,10 +23,10 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from amrita_core import TextContent, debug_log
-from amrita_core.types import Content
+from amrita_core.types import USER_INPUT, Content
 from nonebot import logger
 from nonebot.adapters.onebot.v11 import Bot, MessageSegment
-from nonebot.adapters.onebot.v11.event import MessageEvent, Reply
+from nonebot.adapters.onebot.v11.event import GroupMessageEvent, MessageEvent, Reply
 
 from ...config import HARD_MAX_IMAGE_BYTES, config_manager
 from ...utils.context_store import PlaceholderContent, store_media
@@ -37,7 +37,11 @@ from ...utils.format import (
     format_msg_legacy,
     format_msg_xml,
 )
-from ...utils.functions import format_current_datetime, synthesize_message
+from ...utils.functions import (
+    format_current_datetime,
+    get_friend_name,
+    synthesize_message,
+)
 from ...utils.image_norm import normalize_image
 from ...utils.net_guard import (
     FetchResult,
@@ -419,3 +423,63 @@ async def synthesize_message_to_msg(
     else:
         text = event.message.extract_plain_text()
     return text
+
+
+async def build_user_input(event: MessageEvent, bot: Bot) -> USER_INPUT:
+    """把单个消息事件合成为一条用户输入（含引用展开与图片占位）。
+
+    防抖批次内每条消息各调用一次，各自的 XML/legacy 结构与时间戳都会保留。
+    """
+    is_group = isinstance(event, GroupMessageEvent)
+    content: str = await synthesize_message(event.get_message(), bot)
+    if content.strip() == "":
+        content = ""
+    if event.reply:
+        group_id = event.group_id if is_group else None
+        debug_log("处理引用消息..")
+        content = await handle_reply(event.reply, bot, group_id, content)
+
+    reply_pics = await get_reply_pics(bot, event)
+    debug_log(f"获取引用图片完成，共 {len(reply_pics)} 张")
+
+    if is_group:
+        debug_log("处理群聊消息")
+        user_name = (
+            (
+                await bot.get_group_member_info(
+                    group_id=event.group_id, user_id=event.user_id
+                )
+            )["nickname"]
+            if not config_manager.config.function.use_user_nickname
+            else event.sender.nickname
+        )
+    else:
+        debug_log("处理私聊消息")
+        user_name = await get_friend_name(event.user_id, bot=bot)
+    role = await get_user_role(bot, event.group_id, event.user_id) if is_group else ""
+    result: USER_INPUT = await synthesize_message_to_msg(
+        event, role, str(user_name), str(event.user_id), content, bot
+    )
+    if isinstance(result, list):
+        result.extend(reply_pics)
+    return result
+
+
+def merge_user_inputs(parts: Sequence[USER_INPUT]) -> USER_INPUT:
+    """把同一防抖批次的用户输入合并成一条。
+
+    纯文本批次直接换行拼接；含富内容时摊平成 Content 列表，每条消息结构与时间戳原样保留。
+    """
+    if len(parts) == 1:
+        return parts[0]
+    texts = [part for part in parts if isinstance(part, str)]
+    if len(texts) == len(parts):
+        return "\n".join(text for text in texts if text)
+    merged: list[Content] = []
+    for part in parts:
+        if isinstance(part, str):
+            if part:
+                merged.append(TextContent(text=part))
+        elif part is not None:
+            merged.extend(part)
+    return merged

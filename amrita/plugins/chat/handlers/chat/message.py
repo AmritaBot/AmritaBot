@@ -483,3 +483,17 @@ def merge_user_inputs(parts: Sequence[USER_INPUT]) -> USER_INPUT:
         elif part is not None:
             merged.extend(part)
     return merged
+
+
+async def build_user_input_safe(event: MessageEvent, bot: Bot) -> USER_INPUT:
+    """:func:`build_user_input` 的容错版。
+
+    防抖批次里单条消息合成失败时只记日志并返回 None，不牵连同批其它消息。
+    """
+    try:
+        return await build_user_input(event, bot)
+    except Exception as e:
+        logger.opt(exception=e, colors=True, raw=True).warning(
+            "消息合成失败，已跳过该条"
+        )
+        return None

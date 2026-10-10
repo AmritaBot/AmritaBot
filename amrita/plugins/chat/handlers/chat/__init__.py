@@ -45,13 +45,13 @@ from amrita.plugins.chat.utils.context_store import (
     expand_media_in_content,
     expand_media_in_messages,
 )
+from amrita.plugins.chat.utils.debounce import collect_batch
 from amrita.plugins.chat.utils.lock import get_group_lock, get_private_lock
 from amrita.plugins.chat.utils.preset import is_multimodal_enabled, resolve_preset
 from amrita.plugins.chat.utils.sql import get_uni_user_id
 
-from .debounce import collect_batch
 from .lock import get_pending_mode_strategy
-from .message import build_user_input, merge_user_inputs
+from .message import build_user_input_safe, merge_user_inputs
 from .recovery import RecoveryResult, try_panic_recover
 from .strategy import build_workflow, select_agent_strategy
 from .streaming import StreamSession
@@ -87,7 +87,13 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     debounce_window: float = config.function.chat_debounce_window
     events: list[MessageEvent] = [event]
     if debounce_window > 0:
-        batch = await collect_batch(event, matcher, debounce_window)
+        batch = await collect_batch(
+            event,
+            matcher,
+            debounce_window,
+            max_messages=config.function.chat_debounce_max_messages,
+            max_wait=config.function.chat_debounce_max_wait,
+        )
         if batch is None:
             return
         events = batch
@@ -96,16 +102,24 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     is_group: bool = isinstance(event, GroupMessageEvent)
 
     #  扩展点：接消息前的观察/否决钩子（ChatEntryEvent.cancel() 可终止本次对话）
-    entry_event = ChatEntryEvent(
-        event=event,
-        matcher=matcher,
-        bot=bot,
-        session_id=session_id,
-        is_group=is_group,
-    )
-    await MatcherFactory.trigger_event(entry_event)
-    if entry_event.cancelled:
+    #  防抖批次内每条消息各自派发一次，被否决的单独剔除，不牵连同批其它消息
+    approved: list[MessageEvent] = []
+    for ev in events:
+        entry_event = ChatEntryEvent(
+            event=ev,
+            matcher=matcher,
+            bot=bot,
+            session_id=session_id,
+            is_group=is_group,
+        )
+        await MatcherFactory.trigger_event(entry_event)
+        if entry_event.cancelled:
+            debug_log("ChatEntryEvent 否决本条消息，已跳过")
+            continue
+        approved.append(ev)
+    if not approved:
         return
+    events = approved
 
     memory: MemorySchema = await cudr.get_memory(
         get_uni_user_id(event),
@@ -128,14 +142,18 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         matcher=matcher,
         bot=bot,
         config=config,
+        events=events,
     ).manage()
     # manage() 内部可能调用 matcher.finish() 抛出 FinishedException
 
     #  阶段 2：合成消息（防抖批次内每条消息各自成段，再合并为一条用户输入）
-    final_content: USER_INPUT = merge_user_inputs(
-        [await build_user_input(ev, bot) for ev in events]
-    )
-    debug_log(f"合成消息完成，共 {len(events)} 条")
+    #  单条合成失败不应拖垮整批，失败的返回 None 并被过滤掉
+    built = [await build_user_input_safe(ev, bot) for ev in events]
+    parts = [part for part in built if part is not None]
+    if not parts:
+        return
+    final_content: USER_INPUT = merge_user_inputs(parts)
+    debug_log(f"合成消息完成，共 {len(parts)}/{len(events)} 条")
 
     #  多模态能力同时受预设与 AmritaCore 全局开关约束，只按其中一个判断会错配
     multimodal = await is_multimodal_enabled()
@@ -213,6 +231,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         get_group_lock(event.group_id) if is_group else get_private_lock(event.user_id)
     )
 
+    #  TODO(review #326): interactive 模式下 handle_locked 只转发批首文本，批次内其余消息会丢
     # 按 chat_pending_mode 处理锁占用场景（single / single_with_report / interactive / queue），返回 True 表示已停止本次流程
     if await get_pending_mode_strategy(config.function.chat_pending_mode).handle_locked(
         lock=lock,

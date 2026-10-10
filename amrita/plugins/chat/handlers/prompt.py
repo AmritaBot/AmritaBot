@@ -10,7 +10,14 @@ from nonebot_plugin_amrita import CachedUserDataRepository
 from amrita.plugins.chat.utils.data_access import update_memory
 from amrita.plugins.chat.utils.sql import get_uni_user_id
 
+from ..check_rule import is_bot_admin
 from ..config import config_manager
+
+
+async def _require_bot_admin(event: MessageEvent, matcher: Matcher) -> None:
+    """模板切换会写入全局配置，仅超级管理员可用"""
+    if not await is_bot_admin(event):
+        await matcher.finish("仅超级管理员可切换提示词模板。")
 
 
 async def _show_extra(event: MessageEvent, matcher: Matcher) -> None:
@@ -115,11 +122,13 @@ async def prompt(
             tpl_type = arg_list[1]
             if tpl_type in ("group", "群组", "g"):
                 if len(arg_list) >= 3:
+                    await _require_bot_admin(event, matcher)
                     await _template_set(matcher, "group", arg_list[2])
                 else:
                     await _template_list(matcher, "group")
             elif tpl_type in ("private", "私聊", "p"):
                 if len(arg_list) >= 3:
+                    await _require_bot_admin(event, matcher)
                     await _template_set(matcher, "private", arg_list[2])
                 else:
                     await _template_list(matcher, "private")

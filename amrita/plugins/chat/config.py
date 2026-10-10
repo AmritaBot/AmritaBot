@@ -150,6 +150,17 @@ class FunctionConfig(BaseModel):
         + "single_with_report: 忽略这条消息并提示用户正在等待。；\n"
         + "interactive: 将消息通过反向流推送给正在运行的ChatObject（Step边界消费）",
     )
+    chat_debounce_window: float = Field(
+        default=0.0,
+        description="消息防抖窗口（秒）：窗口内同一会话同一用户的多条消息（含随后补的图片）会合并为一次请求的用户输入；<=0 时关闭。",
+    )
+    chat_debounce_max_messages: int = Field(
+        default=20, description="消息防抖单批最大条数，超过即收口；<=0 表示不限制。"
+    )
+    chat_debounce_max_wait: float = Field(
+        default=5.0,
+        description="消息防抖单批最长存活时长（秒），超过即收口；<=0 表示不限制。",
+    )
     synthesize_forward_message: bool = Field(
         default=True, description="是否解析合并转发消息"
     )

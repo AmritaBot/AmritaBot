@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -107,6 +108,7 @@ class SessionManager:
         matcher: Matcher,
         bot: Bot,
         config: Config,
+        events: Sequence[MessageEvent] | None = None,
     ):
         self._event = event
         self._data = data
@@ -115,6 +117,8 @@ class SessionManager:
         self._bot = bot
         self._config = config
         self._session_id = get_uni_user_id(event)
+        #  防抖批次：不传时退化为单条消息
+        self._events = list(events) if events else [event]
         self._repo = CachedUserDataRepository()
 
     async def manage(self) -> None:
@@ -143,6 +147,19 @@ class SessionManager:
         session_id = self._session_id
         debug_log("开始管理会话上下文..")
 
+        events = self._events
+        #  批内可能把"继续"夹在中间：取第一条继续指令，而不是只看批首
+        continue_event = next(
+            (
+                ev
+                for ev in events
+                if _is_continue_command(ev.message.extract_plain_text())
+            ),
+            None,
+        )
+        #  批内多于一条时不能用 finish()，否则同批其余消息会被一起丢掉
+        multi = len(events) > 1
+
         is_group = isinstance(event, GroupMessageEvent)
         session_clear_map = (
             chat_manager.session_clear_group
@@ -156,7 +173,7 @@ class SessionManager:
             pending = session_clear_map.get(session_id)
             if pending is not None:
                 debug_log(f"找到会话清除记录: {session_id}")
-                if not _is_continue_command(event.message.extract_plain_text()):
+                if continue_event is None:
                     debug_log("消息中不包含'继续'，清除会话记录")
                     del session_clear_map[session_id]
                     return
@@ -193,12 +210,11 @@ class SessionManager:
                         message_id=chated["message_id"],
                         timestamp=datetime.now(),
                     )
-                    await matcher.finish()
+                    if not multi:
+                        await matcher.finish()
 
             pending: SessionTemp | None = session_clear_map.get(session_id)
-            if pending is not None and _is_continue_command(
-                event.message.extract_plain_text()
-            ):
+            if pending is not None and continue_event is not None:
                 debug_log("检测到'继续'消息，恢复上下文..")
 
                 with contextlib.suppress(Exception):
@@ -219,6 +235,10 @@ class SessionManager:
 
                 self._memory.memory_json = data
                 await update_memory(self._memory)
+                if multi:
+                    #  批内还有其它消息：提示后继续走后续阶段，把它们一起作为输入
+                    await matcher.send("让我们继续聊天吧～")
+                    return
                 await matcher.finish("让我们继续聊天吧～")
 
         finally:

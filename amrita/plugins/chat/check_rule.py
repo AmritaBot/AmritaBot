@@ -21,6 +21,7 @@ from amrita.plugins.perm.API.admin import is_lp_admin
 from .config import config_manager
 from .utils.context_store import append_context_record
 from .utils.data_access import get_group_config, get_memory, update_memory
+from .utils.debounce import has_active_batch
 from .utils.format import format_msg_xml
 from .utils.functions import format_current_datetime, synthesize_message
 
@@ -109,6 +110,10 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
         message = event.get_message()
         message_text = message.extract_plain_text().strip()
         if not isinstance(event, GroupMessageEvent):
+            return True
+
+        #  已处于防抖批次中：后续消息（含未命中关键词的图片）放行，由 entry 并入当前批次
+        if has_active_batch(event):
             return True
 
         # 判断是否以关键字触发回复

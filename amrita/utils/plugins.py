@@ -5,7 +5,7 @@ from pathlib import Path
 import nonebot
 import tomli
 
-from .plugin_discovery import AMRITA_LOCAL_DIR
+from .plugin_discovery import AMRITA_LOCAL_DIR, iter_dir_plugins
 from .pyproject_io import PyprojectNotFoundError, find_pyproject
 
 LOADED_PLUGIN_DIRS: tuple[str, ...] = (AMRITA_LOCAL_DIR,)
@@ -58,6 +58,19 @@ def _require_plugin(module_name: str) -> None:
         record_load_failure(module_name, e)
 
 
+def _record_local_load_failures() -> None:
+    """把没能加载起来的目录插件登记进失败名单。
+
+    ``nonebot.load_plugins`` 对失败的插件只打日志、不抛错，于是「没加载」
+    在 WebUI 里会被当成「重启后启用」。这里按目录清点一遍，把缺口记成失败。
+    """
+    loaded = {plugin.module_name for plugin in nonebot.get_loaded_plugins()}
+    for sub in LOADED_PLUGIN_DIRS:
+        for name in iter_dir_plugins(sub):
+            if name not in loaded:
+                record_load_failure(name, "启动时未能加载，详见启动日志")
+
+
 def load_plugins():
     if "." not in sys.path:
         sys.path.insert(0, ".")
@@ -95,3 +108,4 @@ def load_plugins():
         _require_plugin(plugin)
     nonebot.logger.info("Require local plugins......")
     nonebot.load_plugins(*LOADED_PLUGIN_DIRS)
+    _record_local_load_failures()

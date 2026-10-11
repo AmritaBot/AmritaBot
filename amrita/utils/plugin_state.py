@@ -186,6 +186,8 @@ class PluginSnapshot:
         # 目录插件不写进 pyproject，放在目录里就是启用，
         # 不能按「配置里没有」判成待移除
         if self.is_local_dir(module_name):
+            if module_name in self.failures:
+                return PluginState.LOAD_FAILED
             return PluginState.RUNNING if loaded else PluginState.PENDING_ENABLE
         if loaded:
             # 被别的插件间接依赖的，重启后仍会被父插件拉起，不算「重启后移除」

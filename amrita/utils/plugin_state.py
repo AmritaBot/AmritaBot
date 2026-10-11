@@ -6,6 +6,9 @@
 - **L** Loaded —— 本次启动实际加载成功的（``nonebot.get_loaded_plugins()``）
 - **P** Present —— 环境里确实装着的（:mod:`amrita.utils.plugin_discovery` 的静态嗅探）
 
+目录插件（``plugins/``、``src/plugins/``）不经 ``pyproject.toml``，由目录扫描加载，
+存在即启用：它们只参与 P 与 L 的判定。
+
 只看 C 和 L 分不出「包还没装」和「装了但没启用」；只看 P 又不知道有没有生效。
 三者一起才能把「重启后启用」和「加载失败」也分开。
 
@@ -159,6 +162,11 @@ class PluginSnapshot:
             failures=get_load_failures(),
         )
 
+    def is_local_dir(self, module_name: str) -> bool:
+        """该模块是否来自 ``plugins/`` 或 ``src/plugins/`` 的目录扫描。"""
+        found = self.present.get(module_name)
+        return found is not None and found.kind == "local"
+
     def state_of(self, module_name: str) -> PluginState:
         """判定单个模块的状态。"""
         if is_builtin(module_name):
@@ -171,6 +179,10 @@ class PluginSnapshot:
             if module_name in self.failures:
                 return PluginState.LOAD_FAILED
             return PluginState.PENDING_ENABLE
+        # 目录插件不写进 pyproject，放在目录里就是启用，
+        # 不能按「配置里没有」判成待移除
+        if self.is_local_dir(module_name):
+            return PluginState.RUNNING if loaded else PluginState.PENDING_ENABLE
         if loaded:
             # 被别的插件间接依赖的，重启后仍会被父插件拉起，不算「重启后移除」
             if is_indirect_dependency(module_name):

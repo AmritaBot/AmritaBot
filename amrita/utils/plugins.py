@@ -5,7 +5,15 @@ from pathlib import Path
 import nonebot
 import tomli
 
+from .plugin_discovery import AMRITA_LOCAL_DIR
 from .pyproject_io import PyprojectNotFoundError, find_pyproject
+
+LOADED_PLUGIN_DIRS: tuple[str, ...] = (AMRITA_LOCAL_DIR,)
+"""``load_plugins()`` 会扫描的本地插件目录。
+
+``src/plugins/`` 只被 :mod:`amrita.utils.plugin_discovery` 嗅探，不参与加载，
+因此不能按「放进目录即启用」处理。
+"""
 
 # 模块名 -> 失败原因。由 load_plugins() 填充，供 WebUI 呈现「加载失败」状态。
 _LOAD_FAILURES: dict[str, str] = {}
@@ -86,4 +94,4 @@ def load_plugins():
         nonebot.logger.debug(f"Loading Amrita plugin {plugin}...")
         _require_plugin(plugin)
     nonebot.logger.info("Require local plugins......")
-    nonebot.load_plugins("plugins")
+    nonebot.load_plugins(*LOADED_PLUGIN_DIRS)

@@ -6,6 +6,9 @@
 - **L** Loaded —— 本次启动实际加载成功的（``nonebot.get_loaded_plugins()``）
 - **P** Present —— 环境里确实装着的（:mod:`amrita.utils.plugin_discovery` 的静态嗅探）
 
+``plugins/`` 下的目录插件不经 ``pyproject.toml``，由目录扫描加载，存在即启用，
+只参与 P 与 L 的判定；``src/plugins/`` 只被嗅探，不参与加载。
+
 只看 C 和 L 分不出「包还没装」和「装了但没启用」；只看 P 又不知道有没有生效。
 三者一起才能把「重启后启用」和「加载失败」也分开。
 
@@ -39,9 +42,10 @@ from .plugin_discovery import (
     discover_plugins,
     is_builtin,
     is_indirect_dependency,
+    local_plugin_dirs,
     protect_reason,
 )
-from .plugins import get_load_failures
+from .plugins import LOADED_PLUGIN_DIRS, get_load_failures
 from .pyproject_io import read_plugin_list
 
 __all__ = [
@@ -61,10 +65,10 @@ class PluginState(str, Enum):
     """插件的六种状态。"""
 
     RUNNING = "running"
-    """已配置且已加载，或是不受配置控制的内置插件。"""
+    """已配置且已加载，或是不受配置控制的内置插件、目录插件。"""
 
     PENDING_ENABLE = "pending_enable"
-    """已配置但本次未加载，重启后应当生效。"""
+    """已配置（或已放进本地插件目录）但本次未加载，重启后应当生效。"""
 
     PENDING_REMOVE = "pending_remove"
     """本次已加载但配置里没有，重启后应当消失。"""
@@ -159,6 +163,14 @@ class PluginSnapshot:
             failures=get_load_failures(),
         )
 
+    def is_local_dir(self, module_name: str) -> bool:
+        """该模块是否来自加载器会扫描的本地插件目录。
+
+        只认 :data:`~amrita.utils.plugins.LOADED_PLUGIN_DIRS`：``src/plugins/``
+        下的插件即便放在那里也不会被加载，不能承诺「重启后启用」。
+        """
+        return local_plugin_dirs().get(module_name) in LOADED_PLUGIN_DIRS
+
     def state_of(self, module_name: str) -> PluginState:
         """判定单个模块的状态。"""
         if is_builtin(module_name):
@@ -171,6 +183,12 @@ class PluginSnapshot:
             if module_name in self.failures:
                 return PluginState.LOAD_FAILED
             return PluginState.PENDING_ENABLE
+        # 目录插件不写进 pyproject，放在目录里就是启用，
+        # 不能按「配置里没有」判成待移除
+        if self.is_local_dir(module_name):
+            if module_name in self.failures:
+                return PluginState.LOAD_FAILED
+            return PluginState.RUNNING if loaded else PluginState.PENDING_ENABLE
         if loaded:
             # 被别的插件间接依赖的，重启后仍会被父插件拉起，不算「重启后移除」
             if is_indirect_dependency(module_name):

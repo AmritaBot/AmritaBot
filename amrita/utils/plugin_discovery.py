@@ -30,7 +30,9 @@ from .pyproject_io import find_pyproject
 
 __all__ = [
     "AMRITA_DIST_PREFIX",
+    "AMRITA_LOCAL_DIR",
     "NONEBOT_DIST_PREFIX",
+    "NONEBOT_LOCAL_DIR",
     "DiscoveredPlugin",
     "PluginKind",
     "builtin_plugins_dir",
@@ -40,6 +42,7 @@ __all__ = [
     "is_indirect_dependency",
     "iter_dir_plugins",
     "iter_dist_plugins",
+    "local_plugin_dirs",
     "module_distributions",
     "normalize_dist_name",
     "protect_reason",
@@ -52,6 +55,12 @@ PluginKind = Literal["builtin", "amrita_pkg", "nonebot_pkg", "local"]
 
 AMRITA_DIST_PREFIX = "amrita_plugin_"
 NONEBOT_DIST_PREFIX = "nonebot_plugin_"
+
+AMRITA_LOCAL_DIR = "plugins"
+"""本地 Amrita 插件目录（相对项目根）；``load_plugins()`` 会扫描它。"""
+
+NONEBOT_LOCAL_DIR = "src/plugins"
+"""本地 NoneBot 插件目录（相对项目根）；目前只被嗅探，不参与加载。"""
 
 _BUILTIN_NAMESPACE = "amrita.plugins."
 
@@ -165,11 +174,19 @@ def _dist_module_map() -> dict[str, str]:
     return mapping
 
 
+def _project_root(root: Path | str | None = None) -> Path:
+    """项目根：显式传入优先，否则由 ``pyproject.toml`` 位置推断，再退回当前目录。"""
+    if root is not None:
+        return Path(root).resolve()
+    pyproject = find_pyproject()
+    return pyproject.parent if pyproject is not None else Path.cwd().resolve()
+
+
 def discover_plugins(
     *,
     root: Path | str | None = None,
-    amrita_dir: str = "plugins",
-    nonebot_dir: str = "src/plugins",
+    amrita_dir: str = AMRITA_LOCAL_DIR,
+    nonebot_dir: str = NONEBOT_LOCAL_DIR,
 ) -> list[DiscoveredPlugin]:
     """汇总四类来源的插件。
 
@@ -186,11 +203,7 @@ def discover_plugins(
        本地目录插件的 ``module_name`` 只能取目录名——它们由
        ``nonebot.load_plugins`` 按目录导入，不经 ``pyproject.toml`` 寻址。
     """
-    if root is not None:
-        base = Path(root).resolve()
-    else:
-        pyproject = find_pyproject()
-        base = pyproject.parent if pyproject is not None else Path.cwd().resolve()
+    base = _project_root(root)
 
     dist_map = _dist_module_map()
     plugins: list[DiscoveredPlugin] = []
@@ -227,6 +240,7 @@ def discover_plugins(
     return plugins
 
 
+_LOCAL_DIR_CACHE: dict[str, str] | None = None
 _REVERSE_CACHE: dict[str, frozenset[str]] | None = None
 _MODULE_DIST_CACHE: dict[str, str] | None = None
 _RUNTIME_REQUIRED_CACHE: frozenset[str] | None = None
@@ -305,12 +319,31 @@ def module_distributions(*, refresh: bool = False) -> dict[str, str]:
     return _MODULE_DIST_CACHE
 
 
+def local_plugin_dirs(*, refresh: bool = False) -> dict[str, str]:
+    """``模块名`` → 本地插件目录（相对项目根）。
+
+    只扫目录，不做发行包嗅探，供 :func:`protect_reason` 这类逐条调用的
+    场景使用。同名目录同时存在时以 ``plugins/`` 为准。
+    """
+    global _LOCAL_DIR_CACHE
+    if _LOCAL_DIR_CACHE is None or refresh:
+        base = _project_root()
+        found: dict[str, str] = {}
+        for sub in (NONEBOT_LOCAL_DIR, AMRITA_LOCAL_DIR):
+            for name in iter_dir_plugins(base / sub):
+                found[name] = sub
+        _LOCAL_DIR_CACHE = found
+    return _LOCAL_DIR_CACHE
+
+
 def invalidate_reverse_dependencies() -> None:
-    """丢弃依赖相关的缓存。安装、卸载或 ``uv sync`` 之后调用。"""
+    """丢弃依赖与目录扫描的缓存。安装、卸载或 ``uv sync`` 之后调用。"""
     global _REVERSE_CACHE, _MODULE_DIST_CACHE, _RUNTIME_REQUIRED_CACHE
+    global _LOCAL_DIR_CACHE
     _REVERSE_CACHE = None
     _MODULE_DIST_CACHE = None
     _RUNTIME_REQUIRED_CACHE = None
+    _LOCAL_DIR_CACHE = None
 
 
 def dependents(module_name: str) -> tuple[str, ...]:
@@ -391,16 +424,19 @@ def protect_reason(module_name: str) -> str | None:
     """该插件是否受保护（不可禁用 / 卸载）；返回原因，``None`` 表示可操作。
 
     与 :func:`is_indirect_dependency` 的豁免是两件事：豁免决定状态怎么显示，
-    保护决定能不能操作。判据有三条：
+    保护决定能不能操作。判据有四条：
 
     1. 内置插件——加载器强制载入，本就不受配置控制
     2. 被内置插件源码 ``require`` 的——禁用会让启动直接失败
     3. 被宿主项目**以外**的发行包声明为依赖的
+    4. 本地目录插件——启用与否由目录本身决定，改配置不起作用
     """
     if is_builtin(module_name):
         return "内置插件不可禁用"
     if module_name in runtime_required_modules():
         return "被 Amrita 内置插件 require，禁用会导致启动失败"
+    if (sub := local_plugin_dirs().get(module_name)) is not None:
+        return f"本地目录插件由 {sub}/ 决定启用，禁用请移除该目录"
     host = host_distribution()
     others = [name for name in dependents(module_name) if name != host]
     if others:

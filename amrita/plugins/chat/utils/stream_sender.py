@@ -186,7 +186,7 @@ class ChatStreamSender:
             case "system":
                 if metadata.get("extra_type") == "tool_call_limit":
                     await self._matcher.send(
-                        "⚠️ 已超出工具调用限制，请调整你的prompt以继续。"
+                        "⚠️ 已达工具调用上限，接下来会基于已获取的信息作答。"
                     )
                 else:
                     await self._matcher.send(message.content)

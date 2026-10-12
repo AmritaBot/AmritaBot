@@ -4,11 +4,12 @@ import hashlib
 import json
 import logging
 from ast import literal_eval
-from typing import Any, Literal, get_args, get_origin
+from types import UnionType
+from typing import Any, Literal, Union, get_args, get_origin
 
 from fastapi import Request
 from nonebot_plugin_uniconf import UniConfigManager
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from amrita.plugins.webui.service.response import fail, ok
 
@@ -131,8 +132,43 @@ def try_parse_value(value_str: Any) -> Any:
         return value_str
 
 
-def unflatten_config_fields(flat_dict: dict, sep: str = ".") -> dict:
-    """格式契约：展平的配置还原为嵌套 dict，如 {'a.b': 1} -> {'a': {'b': 1}}。"""
+def is_string_field(annotation: Any) -> bool:
+    """字段声明的就是纯字符串（含 Literal[str] / str | None）。
+
+    这类字段不能走字面量解析：否则 "1234567890" 这种内容会被改写成 int，
+    再被 pydantic 以「Input should be a valid string」拒绝。
+    """
+    if annotation is str:
+        return True
+    origin = get_origin(annotation)
+    if origin is Literal:
+        args = get_args(annotation)
+        return bool(args) and all(isinstance(arg, str) for arg in args)
+    if origin in (Union, UnionType):
+        inner = [arg for arg in get_args(annotation) if arg is not type(None)]
+        return len(inner) == 1 and is_string_field(inner[0])
+    return False
+
+
+def format_validation_errors(exc: ValidationError) -> list[dict[str, Any]]:
+    """把 pydantic 校验错误压成前端可直接展示的 {field, message} 列表。"""
+    return [
+        {
+            "field": ".".join(str(part) for part in err.get("loc", ())),
+            "message": str(err.get("msg", "")),
+        }
+        for err in exc.errors()
+    ]
+
+
+def unflatten_config_fields(
+    flat_dict: dict, config_class: type[BaseModel] | None = None, sep: str = "."
+) -> dict:
+    """格式契约：展平的配置还原为嵌套 dict，如 {'a.b': 1} -> {'a': {'b': 1}}。
+
+    值沿用请求体里的 JSON 类型；仅当字段声明不是字符串、而客户端却发了字符串时
+    （例如 dict 字段被前端序列化成 "{}"），才尝试解析回字面量。
+    """
     result = {}
     for key, value in flat_dict.items():
         keys = key.split(sep)
@@ -142,10 +178,11 @@ def unflatten_config_fields(flat_dict: dict, sep: str = ".") -> dict:
                 d[k] = {}
             d = d[k]
 
-        if isinstance(value, str):
-            parsed_value = try_parse_value(value)
-        else:
-            parsed_value = value
+        parsed_value = value
+        if isinstance(value, str) and config_class is not None:
+            _, _, field_type = get_field_info(config_class, key, sep)
+            if field_type is not None and not is_string_field(field_type):
+                parsed_value = try_parse_value(value)
 
         d[keys[-1]] = parsed_value
     return result
@@ -208,13 +245,18 @@ async def get_plugin_config(owner_name: str):
 @app.post("/api/confedit/{owner_name}")
 async def save_plugin_config(owner_name: str, request: Request):
     try:
+        config_manager = UniConfigManager()
+
+        # 先确认配置类已注册：否则下面的 get_config 会抛 KeyError，被兜成 500
+        if not config_manager.has_config_class(owner_name):
+            return fail(404, f"插件 {owner_name} 未注册配置类")
+        config_class = config_manager.get_config_class_by_name(owner_name)
+        assert config_class is not None
+
         request_data = await request.json()
         new_config_data = request_data.get("config", {})
         provided_hash = request_data.get("hash", "")
 
-        nested_config_data = unflatten_config_fields(new_config_data)
-
-        config_manager = UniConfigManager()
         if config_manager.has_config_instance(owner_name):
             current_config_instance = config_manager.get_config_instance_not_none(
                 owner_name
@@ -236,11 +278,7 @@ async def save_plugin_config(owner_name: str, request: Request):
                 data={"current_hash": current_hash},
             )
 
-        if not config_manager.has_config_class(owner_name):
-            return fail(404, f"插件 {owner_name} 未注册配置类")
-
-        config_class = config_manager.get_config_class_by_name(owner_name)
-        assert config_class is not None
+        nested_config_data = unflatten_config_fields(new_config_data, config_class)
 
         # 增量保存：只覆盖提交的字段，未提交的保留当前值
         merged_config = deep_merge(current_config_data, nested_config_data)
@@ -252,6 +290,14 @@ async def save_plugin_config(owner_name: str, request: Request):
         merged_flat = flatten_config_fields(merged_config)
         new_hash = calculate_config_hash(merged_flat)
         return ok("配置保存成功", data={"hash": new_hash})
+    except ValidationError as e:
+        # 字段级校验失败是可预期输入错误，不该混进 500
+        logger.warning(f"Invalid config for {owner_name}: {e}")
+        return fail(
+            400,
+            "配置字段校验失败",
+            data={"errors": format_validation_errors(e)},
+        )
     except Exception:
         logger.exception("Failed to save plugin config")
         return fail(500, "保存配置失败")

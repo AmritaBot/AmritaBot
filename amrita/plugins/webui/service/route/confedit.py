@@ -161,6 +161,46 @@ def format_validation_errors(exc: ValidationError) -> list[dict[str, Any]]:
     ]
 
 
+def is_freeform_field(annotation: Any) -> bool:
+    """Any（含 Any | None）：取值自由格式，不做字面量解析。"""
+    if annotation is Any:
+        return True
+    origin = get_origin(annotation)
+    if origin in (Union, UnionType):
+        inner = [arg for arg in get_args(annotation) if arg is not type(None)]
+        return len(inner) == 1 and is_freeform_field(inner[0])
+    return False
+
+
+def resolve_leaf_annotation(
+    model: type[BaseModel], field_path: str, sep: str = "."
+) -> Any:
+    """沿路径解析到叶子字段的类型。
+
+    中途撞上非模型注解（例如 ``extra: dict[str, Any]`` 下面的 ``extra.foo``）
+    时返回 None —— 表示取值位于自由格式容器里，调用方不该做字面量解析。
+    """
+    parts = field_path.split(sep)
+    current: Any = model
+    for i, part in enumerate(parts):
+        if not (isinstance(current, type) and hasattr(current, "model_fields")):
+            return None
+        field = current.model_fields.get(part)
+        if field is None:
+            return None
+        if i == len(parts) - 1:
+            return field.annotation
+        inner = field.annotation
+        origin = get_origin(inner)
+        if origin in (Union, UnionType):
+            candidates = [arg for arg in get_args(inner) if arg is not type(None)]
+            inner = candidates[0] if len(candidates) == 1 else None
+        if not (isinstance(inner, type) and issubclass(inner, BaseModel)):
+            return None
+        current = inner
+    return None
+
+
 def unflatten_config_fields(
     flat_dict: dict, config_class: type[BaseModel] | None = None, sep: str = "."
 ) -> dict:
@@ -180,8 +220,13 @@ def unflatten_config_fields(
 
         parsed_value = value
         if isinstance(value, str) and config_class is not None:
-            _, _, field_type = get_field_info(config_class, key, sep)
-            if field_type is not None and not is_string_field(field_type):
+            field_type = resolve_leaf_annotation(config_class, key, sep)
+            # 路径没走到真实字段（落在自由格式容器里）时保持提交时的字符串
+            if (
+                field_type is not None
+                and not is_string_field(field_type)
+                and not is_freeform_field(field_type)
+            ):
                 parsed_value = try_parse_value(value)
 
         d[keys[-1]] = parsed_value
@@ -283,21 +328,22 @@ async def save_plugin_config(owner_name: str, request: Request):
         # 增量保存：只覆盖提交的字段，未提交的保留当前值
         merged_config = deep_merge(current_config_data, nested_config_data)
 
-        new_config_instance = config_class.model_validate(merged_config)
+        try:
+            new_config_instance = config_class.model_validate(merged_config)
+        except ValidationError as e:
+            # 只有「提交数据」的校验失败才算输入错误；读盘失败仍归 500
+            logger.warning(f"Invalid config for {owner_name}: {e}")
+            return fail(
+                400,
+                "配置字段校验失败",
+                data={"errors": format_validation_errors(e)},
+            )
         await config_manager.loads_config(new_config_instance, owner_name)
         await config_manager.save_config(owner_name)
 
         merged_flat = flatten_config_fields(merged_config)
         new_hash = calculate_config_hash(merged_flat)
         return ok("配置保存成功", data={"hash": new_hash})
-    except ValidationError as e:
-        # 字段级校验失败是可预期输入错误，不该混进 500
-        logger.warning(f"Invalid config for {owner_name}: {e}")
-        return fail(
-            400,
-            "配置字段校验失败",
-            data={"errors": format_validation_errors(e)},
-        )
     except Exception:
         logger.exception("Failed to save plugin config")
         return fail(500, "保存配置失败")

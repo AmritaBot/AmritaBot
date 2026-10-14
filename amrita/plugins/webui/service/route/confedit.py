@@ -4,11 +4,12 @@ import hashlib
 import json
 import logging
 from ast import literal_eval
-from typing import Any, Literal, get_args, get_origin
+from types import UnionType
+from typing import Any, Literal, Union, get_args, get_origin
 
 from fastapi import Request
 from nonebot_plugin_uniconf import UniConfigManager
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from amrita.plugins.webui.service.response import fail, ok
 
@@ -131,8 +132,83 @@ def try_parse_value(value_str: Any) -> Any:
         return value_str
 
 
-def unflatten_config_fields(flat_dict: dict, sep: str = ".") -> dict:
-    """格式契约：展平的配置还原为嵌套 dict，如 {'a.b': 1} -> {'a': {'b': 1}}。"""
+def is_string_field(annotation: Any) -> bool:
+    """字段声明的就是纯字符串（含 Literal[str] / str | None）。
+
+    这类字段不能走字面量解析：否则 "1234567890" 这种内容会被改写成 int，
+    再被 pydantic 以「Input should be a valid string」拒绝。
+    """
+    if annotation is str:
+        return True
+    origin = get_origin(annotation)
+    if origin is Literal:
+        args = get_args(annotation)
+        return bool(args) and all(isinstance(arg, str) for arg in args)
+    if origin in (Union, UnionType):
+        inner = [arg for arg in get_args(annotation) if arg is not type(None)]
+        return len(inner) == 1 and is_string_field(inner[0])
+    return False
+
+
+def format_validation_errors(exc: ValidationError) -> list[dict[str, Any]]:
+    """把 pydantic 校验错误压成前端可直接展示的 {field, message} 列表。"""
+    return [
+        {
+            "field": ".".join(str(part) for part in err.get("loc", ())),
+            "message": str(err.get("msg", "")),
+        }
+        for err in exc.errors()
+    ]
+
+
+def is_freeform_field(annotation: Any) -> bool:
+    """Any（含 Any | None）：取值自由格式，不做字面量解析。"""
+    if annotation is Any:
+        return True
+    origin = get_origin(annotation)
+    if origin in (Union, UnionType):
+        inner = [arg for arg in get_args(annotation) if arg is not type(None)]
+        return len(inner) == 1 and is_freeform_field(inner[0])
+    return False
+
+
+def resolve_leaf_annotation(
+    model: type[BaseModel], field_path: str, sep: str = "."
+) -> Any:
+    """沿路径解析到叶子字段的类型。
+
+    中途撞上非模型注解（例如 ``extra: dict[str, Any]`` 下面的 ``extra.foo``）
+    时返回 None —— 表示取值位于自由格式容器里，调用方不该做字面量解析。
+    """
+    parts = field_path.split(sep)
+    current: Any = model
+    for i, part in enumerate(parts):
+        if not (isinstance(current, type) and hasattr(current, "model_fields")):
+            return None
+        field = current.model_fields.get(part)
+        if field is None:
+            return None
+        if i == len(parts) - 1:
+            return field.annotation
+        inner = field.annotation
+        origin = get_origin(inner)
+        if origin in (Union, UnionType):
+            candidates = [arg for arg in get_args(inner) if arg is not type(None)]
+            inner = candidates[0] if len(candidates) == 1 else None
+        if not (isinstance(inner, type) and issubclass(inner, BaseModel)):
+            return None
+        current = inner
+    return None
+
+
+def unflatten_config_fields(
+    flat_dict: dict, config_class: type[BaseModel] | None = None, sep: str = "."
+) -> dict:
+    """格式契约：展平的配置还原为嵌套 dict，如 {'a.b': 1} -> {'a': {'b': 1}}。
+
+    值沿用请求体里的 JSON 类型；仅当字段声明不是字符串、而客户端却发了字符串时
+    （例如 dict 字段被前端序列化成 "{}"），才尝试解析回字面量。
+    """
     result = {}
     for key, value in flat_dict.items():
         keys = key.split(sep)
@@ -142,10 +218,16 @@ def unflatten_config_fields(flat_dict: dict, sep: str = ".") -> dict:
                 d[k] = {}
             d = d[k]
 
-        if isinstance(value, str):
-            parsed_value = try_parse_value(value)
-        else:
-            parsed_value = value
+        parsed_value = value
+        if isinstance(value, str) and config_class is not None:
+            field_type = resolve_leaf_annotation(config_class, key, sep)
+            # 路径没走到真实字段（落在自由格式容器里）时保持提交时的字符串
+            if (
+                field_type is not None
+                and not is_string_field(field_type)
+                and not is_freeform_field(field_type)
+            ):
+                parsed_value = try_parse_value(value)
 
         d[keys[-1]] = parsed_value
     return result
@@ -208,13 +290,18 @@ async def get_plugin_config(owner_name: str):
 @app.post("/api/confedit/{owner_name}")
 async def save_plugin_config(owner_name: str, request: Request):
     try:
+        config_manager = UniConfigManager()
+
+        # 先确认配置类已注册：否则下面的 get_config 会抛 KeyError，被兜成 500
+        if not config_manager.has_config_class(owner_name):
+            return fail(404, f"插件 {owner_name} 未注册配置类")
+        config_class = config_manager.get_config_class_by_name(owner_name)
+        assert config_class is not None
+
         request_data = await request.json()
         new_config_data = request_data.get("config", {})
         provided_hash = request_data.get("hash", "")
 
-        nested_config_data = unflatten_config_fields(new_config_data)
-
-        config_manager = UniConfigManager()
         if config_manager.has_config_instance(owner_name):
             current_config_instance = config_manager.get_config_instance_not_none(
                 owner_name
@@ -236,16 +323,21 @@ async def save_plugin_config(owner_name: str, request: Request):
                 data={"current_hash": current_hash},
             )
 
-        if not config_manager.has_config_class(owner_name):
-            return fail(404, f"插件 {owner_name} 未注册配置类")
-
-        config_class = config_manager.get_config_class_by_name(owner_name)
-        assert config_class is not None
+        nested_config_data = unflatten_config_fields(new_config_data, config_class)
 
         # 增量保存：只覆盖提交的字段，未提交的保留当前值
         merged_config = deep_merge(current_config_data, nested_config_data)
 
-        new_config_instance = config_class.model_validate(merged_config)
+        try:
+            new_config_instance = config_class.model_validate(merged_config)
+        except ValidationError as e:
+            # 只有「提交数据」的校验失败才算输入错误；读盘失败仍归 500
+            logger.warning(f"Invalid config for {owner_name}: {e}")
+            return fail(
+                400,
+                "配置字段校验失败",
+                data={"errors": format_validation_errors(e)},
+            )
         await config_manager.loads_config(new_config_instance, owner_name)
         await config_manager.save_config(owner_name)
 

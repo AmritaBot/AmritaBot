@@ -459,6 +459,7 @@ export function ModelsPage() {
       api.post(`/api/chat/models/${encodeURIComponent(name)}/delete`),
     onSuccess: (res) => {
       toast.success(res.message);
+      setDeleting(null);
       void qc.invalidateQueries({ queryKey: ["chat-models"] });
     },
     onError: (e: Error) => toast.error(e.message),

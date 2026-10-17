@@ -762,6 +762,8 @@ async def get_skills():
                     "config": {
                         "enable": config.enable,
                         "selected": config.selected,
+                        "echo_skill_directory": config.echo_skill_directory,
+                        "allow_script_execution": config.allow_script_execution,
                     },
                 },
             },
@@ -780,9 +782,20 @@ async def update_skills(request: Request):
     """技能启停配置保存（全量覆盖 enable/selected）。"""
     try:
         data: dict[str, Any] = await request.json()
+        current = config_manager.ins_config.skills
         skills_cfg = SkillConfig(
-            enable=bool(data.get("enable", True)),
-            selected=[str(x) for x in data.get("selected", [])],
+            enable=bool(data.get("enable", current.enable)),
+            selected=(
+                [str(x) for x in data["selected"]]
+                if "selected" in data
+                else current.selected
+            ),
+            echo_skill_directory=bool(
+                data.get("echo_skill_directory", current.echo_skill_directory)
+            ),
+            allow_script_execution=bool(
+                data.get("allow_script_execution", current.allow_script_execution)
+            ),
         )
         config_manager.ins_config.skills = skills_cfg
         await config_manager.save_config()

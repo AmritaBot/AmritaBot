@@ -15,7 +15,10 @@
 - 启停过滤：``[skills]`` 配置（enable/selected）决定哪些技能被注册
   进工具池、写入 system prompt 使用指引；
 - 加载校验：``validate_skills`` 在插件启动时尽力解析/加载全部技能并返回
-  状态列表（单个技能失败仅记录日志，不阻断启动），供 WebUI 展示。
+  状态列表（单个技能失败仅记录日志，不阻断启动），供 WebUI 展示；
+- 执行策略：``[skills]`` 的 ``echo_skill_directory`` 控制是否回显技能目录
+  （远程沙箱场景可关闭），``allow_script_execution`` 关闭时跳过 L3 脚本
+  工具注入，技能仅返回 SKILL.md 文本。
 """
 
 from __future__ import annotations
@@ -51,6 +54,12 @@ _ARGUMENTS_PARAM = "arguments"
 
 # SkillContext 异步初始化互斥锁：discover/重载均在工作线程执行，锁防并发重复创建
 _skill_init_lock = asyncio.Lock()
+
+# faskill 在正文前注入的目录前缀行（echo_skill_directory 关闭时剥除）
+_BASE_DIR_PREFIX = "Base directory for this skill:"
+
+# 正文与目录前缀之间的分隔（faskill 用两个换行拼接）
+_BASE_DIR_SEP = "\n\n"
 
 _skill_context: SkillContext | None = None
 
@@ -105,6 +114,18 @@ def _skill_enabled(name: str, skills_cfg: SkillConfig) -> bool:
     if skills_cfg.selected and name not in skills_cfg.selected:
         return False
     return True
+
+
+def _strip_base_directory(content: str) -> str:
+    """剥除 faskill 注入的技能目录前缀行。
+
+    远程沙箱场景下技能目录是本机路径，对模型无用且暴露环境结构，
+    关闭 ``echo_skill_directory`` 时由调用方剥掉这一段。
+    """
+    if not content.startswith(_BASE_DIR_PREFIX):
+        return content
+    _, sep, rest = content.partition(_BASE_DIR_SEP)
+    return rest if sep else content
 
 
 def _build_arguments_schema(name: str, description: str) -> ToolFunctionSchema:
@@ -171,6 +192,14 @@ def _make_skill_handler(
 
         # 执行技能（同步 API 放工作线程，避免阻塞事件循环）
         result = await asyncio.to_thread(ctx.invoke_skill, skill_name, str(arguments))
+
+        skills_cfg = config_manager.ins_config.skills
+        if not skills_cfg.echo_skill_directory:
+            result = _strip_base_directory(result)
+
+        # 远程沙箱等场景可禁止脚本执行：不注入脚本工具，技能只作为文本说明
+        if not skills_cfg.allow_script_execution:
+            return result
 
         # 渐进披露 L3：技能被调用后，其脚本工具注入同一会话工具池
         try:

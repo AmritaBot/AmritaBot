@@ -102,6 +102,18 @@ class SkillConfig(BaseModel):
         default=[],
         description=("启用的技能名称列表（空列表=全部启用；非空则仅列表内的技能启用）"),
     )
+    echo_skill_directory: bool = Field(
+        default=True,
+        description=(
+            "是否在技能返回内容中回显技能目录（远程沙箱场景可关闭，避免暴露本地路径）"
+        ),
+    )
+    allow_script_execution: bool = Field(
+        default=True,
+        description=(
+            "是否允许执行技能脚本（关闭后仅返回 SKILL.md 文本，脚本工具不会注入工具池）"
+        ),
+    )
 
 
 class SessionConfig(BaseModel):

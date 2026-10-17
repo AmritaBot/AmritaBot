@@ -111,7 +111,8 @@ class SkillConfig(BaseModel):
     allow_script_execution: bool = Field(
         default=True,
         description=(
-            "是否允许执行技能脚本（关闭后仅返回 SKILL.md 文本，脚本工具不会注入工具池）"
+            "是否允许执行技能脚本（关闭后不再注入脚本工具，技能只返回正文；"
+            "与 echo_skill_directory 相互独立）"
         ),
     )
 

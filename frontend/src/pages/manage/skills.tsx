@@ -39,23 +39,21 @@ export function SkillsPage() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: (cfg: SkillConfig) => api.post("/api/chat/skills", cfg),
+    mutationFn: (cfg: Partial<SkillConfig>) =>
+      api.post("/api/chat/skills", cfg),
     onSuccess: (res) => {
       toast.success(res.message);
       void qc.invalidateQueries({ queryKey: ["chat-skills"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      toast.error(e.message);
+      // 保存失败时以服务端为准，避免开关停留在未落盘的状态
+      void qc.invalidateQueries({ queryKey: ["chat-skills"] });
+    },
   });
 
-  /** 保存：以当前 UI 状态为底，patch 覆盖后整体提交 */
-  const save = (patch: Partial<SkillConfig>) =>
-    saveMutation.mutate({
-      enable,
-      selected: data?.data.config.selected ?? [],
-      echo_skill_directory: echoDir,
-      allow_script_execution: allowScripts,
-      ...patch,
-    });
+  /** 保存：只提交变更字段，其余由后端沿用当前配置（避免并发与未加载时覆盖） */
+  const save = (patch: Partial<SkillConfig>) => saveMutation.mutate(patch);
 
   /** 行内启停切换：维护 selected 列表（空=全部启用；非空=仅列表内启用） */
   const toggleSkill = (skill: SkillInfo) => {
@@ -205,7 +203,7 @@ export function SkillsPage() {
                 setEchoDir(checked);
                 save({ echo_skill_directory: checked });
               }}
-              disabled={saveMutation.isPending}
+              disabled={saveMutation.isPending || !data}
               aria-label="回显技能目录"
             />
           </div>
@@ -213,7 +211,7 @@ export function SkillsPage() {
             <div>
               <div className="text-sm font-medium">允许执行技能脚本</div>
               <p className="text-xs text-muted-foreground">
-                关闭后技能只返回 SKILL.md 文本，脚本工具不会注入工具池。
+                关闭后不再注入脚本工具，技能只返回正文；与目录回显相互独立。
               </p>
             </div>
             <Switch
@@ -222,7 +220,7 @@ export function SkillsPage() {
                 setAllowScripts(checked);
                 save({ allow_script_execution: checked });
               }}
-              disabled={saveMutation.isPending}
+              disabled={saveMutation.isPending || !data}
               aria-label="允许执行技能脚本"
             />
           </div>

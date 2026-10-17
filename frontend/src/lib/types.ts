@@ -296,7 +296,7 @@ export interface SkillConfig {
   selected: string[];
   /** 是否在技能返回内容中回显技能目录（远程沙箱场景可关闭） */
   echo_skill_directory: boolean;
-  /** 是否允许执行技能脚本（关闭后仅返回 SKILL.md 文本） */
+  /** 是否允许执行技能脚本（关闭后不再注入脚本工具；与目录回显相互独立） */
   allow_script_execution: boolean;
 }
 export interface SkillsData {

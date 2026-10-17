@@ -128,6 +128,24 @@ def _strip_base_directory(content: str) -> str:
     return rest if sep else content
 
 
+def _revoke_script_tools(
+    tools: MultiToolsManager, ctx: SkillContext, skill_name: str
+) -> None:
+    """移除已注入的脚本工具（``技能名__脚本名``）。
+
+    工具池按请求重建，正常场景下关闭开关后下一轮自然没有脚本工具；
+    这里额外覆盖同一请求内重复调用技能的情况。
+    """
+    try:
+        skill = ctx.load_skill(skill_name)
+    except Exception:
+        return
+    for script in skill.scripts or []:
+        name = f"{skill_name}__{script.name}"
+        if tools.has_tool(name):
+            tools.remove_tool(name)
+
+
 def _build_arguments_schema(name: str, description: str) -> ToolFunctionSchema:
     """构建单参数（arguments 字符串）技能工具 schema（与 faskill 一致）。"""
     return ToolFunctionSchema(
@@ -199,6 +217,7 @@ def _make_skill_handler(
 
         # 远程沙箱等场景可禁止脚本执行：不注入脚本工具，技能只作为文本说明
         if not skills_cfg.allow_script_execution:
+            _revoke_script_tools(tools, ctx, skill_name)
             return result
 
         # 渐进披露 L3：技能被调用后，其脚本工具注入同一会话工具池

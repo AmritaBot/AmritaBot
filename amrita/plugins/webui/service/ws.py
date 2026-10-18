@@ -376,9 +376,7 @@ async def _system_channel_snapshot() -> dict:
     return {"channel": "system", "data": _system_payload()}
 
 
-# 内置频道：bot/system 是事件驱动频道，订阅时立即推当前状态；
-# 新订阅者若只等广播，首次广播时往往还没上线，会永远拿不到当前值。
-# logs 走 tail 回放（无快照）。
+# 内置频道：bot/system 订阅时立即推当前状态，否则新订阅者要等下一次广播；logs 走 tail 回放
 hub.register_channel("system", _system_channel_snapshot)
 hub.register_channel("bot", _bot_channel_snapshot)
 hub.register_channel("logs")

@@ -162,8 +162,7 @@ def takeover_amrita_sense_logger(target: Logger, target_id: int) -> None:
     """
     from amrita_sense import logging as amlog
 
-    #  _core 是 loguru Logger 的核心参数，替换它即可让所有持有者共享同一套
-    #  sink；这是唯一能覆盖「导入时绑定」的方式，私有属性属必要取舍。
+    #  _core 是 loguru Logger 的核心参数，替换它才能让所有持有者共享同一套 sink
     cast("_LoggerInternals", amlog.logger)._core = cast(
         "_LoggerInternals", target
     )._core

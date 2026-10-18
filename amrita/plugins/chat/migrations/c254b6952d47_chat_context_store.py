@@ -14,8 +14,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.mysql import LONGBLOB
 
-#  MySQL / MariaDB 下 LargeBinary 会渲染成上限 64KB 的 BLOB，
-#  与 max_image_kb（默认 2MB）冲突，这里与 models.ContextMedia 保持一致。
+#  MySQL/MariaDB 下 LargeBinary 渲染成 64KB BLOB，与 max_image_kb 冲突，此处与 ContextMedia 一致
 _MEDIA_BINARY_TYPE = sa.LargeBinary().with_variant(LONGBLOB(), "mysql")
 
 revision: str = "c254b6952d47"

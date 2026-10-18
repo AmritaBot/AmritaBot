@@ -46,8 +46,7 @@ __all__ = [
 ]
 
 NONEBOT_REGISTRY_URL = "https://registry.nonebot.dev/plugins.json"
-#: 官方插件清单由文档站提供，不随包分发——它是「哪些插件是官方的」，不是代码，
-#: 改动节奏与 bot 发版无关。
+#: 官方插件清单由文档站提供，不随包分发——它描述「哪些插件是官方的」，与发版节奏无关。
 OFFICIAL_PLUGINS_URL = "https://bot.amritabot.com/official-plugins.json"
 #: 官方清单的 PyPI 元数据缓存文件名，跟 amctl CLI 的 versions_cache.json 分开
 OFFICIAL_CACHE_NAME = "plugins_cache.json"

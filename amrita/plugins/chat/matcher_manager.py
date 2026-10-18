@@ -69,7 +69,6 @@ class MatcherSpec:
 
 
 MATCHERS: list[MatcherSpec] = [
-    # ---- 通知事件 ----
     MatcherSpec(
         kind="notice",
         handler=add_notices,
@@ -88,7 +87,6 @@ MATCHERS: list[MatcherSpec] = [
         priority=5,
         block=False,
     ),
-    # ---- 消息事件：处理聊天消息 ----
     MatcherSpec(
         kind="message",
         handler=chat,
@@ -96,7 +94,6 @@ MATCHERS: list[MatcherSpec] = [
         priority=11,
         rule=Rule(should_respond_with_usage_check, is_bot_enabled),
     ),
-    # ---- 模型域 ----
     MatcherSpec(
         command="model",
         aliases={"模型", "切换模型", "模型管理"},
@@ -117,7 +114,6 @@ MATCHERS: list[MatcherSpec] = [
             ],
         ).model_dump(),
     ),
-    # ---- 提示词域 ----
     MatcherSpec(
         command="prompt",
         priority=10,
@@ -135,7 +131,6 @@ MATCHERS: list[MatcherSpec] = [
             ],
         ).model_dump(),
     ),
-    # ---- 会话域 ----
     MatcherSpec(
         command="session",
         aliases={"会话", "会话管理"},
@@ -160,7 +155,6 @@ MATCHERS: list[MatcherSpec] = [
             ],
         ).model_dump(),
     ),
-    # ---- 聊天开关域 ----
     MatcherSpec(
         command="chat",
         aliases={"聊天开关", "chat_switch"},
@@ -180,7 +174,6 @@ MATCHERS: list[MatcherSpec] = [
             ],
         ).model_dump(),
     ),
-    # ---- 调试 ----
     MatcherSpec(
         command="debug",
         priority=10,
@@ -198,7 +191,6 @@ MATCHERS: list[MatcherSpec] = [
             ],
         ).model_dump(),
     ),
-    # ---- 用量统计 ----
     MatcherSpec(
         command="insights",
         aliases={"今日用量"},
@@ -216,7 +208,6 @@ MATCHERS: list[MatcherSpec] = [
             ],
         ).model_dump(),
     ),
-    # ---- MCP 管理 ----
     MatcherSpec(
         command="mcp",
         aliases={"MCP管理"},
@@ -235,7 +226,6 @@ MATCHERS: list[MatcherSpec] = [
             ],
         ).model_dump(),
     ),
-    # ---- 会话进程管理 ----
     MatcherSpec(
         command="chatobj",
         aliases={"chat_obj"},

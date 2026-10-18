@@ -344,7 +344,7 @@ dev = [
 
 [[package]]
 name = "amrita-core"
-version = "1.2.0"
+version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -355,15 +355,15 @@ dependencies = [
     { name = "filetype" },
     { name = "httpx" },
     { name = "jinja2" },
-    { name = "mcp" },
+    { name = "mcp-types" },
     { name = "openai" },
     { name = "pydantic" },
     { name = "pytz" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3d/8f/ce3eead2ee516a3594a9b0b633cd745bd6c72a009970fb6a9e974026ef34/amrita_core-1.2.0.tar.gz", hash = "sha256:95ab0181500e1e62bb34c7992e83cc9c6d9bdbe97bf99f518f09d1da42b6de23", size = 200484, upload-time = "2026-10-02T16:11:41.433Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/35/cc/39f76f96d617c4c0e3d5ce7204a148d09a04546827d8310295f7b3b11e2d/amrita_core-1.3.0.tar.gz", hash = "sha256:daa48c7af750511312dfd2d8040b5e3d2ce55f025c45504e4b8ce4a13c46081e", size = 211849, upload-time = "2026-10-11T00:52:11.958Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/98/37/fa0a2742bb18e5b408d073ed6d36899564ff8688a0aa6d35554bfca7ffb2/amrita_core-1.2.0-py3-none-any.whl", hash = "sha256:7659e5773cb78fe2e3a991d1fd007730b86b4b18ae9d1ffc3a8511a3983aa044", size = 159684, upload-time = "2026-10-02T16:11:40.303Z" },
+    { url = "https://files.pythonhosted.org/packages/43/8c/ef2b5e45a0079c39fc92ac1f2150b48be413cea465d55c32a04b2117e2ad/amrita_core-1.3.0-py3-none-any.whl", hash = "sha256:617fdd618fcfce4d75cfc91ac0bf88f8565b474b6920f901a2ee77636f8d7898", size = 168133, upload-time = "2026-10-11T00:52:10.533Z" },
 ]
 
 [[package]]

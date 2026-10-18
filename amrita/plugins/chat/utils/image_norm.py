@@ -46,8 +46,7 @@ _FORMAT_MIMES: Final[dict[str, str]] = {
     "AVIF": "image/avif",
 }
 
-#  解码后允许的最大像素数（约 32MP；6000×4000 的单反照片约 24MP），拦住解压炸弹。
-#  纯色 PNG 可以用几十 KB 声明上亿像素，不设这道闸就是一次内存放大攻击。
+#  解码后最大像素数（约 32MP；6000×4000 约 24MP），拦解压炸弹：纯色 PNG 可声明上亿像素
 _MAX_PIXELS: Final[int] = 32_000_000
 #  可按比例降采样解码的格式：JPEG 能直接跳到 1/2、1/4、1/8 尺度，省掉大部分解码开销
 _DRAFTABLE_FORMATS: Final[frozenset[str]] = frozenset({"JPEG", "MPO"})

@@ -159,8 +159,7 @@ async def _session_archive(event: MessageEvent, matcher: Matcher) -> None:
         await matcher.finish("当前对话为空！")
     #  归档副本同样不能带图片内容：先折叠再深拷贝
     fold_media_in_messages(memory_data.memory_json.messages)
-    #  副本要连 abstract 与 usage 一起带走，它才是这份历史的完整快照，
-    #  否则 /session use 恢复回来时摘要与占用都丢了
+    #  副本要连 abstract 与 usage 一起带走，否则 /session use 恢复时摘要与占用都丢了
     new_session = AwaredMemory()
     restore_history(new_session, memory_data.memory_json)
     try:
@@ -271,13 +270,7 @@ async def _session_info(event: MessageEvent, matcher: Matcher) -> None:
     lines.append(f"  压缩线 {threshold:,}（触发比例 {ratio:.0%}）")
     if window > 0 and used >= threshold:
         lines.append("  ⚠️ 已超过压缩线，下次请求前将自动压缩上下文")
-    #  消息数只在空闲时展示。运行中 ``memory.messages`` 仅在 ``_pre_runner``
-    #  同步过一次，agent 的工具调用与结果要到 ``APPLY_CONTEXT``（藏在
-    #  ``LLM_COMPLETION`` 里）才写回，此刻给不出准确值；展示一个偏小且缺
-    #  工具消息的数字会误导，故运行中略过该行。
-    #  判据用 ``chat is None`` 而非 ``live_memory is None``：对象已注册但尚未
-    #  走到 ``LOAD_STATE`` 时活记忆读不到（回落到缓存），会话却已经在跑，
-    #  按活记忆判断会把这种情况当成空闲。
+    #  消息数只在空闲时展示：运行中 ``memory.messages`` 缺工具消息，数字偏小会误导
     if chat is None:
         roles = Counter(getattr(msg, "role", "?") for msg in data.messages)
         detail = " ".join(f"{role}:{count}" for role, count in roles.items())

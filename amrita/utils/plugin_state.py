@@ -183,8 +183,7 @@ class PluginSnapshot:
             if module_name in self.failures:
                 return PluginState.LOAD_FAILED
             return PluginState.PENDING_ENABLE
-        # 目录插件不写进 pyproject，放在目录里就是启用，
-        # 不能按「配置里没有」判成待移除
+        # 目录插件不写进 pyproject，放在目录里就是启用，不能按「配置里没有」判成待移除
         if self.is_local_dir(module_name):
             if module_name in self.failures:
                 return PluginState.LOAD_FAILED

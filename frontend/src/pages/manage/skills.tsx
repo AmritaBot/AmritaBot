@@ -13,6 +13,8 @@ import { Switch } from "@/components/ui/switch";
 export function SkillsPage() {
   const qc = useQueryClient();
   const [enable, setEnable] = useState(true);
+  const [echoDir, setEchoDir] = useState(true);
+  const [allowScripts, setAllowScripts] = useState(true);
 
   const { data, isLoading } = useQuery({
     queryKey: ["chat-skills"],
@@ -22,6 +24,8 @@ export function SkillsPage() {
   useEffect(() => {
     if (data?.data) {
       setEnable(data.data.config.enable);
+      setEchoDir(data.data.config.echo_skill_directory);
+      setAllowScripts(data.data.config.allow_script_execution);
     }
   }, [data]);
 
@@ -35,15 +39,21 @@ export function SkillsPage() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: (cfg: SkillConfig) => api.post("/api/chat/skills", cfg),
+    mutationFn: (cfg: Partial<SkillConfig>) =>
+      api.post("/api/chat/skills", cfg),
     onSuccess: (res) => {
       toast.success(res.message);
       void qc.invalidateQueries({ queryKey: ["chat-skills"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      toast.error(e.message);
+      // 保存失败时以服务端为准，避免开关停留在未落盘的状态
+      void qc.invalidateQueries({ queryKey: ["chat-skills"] });
+    },
   });
 
-  const save = (cfg: SkillConfig) => saveMutation.mutate(cfg);
+  /** 保存：只提交变更字段，其余由后端沿用当前配置（避免并发与未加载时覆盖） */
+  const save = (patch: Partial<SkillConfig>) => saveMutation.mutate(patch);
 
   /** 行内启停切换：维护 selected 列表（空=全部启用；非空=仅列表内启用） */
   const toggleSkill = (skill: SkillInfo) => {
@@ -171,6 +181,51 @@ export function SkillsPage() {
           </Button>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">执行策略</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            影响技能被调用时的返回内容与脚本工具注入。
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-center justify-between gap-6">
+            <div>
+              <div className="text-sm font-medium">回显技能目录</div>
+              <p className="text-xs text-muted-foreground">
+                返回内容开头附带技能所在目录；远程沙箱场景建议关闭。
+              </p>
+            </div>
+            <Switch
+              checked={echoDir}
+              onCheckedChange={(checked) => {
+                setEchoDir(checked);
+                save({ echo_skill_directory: checked });
+              }}
+              disabled={saveMutation.isPending || !data}
+              aria-label="回显技能目录"
+            />
+          </div>
+          <div className="flex items-center justify-between gap-6">
+            <div>
+              <div className="text-sm font-medium">允许执行技能脚本</div>
+              <p className="text-xs text-muted-foreground">
+                关闭后不再注入脚本工具，技能只返回正文；与目录回显相互独立。
+              </p>
+            </div>
+            <Switch
+              checked={allowScripts}
+              onCheckedChange={(checked) => {
+                setAllowScripts(checked);
+                save({ allow_script_execution: checked });
+              }}
+              disabled={saveMutation.isPending || !data}
+              aria-label="允许执行技能脚本"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

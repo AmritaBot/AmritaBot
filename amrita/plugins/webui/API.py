@@ -160,8 +160,7 @@ def register_ws_channel(name: str, snapshot: SnapshotProvider | None = None) -> 
         snapshot: 可选，订阅瞬间调用一次以推送当前状态（同步或异步均可），
             返回 ``None`` 表示本次无快照
     """
-    # 延迟导入：service.ws 在 import 期会安装日志捕获 sink，
-    # 不能因为「只想注册一个路由」就把它提前拉起
+    # 延迟导入：service.ws 在 import 期会安装日志捕获 sink，不能只为注册路由就提前拉起
     from .service.ws import hub
 
     hub.register_channel(name, snapshot)

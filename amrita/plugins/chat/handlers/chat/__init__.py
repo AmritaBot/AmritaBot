@@ -101,8 +101,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     #  阶段 1：加载 memory 与会话管理
     is_group: bool = isinstance(event, GroupMessageEvent)
 
-    #  扩展点：接消息前的观察/否决钩子（ChatEntryEvent.cancel() 可终止本次对话）
-    #  防抖批次内每条消息各自派发一次，被否决的单独剔除，不牵连同批其它消息
+    #  扩展点：接消息前的观察/否决钩子（cancel() 终止本次对话），批次内每条各自派发，被否决的单独剔除
     approved: list[MessageEvent] = []
     for ev in events:
         entry_event = ChatEntryEvent(
@@ -146,8 +145,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     ).manage()
     # manage() 内部可能调用 matcher.finish() 抛出 FinishedException
 
-    #  阶段 2：合成消息（防抖批次内每条消息各自成段，再合并为一条用户输入）
-    #  单条合成失败不应拖垮整批，失败的返回 None 并被过滤掉
+    #  阶段 2：合成消息（每条各自成段再合并为用户输入），单条失败返回 None 并被过滤
     built = [await build_user_input_safe(ev, bot) for ev in events]
     parts = [part for part in built if part is not None]
     if not parts:
@@ -158,8 +156,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     #  多模态能力同时受预设与 AmritaCore 全局开关约束，只按其中一个判断会错配
     multimodal = await is_multimodal_enabled()
 
-    #  展开只在这里做一次且只作用于**副本**：共享缓存全程只有占位符，中断也不会留下图片内容
-    #  本轮输入先展开：图片配额有限，用户刚发的图必须优先于历史图片
+    #  展开只做一次且只作用于副本（共享缓存全程只有占位符）；本轮输入优先展开，图片配额先给新图
     media_budget = MediaExpandBudget(config.context.max_images_per_request)
     final_content = await expand_media_in_content(
         final_content, multimodal=multimodal, budget=media_budget
@@ -232,7 +229,6 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     )
 
     #  TODO(review #326): interactive 模式下 handle_locked 只转发批首文本，批次内其余消息会丢
-    # 按 chat_pending_mode 处理锁占用场景（single / single_with_report / interactive / queue），返回 True 表示已停止本次流程
     if await get_pending_mode_strategy(config.function.chat_pending_mode).handle_locked(
         lock=lock,
         matcher=matcher,

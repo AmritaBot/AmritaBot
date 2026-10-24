@@ -43,8 +43,10 @@ _PEM_BLOCK = re.compile(
 #  显式指定的 CA 库优先于 certifi：容器 / 企业内网用它是常规做法，OpenSSL 自己也认这个变量
 _ENV_BUNDLE = "SSL_CERT_FILE"
 
-#  过滤结果的私有目录名，建在系统临时目录下
+#  过滤结果的落盘位置：优先 nonebot_plugin_localstore 的应用缓存目录，退到系统临时目录。
+#  前者在用户 home 下、与 bot 同属主，比所有用户共享的 /tmp 干净得多；后者只是兜底。
 _CACHE_DIRNAME = "amrita-ca"
+_LOCALSTORE_PLUGIN = "amrita"
 
 #  各库在导入期就把 ``certifi.where()`` 的返回值缓存成模块级字符串，重定向函数对它们无效，
 #  必须把这些常量一并改掉，否则早于 patch 导入的 requests 仍在用未过滤的库
@@ -110,31 +112,52 @@ def _trust_sources() -> list[str]:
     return sources
 
 
-def _private_dir() -> Path | None:
-    """准备一个只有本进程可写的目录；不可用返回 ``None``。
+def _candidates() -> list[Path]:
+    """列出可以存放过滤库的目录，按优先级排列。
 
-    临时目录所有用户共享，别人可以提前把同名路径建成符号链接。这里要求目录属主是
-    自己、且不带组/其他人权限；不满足就退到 :func:`_write_bundle` 里的随机文件名。
+    ``nonebot_plugin_localstore`` 是本项目的运行期依赖，它的缓存目录在用户 home 下、
+    与 bot 同属主，天然不受其他本地用户干扰；系统临时目录只作兜底。localstore 依赖
+    nonebot 已初始化，所以这里在函数内导入并吞掉导入期异常。
     """
-    directory = Path(tempfile.gettempdir()) / _CACHE_DIRNAME
+    dirs: list[Path] = []
     try:
-        directory.mkdir(mode=0o700, exist_ok=True)
-    except FileExistsError:
-        pass
-    except OSError as err:
-        logger.warning(f"无法创建 CA 库目录 {directory}：{err}")
-        return None
-    if not directory.is_dir():
-        logger.warning(f"CA 库路径 {directory} 不是普通目录，跳过复用")
-        return None
-    try:
-        stat = directory.stat()
-    except OSError:
-        return None
-    if os.name == "posix" and (stat.st_uid != os.getuid() or stat.st_mode & 0o077):
-        logger.warning(f"CA 库目录 {directory} 的属主或权限可疑，跳过复用")
-        return None
-    return directory
+        from nonebot_plugin_localstore import get_cache_dir
+
+        dirs.append(get_cache_dir(_LOCALSTORE_PLUGIN))
+    except Exception as err:  # pragma: no cover - 依赖 nonebot 初始化时机
+        logger.debug(f"localstore 缓存目录不可用，改用临时目录：{type(err).__name__}")
+    dirs.append(Path(tempfile.gettempdir()))
+    return dirs
+
+
+def _private_dir() -> Path | None:
+    """准备一个只有本进程可写的目录；都不可用返回 ``None``。
+
+    候选目录逐个尝试：建 0700 子目录，再核对属主是自己、且不带组/其他人权限。别人
+    提前把同名路径建成符号链接或目录的情况会被这道检查挡掉，此时转下一个候选。
+    """
+    for base in _candidates():
+        directory = base / _CACHE_DIRNAME
+        try:
+            directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        except FileExistsError:
+            #  已存在但不是目录（符号链接、普通文件……），交给下面的 is_dir 判定
+            pass
+        except OSError as err:
+            logger.warning(f"无法创建 CA 库目录 {directory}：{err}")
+            continue
+        if not directory.is_dir():
+            logger.warning(f"CA 库路径 {directory} 不是普通目录，跳过")
+            continue
+        try:
+            stat = directory.stat()
+        except OSError:
+            continue
+        if os.name == "posix" and (stat.st_uid != os.getuid() or stat.st_mode & 0o077):
+            logger.warning(f"CA 库目录 {directory} 的属主或权限可疑，跳过")
+            continue
+        return directory
+    return None
 
 
 def _write_bundle(data: bytes, key: str) -> str | None:
@@ -143,8 +166,10 @@ def _write_bundle(data: bytes, key: str) -> str | None:
     先写 ``mkstemp`` 生成的临时文件再 :func:`os.replace`：``O_EXCL`` 保证不会顺着别人
     预置的符号链接写出去，原子替换保证并发启动时没有进程读到半截 PEM。
     """
-    directory = _private_dir()
-    target_dir = directory if directory is not None else Path(tempfile.gettempdir())
+    target_dir = _private_dir()
+    if target_dir is None:
+        logger.warning("没有可用的私有目录，过滤后的 CA 库不落盘，沿用原始信任锚")
+        return None
     target = target_dir / f"ca-{key}.pem"
     try:
         fd, tmp = tempfile.mkstemp(prefix="bundle-", suffix=".tmp", dir=target_dir)

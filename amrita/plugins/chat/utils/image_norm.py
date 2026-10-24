@@ -47,8 +47,10 @@ _MAGIC: Final[tuple[tuple[bytes, str], ...]] = (
     (b"BM", "BMP"),
 )
 
-#  AVIF 的 ftyp 位于偏移 4，brand 在其后；单独判定，避免与 RIFF 混淆
+#  AVIF 的 ftyp 盒位于偏移 4；单独判定，避免与 RIFF 混淆
 _FTYP_OFFSET: Final[int] = 4
+#  ftyp 盒头 4 字节长度 + 4 字节类型 + 4 字节 major brand + 4 字节 minor version
+_FTYP_HEADER: Final[int] = 16
 _AVIF_BRANDS: Final[tuple[bytes, ...]] = (b"avif", b"avis")
 
 #  Pillow 的 format 名 -> MIME（MPO 是手机的连拍 JPEG，按 jpeg 处理）
@@ -79,8 +81,11 @@ _FIT_MAX_ROUNDS: Final[int] = 4
 _FIT_SAFETY: Final[float] = 0.9
 #  缩放系数下限，避免为了达标把图缩成马赛克
 _FIT_MIN_SCALE: Final[float] = 0.25
-#  重编码前从 info 里剔除的键：来源完全不受控，留着等于把注入点带进存储
-_DROPPED_INFO_KEYS: Final[tuple[str, ...]] = ("comment", "exif", "xmp")
+#  重编码前从 info 里剔除的键：来源完全不受控，留着等于把注入点带进存储。
+#  icc_profile 尤其要清：Pillow 的 save() 会把它原样写回，等于让攻击者决定色彩解释
+_DROPPED_INFO_KEYS: Final[tuple[str, ...]] = ("comment", "exif", "xmp", "icc_profile")
+#  比对时统一转小写：同一份元数据在不同容器里的键名大小写并不一致
+_DROPPED_INFO_KEYS_LOWER: Final[frozenset[str]] = frozenset(_DROPPED_INFO_KEYS)
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,8 +125,15 @@ def _sniff_format(head: bytes) -> str | None:
                 return "WEBP" if head[8:12] == b"WEBP" else None
             return name
     if head[_FTYP_OFFSET : _FTYP_OFFSET + 4] == b"ftyp":
-        brand = head[_FTYP_OFFSET + 4 : _FTYP_OFFSET + 8]
-        if brand in _AVIF_BRANDS:
+        #  合法 AVIF 常把 ``mif1`` / ``msf1`` 放在 major brand，只在 compatible brands
+        #  里列 ``avif``；只看 major brand 会把它们误判成不支持
+        box_size = int.from_bytes(head[:4], "big")
+        end = len(head) if box_size < _FTYP_HEADER else min(len(head), box_size)
+        brands = [head[_FTYP_OFFSET + 4 : _FTYP_OFFSET + 8]]
+        brands.extend(
+            head[offset : offset + 4] for offset in range(_FTYP_HEADER, end - 3, 4)
+        )
+        if any(brand in _AVIF_BRANDS for brand in brands):
             return "AVIF"
     return None
 
@@ -150,9 +162,40 @@ def _scrub_info(img: Image.Image) -> None:
 
     Pillow 的 ``save()`` 会把 ``img.info`` 里的 comment / icc 等原样写回，而这里的
     ``info`` 全部来自不可信输入，留着等于把攻击者可控的字节送进上下文存储。
+
+    键名大小写不统一：PNG 的 tEXt 用的是 ``Comment``，JPEG 的 comment 段则是小写
+    ``comment``，所以按忽略大小写比对，别漏掉其中一种。
     """
-    for key in _DROPPED_INFO_KEYS:
-        img.info.pop(key, None)
+    for key in list(img.info):
+        if str(key).lower() in _DROPPED_INFO_KEYS_LOWER:
+            img.info.pop(key, None)
+
+
+def _carries_scrubbed_info(img: Image.Image) -> bool:
+    """源图的 ``info`` 里是否带着需要剔除的元数据键（忽略大小写）。"""
+    return any(str(key).lower() in _DROPPED_INFO_KEYS_LOWER for key in img.info)
+
+
+def _is_animated(img: Image.Image) -> bool:
+    """是否为多帧动图（这类图不能走单帧编码路径）。"""
+    return bool(getattr(img, "is_animated", False))
+
+
+def _encode_animation(img: Image.Image, fmt: str) -> bytes | None:
+    """按原容器重编码动图并保留所有帧；失败返回 ``None``。
+
+    动图不能走 :func:`_encode_bytes`（那里只输出单帧），但直接原样返回又会把 comment
+    之类带进存储。这里剥掉元数据后用原格式整段重编码，帧数不受影响。
+    """
+    buffer = io.BytesIO()
+    try:
+        _scrub_info(img)
+        img.seek(0)
+        img.save(buffer, format=fmt, save_all=True)
+    except (OSError, ValueError) as err:
+        logger.debug(f"动图重编码失败，保留原图：{type(err).__name__}: {err}")
+        return None
+    return buffer.getvalue()
 
 
 def _encode_bytes(img: Image.Image, mime: str, quality: int | None) -> bytes:
@@ -224,8 +267,9 @@ def normalize_image(
     """
     if not raw:
         return NormalizeResult(reason="图片内容为空")
-    #  魔数预筛：白名单外的字节根本不进 Pillow，别让任何解码器先摸到输入
-    sniffed = _sniff_format(raw[:16])
+    #  魔数预筛：白名单外的字节根本不进 Pillow，别让任何解码器先摸到输入。
+    #  64 字节够看到 ftyp 盒的若干个 compatible brand，超出部分本来也不参与判定
+    sniffed = _sniff_format(raw[:64])
     if sniffed is None:
         return NormalizeResult(reason="不支持的文件类型")
     try:
@@ -248,7 +292,25 @@ def normalize_image(
             img.load()
             within_bytes = max_bytes <= 0 or len(raw) <= max_bytes
             if not needs_resize and mime in _SUPPORTED_MIMES and within_bytes:
-                return NormalizeResult(raw=raw, mime=mime)
+                #  尺寸体积都合格也不一定就能原样返回：源图的 comment / exif / icc 一样
+                #  会跟着字节进存储，带着就得重编码清掉；动图重编码会丢帧，只能放过
+                if not _carries_scrubbed_info(img):
+                    return NormalizeResult(raw=raw, mime=mime)
+                if _is_animated(img):
+                    scrubbed = _encode_animation(img, fmt)
+                    if scrubbed is not None and (
+                        max_bytes <= 0 or len(scrubbed) <= max_bytes
+                    ):
+                        logger.debug(f"动图 {fmt} 带有元数据，已按原格式重编码清理")
+                        return NormalizeResult(raw=scrubbed, mime=mime)
+                    logger.debug(f"动图 {fmt} 清理后体积不可控，保留原图")
+                    return NormalizeResult(raw=raw, mime=mime)
+                logger.debug(f"图片 {fmt} 带有元数据，重编码以清理")
+                #  GIF 没有对应的编码分支，会落到 PNG，出参 MIME 必须跟着换
+                out_mime = _pick_mime(img, mime)
+                return NormalizeResult(
+                    raw=_encode_bytes(img, out_mime, None), mime=out_mime
+                )
             if needs_resize:
                 img.thumbnail(box, Image.Resampling.LANCZOS)
                 logger.debug(f"图片已等比缩放至 {img.size[0]}×{img.size[1]}")

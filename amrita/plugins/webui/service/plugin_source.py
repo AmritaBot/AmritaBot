@@ -28,6 +28,7 @@ from amctl import resolve_meta
 from packaging.requirements import InvalidRequirement, Requirement
 
 from amrita.utils.pyproject_io import PluginTarget
+from amrita.utils.tls import ssl_context
 
 logger = logging.getLogger(__name__)
 
@@ -246,7 +247,9 @@ class PluginStore:
             return []
         try:
             timeout = aiohttp.ClientTimeout(total=OFFICIAL_TIMEOUT)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with aiohttp.ClientSession(
+                timeout=timeout, connector=aiohttp.TCPConnector(ssl=ssl_context())
+            ) as session:
                 async with session.get(url) as resp:
                     if resp.status != 200:
                         self.warnings.append(
@@ -302,7 +305,9 @@ class PluginStore:
         """拉取 NoneBot 商店 registry。"""
         timeout = aiohttp.ClientTimeout(total=self.timeout)
         try:
-            async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with aiohttp.ClientSession(
+                timeout=timeout, connector=aiohttp.TCPConnector(ssl=ssl_context())
+            ) as session:
                 async with session.get(self.url) as response:
                     response.raise_for_status()
                     payload = await response.json(content_type=None)

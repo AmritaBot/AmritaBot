@@ -3,6 +3,7 @@
 消息段里的图片完全由客户端控制，可能是不被模型接受的格式（avif / heic / bmp），
 也可能是几千像素的超大图。本模块在入库前统一处理：
 
+- 先按**魔数**粗筛格式，不在白名单内的字节根本不交给 Pillow；
 - 用 Pillow **真正解码一次**：既是尺寸探测，也是内容真实性校验——文件头嗅探可以被
   伪造（在文本文件前面贴 8 个字节的 PNG 魔数即可），只有解码才能识破；
 - 输入格式走白名单，避免把 Pillow 的全部解码器暴露给不可信数据；
@@ -35,6 +36,21 @@ _ACCEPTED_FORMATS: Final[frozenset[str]] = frozenset(
     {"PNG", "JPEG", "MPO", "GIF", "WEBP", "BMP", "AVIF"}
 )
 
+#  魔数 -> 格式名。命中即视为预筛通过；一处字节都不匹配就直接拒绝，不进 Pillow。
+#  BMP 的魔数只有两个字节且偏移 0，误判代价低：真伪最终仍由 load() 判定。
+_MAGIC: Final[tuple[tuple[bytes, str], ...]] = (
+    (b"\x89PNG\r\n\x1a\n", "PNG"),
+    (b"\xff\xd8\xff", "JPEG"),
+    (b"GIF87a", "GIF"),
+    (b"GIF89a", "GIF"),
+    (b"RIFF", "WEBP"),
+    (b"BM", "BMP"),
+)
+
+#  AVIF 的 ftyp 位于偏移 4，brand 在其后；单独判定，避免与 RIFF 混淆
+_FTYP_OFFSET: Final[int] = 4
+_AVIF_BRANDS: Final[tuple[bytes, ...]] = (b"avif", b"avis")
+
 #  Pillow 的 format 名 -> MIME（MPO 是手机的连拍 JPEG，按 jpeg 处理）
 _FORMAT_MIMES: Final[dict[str, str]] = {
     "PNG": "image/png",
@@ -63,6 +79,8 @@ _FIT_MAX_ROUNDS: Final[int] = 4
 _FIT_SAFETY: Final[float] = 0.9
 #  缩放系数下限，避免为了达标把图缩成马赛克
 _FIT_MIN_SCALE: Final[float] = 0.25
+#  重编码前从 info 里剔除的键：来源完全不受控，留着等于把注入点带进存储
+_DROPPED_INFO_KEYS: Final[tuple[str, ...]] = ("comment", "exif", "xmp")
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +108,24 @@ def _resize_box(
     return box_width, box_height
 
 
+def _sniff_format(head: bytes) -> str | None:
+    """按魔数判定格式名；不认识返回 ``None``。
+
+    只做粗筛，命中不代表字节合法；真正的判定仍在 :func:`normalize_image` 里。
+    """
+    for magic, name in _MAGIC:
+        if head.startswith(magic):
+            if name == "WEBP":
+                #  RIFF 容器还有 wav/avi，必须看 form type
+                return "WEBP" if head[8:12] == b"WEBP" else None
+            return name
+    if head[_FTYP_OFFSET : _FTYP_OFFSET + 4] == b"ftyp":
+        brand = head[_FTYP_OFFSET + 4 : _FTYP_OFFSET + 8]
+        if brand in _AVIF_BRANDS:
+            return "AVIF"
+    return None
+
+
 def _has_alpha(img: Image.Image) -> bool:
     """判断图片是否带透明通道（决定转码为 PNG 还是 JPEG）。"""
     if img.mode in ("RGBA", "LA", "PA"):
@@ -109,6 +145,16 @@ def _pick_mime(img: Image.Image, source_mime: str) -> str:
     return "image/png" if _has_alpha(img) else "image/jpeg"
 
 
+def _scrub_info(img: Image.Image) -> None:
+    """清掉不应随重编码写回的元数据。
+
+    Pillow 的 ``save()`` 会把 ``img.info`` 里的 comment / icc 等原样写回，而这里的
+    ``info`` 全部来自不可信输入，留着等于把攻击者可控的字节送进上下文存储。
+    """
+    for key in _DROPPED_INFO_KEYS:
+        img.info.pop(key, None)
+
+
 def _encode_bytes(img: Image.Image, mime: str, quality: int | None) -> bytes:
     """按指定格式编码为字节；``quality`` 仅对有损格式有效。
 
@@ -116,6 +162,7 @@ def _encode_bytes(img: Image.Image, mime: str, quality: int | None) -> bytes:
     未经改动的动图会在 :func:`normalize_image` 里原样返回，不受影响。
     """
     alpha = _has_alpha(img)
+    _scrub_info(img)
     buffer = io.BytesIO()
     if mime == "image/jpeg":
         jpeg_quality = _JPEG_QUALITY if quality is None else quality
@@ -177,6 +224,10 @@ def normalize_image(
     """
     if not raw:
         return NormalizeResult(reason="图片内容为空")
+    #  魔数预筛：白名单外的字节根本不进 Pillow，别让任何解码器先摸到输入
+    sniffed = _sniff_format(raw[:16])
+    if sniffed is None:
+        return NormalizeResult(reason="不支持的文件类型")
     try:
         with Image.open(io.BytesIO(raw)) as img:
             fmt = (img.format or "").upper()
@@ -216,3 +267,7 @@ def normalize_image(
     except (UnidentifiedImageError, OSError, ValueError, MemoryError) as err:
         logger.debug(f"图片解码失败：{type(err).__name__}: {err}")
         return NormalizeResult(reason="内容不是可解析的图片")
+
+
+#  TODO(310EOF)：Python 3.10 支持结束后升 pillow>=13.0.0，届时可删掉 _sniff_format 预筛与
+#  _scrub_info 的兜底，该版本的解码器修复与元数据清理已覆盖此处拦截。

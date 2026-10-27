@@ -58,6 +58,10 @@ def init():
     from nonebot.adapters.onebot.v11 import Bot, MessageSegment
 
     from .admin import send_forward_msg_to_admin
+    from .tls import patch_certifi
+
+    #  certifi 随包带 emSign 根，出站 HTTPS 的信任锚必须在任何请求发出前收敛
+    patch_certifi()
 
     logger = nonebot.logger
 

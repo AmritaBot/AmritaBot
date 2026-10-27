@@ -46,6 +46,8 @@ import aiohttp
 from aiohttp.abc import AbstractResolver, ResolveResult
 from nonebot import logger
 
+from amrita.utils.tls import ssl_context
+
 __all__ = [
     "FetchResult",
     "UnsafeUrlError",
@@ -262,7 +264,9 @@ async def fetch_remote_bytes(
 
         #  use_dns_cache=False + 固定解析器：连接时不再查询 DNS
         connector = aiohttp.TCPConnector(
-            resolver=_PinnedResolver(host, port, addrs), use_dns_cache=False
+            resolver=_PinnedResolver(host, port, addrs),
+            use_dns_cache=False,
+            ssl=ssl_context(),
         )
         try:
             async with aiohttp.ClientSession(

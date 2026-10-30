@@ -249,7 +249,7 @@ wheels = [
 
 [[package]]
 name = "amrita"
-version = "1.13.0"
+version = "1.13.1"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
@@ -314,7 +314,7 @@ requires-dist = [
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "nb-cli", specifier = ">=1.6.0" },
     { name = "nonebot-adapter-onebot", specifier = ">=2.4.6" },
-    { name = "nonebot-plugin-amrita", specifier = ">=0.4.0" },
+    { name = "nonebot-plugin-amrita", specifier = ">=0.5.0" },
     { name = "nonebot-plugin-orm", specifier = ">=0.8.3" },
     { name = "nonebot-plugin-uniconf", specifier = ">=0.1.3" },
     { name = "nonebot2", extras = ["fastapi"], specifier = ">=2.4.3" },
@@ -1869,7 +1869,7 @@ wheels = [
 
 [[package]]
 name = "nonebot-plugin-amrita"
-version = "0.4.0"
+version = "0.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiologic" },
@@ -1878,9 +1878,9 @@ dependencies = [
     { name = "nonebot-plugin-orm" },
     { name = "nonebot2" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/17/02/d06996b096bd4c122e6e8ae1ce1d33618bc6cf2aab242d86fa3d568edef8/nonebot_plugin_amrita-0.4.0.tar.gz", hash = "sha256:8bdef9131d8b8000c1344b211111d146dcba3834c7a50522ad5cb2cf187a92cc", size = 36350, upload-time = "2026-10-02T04:38:16.117Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7e/5c/8c304c3ea8a32f59cf2de8fc476640c16473639845a4f68a5b9de3f0fdf1/nonebot_plugin_amrita-0.5.0.tar.gz", hash = "sha256:49aab70eb94cccf21073e700b7d8f0bcf4b53f0cc15621d020141ab3a865841d", size = 38333, upload-time = "2026-10-30T02:40:15.075Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/28/9a/8058b16b785a84b53767bde9352adb81d9c73ca298f6ac4e0e5aef3241f0/nonebot_plugin_amrita-0.4.0-py3-none-any.whl", hash = "sha256:89b578e1a83226f196ede3efbab04073d3cee29d22deb23b40a1e8fd4b765a88", size = 33834, upload-time = "2026-10-02T04:38:15.03Z" },
+    { url = "https://files.pythonhosted.org/packages/b5/5e/9058cc353b3bfb168051729644f23ce965cc4b288e235698b8e9e453e78a/nonebot_plugin_amrita-0.5.0-py3-none-any.whl", hash = "sha256:9b8f8c1117e159037c94c95cbb69581f7cdddc78256984bc2ab0b43a9da1e21c", size = 36690, upload-time = "2026-10-30T02:40:13.624Z" },
 ]
 
 [[package]]

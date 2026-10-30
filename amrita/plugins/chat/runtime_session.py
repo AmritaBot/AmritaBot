@@ -36,6 +36,7 @@ from amrita.plugins.chat.utils.data_access import (
     restore_history,
     update_memory,
 )
+from amrita.plugins.chat.utils.session_tag import spawn_tag_backfill
 from amrita.plugins.chat.utils.sql import (
     get_uni_user_id,
 )
@@ -184,13 +185,24 @@ class SessionManager:
                 debug_log("会话超时，开始创建新会话..")
                 async with get_session() as db_session:
                     async with UserDataExecutor(uni_id, db_session) as executor:
-                        await executor.add_session(data)
+                        archived_id, archived_at = await executor.add_session(data)
 
                     await MemorySessions._expire(
                         db_session, uni_id, cfg.session_control_history
                     )
                     await db_session.commit()
+                #  快照要在 clear_history 之前取：后台标签任务读的是这份副本
+                archived = MemoryModel()
+                restore_history(archived, data)
                 clear_history(data)
+                #  标签生成不阻塞超时归档：模型调用几秒起步，用户不该等它
+                spawn_tag_backfill(
+                    CachedUserDataRepository(),
+                    uni_id,
+                    archived_id,
+                    archived_at,
+                    archived,
+                )
                 timestamp = data.time
                 data.time = time_now
                 CachedUserDataRepository._cached_memory.pop(uni_id, None)

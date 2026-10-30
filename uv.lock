@@ -314,7 +314,7 @@ requires-dist = [
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "nb-cli", specifier = ">=1.6.0" },
     { name = "nonebot-adapter-onebot", specifier = ">=2.4.6" },
-    { name = "nonebot-plugin-amrita", git = "https://github.com/AmritaBot/nonebot_plugin_amrita?rev=11463b0d98cb7882dbd673f1c8eea4989b74ace2" },
+    { name = "nonebot-plugin-amrita", specifier = ">=0.5.0" },
     { name = "nonebot-plugin-orm", specifier = ">=0.8.3" },
     { name = "nonebot-plugin-uniconf", specifier = ">=0.1.3" },
     { name = "nonebot2", extras = ["fastapi"], specifier = ">=2.4.3" },
@@ -1870,13 +1870,17 @@ wheels = [
 [[package]]
 name = "nonebot-plugin-amrita"
 version = "0.5.0"
-source = { git = "https://github.com/AmritaBot/nonebot_plugin_amrita?rev=11463b0d98cb7882dbd673f1c8eea4989b74ace2#11463b0d98cb7882dbd673f1c8eea4989b74ace2" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiologic" },
     { name = "amrita-core" },
     { name = "nonebot-plugin-localstore" },
     { name = "nonebot-plugin-orm" },
     { name = "nonebot2" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7e/5c/8c304c3ea8a32f59cf2de8fc476640c16473639845a4f68a5b9de3f0fdf1/nonebot_plugin_amrita-0.5.0.tar.gz", hash = "sha256:49aab70eb94cccf21073e700b7d8f0bcf4b53f0cc15621d020141ab3a865841d", size = 38333, upload-time = "2026-10-30T02:40:15.075Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b5/5e/9058cc353b3bfb168051729644f23ce965cc4b288e235698b8e9e453e78a/nonebot_plugin_amrita-0.5.0-py3-none-any.whl", hash = "sha256:9b8f8c1117e159037c94c95cbb69581f7cdddc78256984bc2ab0b43a9da1e21c", size = 36690, upload-time = "2026-10-30T02:40:13.624Z" },
 ]
 
 [[package]]

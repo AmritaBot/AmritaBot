@@ -13,7 +13,7 @@ from amrita_core.types.preset import resolve_max_context, resolve_max_output
 from amrita_core.usage import SessionUsageProxy
 from amrita_sense.hook.matcher import MatcherFactory
 from nonebot import logger
-from nonebot.adapters.onebot.v11 import Bot, Message, MessageEvent
+from nonebot.adapters.onebot.v11 import Bot, Message, MessageEvent, MessageSegment
 from nonebot.matcher import Matcher
 from nonebot.params import CommandArg
 from nonebot_plugin_amrita.database import UserDataExecutor
@@ -34,7 +34,7 @@ from ..utils.data_access import (
 )
 from ..utils.preset import resolve_preset
 from ..utils.session_guard import active_chat_object, is_session_busy, session_lock
-from ..utils.session_tag import spawn_tag_backfill
+from ..utils.session_tag import TAG_MAX_LEN, spawn_tag_backfill
 from ..utils.sql import get_uni_user_id
 
 if TYPE_CHECKING:
@@ -84,13 +84,13 @@ async def _session_list(event: MessageEvent, matcher: Matcher) -> None:
     sessions = await repo.get_sesssions(get_uni_user_id(event))
     if not sessions:
         await matcher.finish("没有历史会话")
-    msg = "历史会话\n"
+    msg = Message("历史会话\n")
     for index, s in enumerate(sessions):
         if s.data.messages:
-            #  标签优先：模型生成的短摘要比 abstract 截断更贴近主题
             label = (s.tag or s.data.abstract or "（无描述）")[:15]
             t = datetime.fromtimestamp(s.created_at).strftime("%Y-%m-%d %I:%M:%S %p")
-            msg += f"编号：{index}）{label}... 时间：{t}\n"
+            #  标签来自模型，按文本段发，避免被解析成 CQ 码或提及
+            msg += MessageSegment.text(f"编号：{index}）{label}... 时间：{t}\n")
     await matcher.finish(msg)
 
 
@@ -164,6 +164,7 @@ async def _session_archive(event: MessageEvent, matcher: Matcher) -> None:
     #  副本要连 abstract 与 usage 一起带走，否则 /session use 恢复时摘要与占用都丢了
     new_session = AwaredMemory()
     restore_history(new_session, memory_data.memory_json)
+    new_id: int | None = None
     try:
         async with get_session() as session:
             async with UserDataExecutor(uni_id, session) as executor:
@@ -172,9 +173,19 @@ async def _session_archive(event: MessageEvent, matcher: Matcher) -> None:
         await update_memory(memory_data)
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).exception("归档当前会话失败。")
+        if new_id is not None:
+            #  清空失败时撤掉刚写入的归档，否则用户重试会多出一条重复会话
+            try:
+                async with get_session() as session:
+                    async with UserDataExecutor(uni_id, session) as executor:
+                        await executor.remove_session(new_id)
+            except Exception as rollback_error:
+                logger.opt(exception=rollback_error, colors=True, raw=True).error(
+                    "回滚归档失败。"
+                )
         await matcher.finish("归档当前会话失败。")
-    #  标签生成放在锁外：模型调用几秒起步，不该占住归档的临界区。
-    #  new_session 是独立快照，clear_history 不会影响它。
+    assert new_id is not None
+    #  标签生成不占锁：任务体在 dispatch 返回、锁释放后才真正跑
     spawn_tag_backfill(repo, uni_id, new_id, created_at, new_session)
     await matcher.finish("✅ 当前会话已归档。")
 
@@ -210,9 +221,16 @@ async def _session_rename(
     new_tag = tag.strip()
     if not new_tag:
         await matcher.finish("用法：/session rename <编号> <新名称>")
+    if len(new_tag) > TAG_MAX_LEN:
+        new_tag = new_tag[:TAG_MAX_LEN]
+        await matcher.send(f"名称超过 {TAG_MAX_LEN} 字，已截断。")
     target = user_sessions[session_index]
-    #  带上 created_at：id 会被回收，只按 id 改可能落到新行上
-    ok = await repo.rename_session(uni_id, target.id, new_tag, target.created_at)
+    try:
+        #  带上 created_at：id 会被回收，只按 id 改可能落到新行上
+        ok = await repo.rename_session(uni_id, target.id, new_tag, target.created_at)
+    except Exception as e:
+        logger.opt(exception=e, colors=True, raw=True).exception("重命名会话失败。")
+        await matcher.finish("重命名失败。")
     if not ok:
         await matcher.finish("重命名失败：这条会话可能已被删除。")
     await matcher.send("✅ 已重命名。")

@@ -314,7 +314,7 @@ requires-dist = [
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "nb-cli", specifier = ">=1.6.0" },
     { name = "nonebot-adapter-onebot", specifier = ">=2.4.6" },
-    { name = "nonebot-plugin-amrita", git = "https://github.com/AmritaBot/nonebot_plugin_amrita?rev=feat%2Fsession-tag" },
+    { name = "nonebot-plugin-amrita", git = "https://github.com/AmritaBot/nonebot_plugin_amrita?rev=11463b0d98cb7882dbd673f1c8eea4989b74ace2" },
     { name = "nonebot-plugin-orm", specifier = ">=0.8.3" },
     { name = "nonebot-plugin-uniconf", specifier = ">=0.1.3" },
     { name = "nonebot2", extras = ["fastapi"], specifier = ">=2.4.3" },
@@ -1870,7 +1870,7 @@ wheels = [
 [[package]]
 name = "nonebot-plugin-amrita"
 version = "0.5.0"
-source = { git = "https://github.com/AmritaBot/nonebot_plugin_amrita?rev=feat%2Fsession-tag#11463b0d98cb7882dbd673f1c8eea4989b74ace2" }
+source = { git = "https://github.com/AmritaBot/nonebot_plugin_amrita?rev=11463b0d98cb7882dbd673f1c8eea4989b74ace2#11463b0d98cb7882dbd673f1c8eea4989b74ace2" }
 dependencies = [
     { name = "aiologic" },
     { name = "amrita-core" },

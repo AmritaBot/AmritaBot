@@ -156,7 +156,15 @@ def spawn_tag_backfill(
     created_at: float,
     data: AwaredMemory,
 ) -> None:
-    """在后台跑一次标签回填，调用方不等待结果。"""
+    """在后台跑一次标签回填，调用方不等待结果。
+
+    Args:
+        repo: 用户数据仓库，复用它的锁
+        uni_id: 统一用户 ID
+        session_id: 归档 id
+        created_at: 归档时间戳，防止 id 回收后写错行
+        data: 归档快照，任务持有它直到写完
+    """
     task = asyncio.create_task(
         backfill_session_tag(repo, uni_id, session_id, created_at, data)
     )

@@ -205,7 +205,7 @@ async def _session_clear(event: MessageEvent, matcher: Matcher) -> None:
 async def _session_rename(
     event: MessageEvent, matcher: Matcher, index: str, tag: str
 ) -> None:
-    """给指定编号的归档会话改名"""
+    """按列表编号改名，写入时带上 created_at 防 id 回收。"""
     repo = CachedUserDataRepository()
     uni_id = get_uni_user_id(event)
     try:

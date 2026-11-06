@@ -140,6 +140,9 @@ async def _session_del(event: MessageEvent, matcher: Matcher, index: str) -> Non
         async with get_session() as session:
             async with UserDataExecutor(uni_id, session) as executor:
                 await executor.remove_session(removed.id)
+            #  UserDataExecutor 传入外部 session 时走 begin_nested()，release 只放
+            #  保存点，外层不 commit 的话 get_session 退出时 close 会把它回滚掉
+            await session.commit()
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).exception(
             "删除指定编号会话失败。"
@@ -169,6 +172,7 @@ async def _session_archive(event: MessageEvent, matcher: Matcher) -> None:
         async with get_session() as session:
             async with UserDataExecutor(uni_id, session) as executor:
                 new_id, created_at = await executor.add_session(new_session)
+            await session.commit()
         clear_history(memory_data.memory_json)
         await update_memory(memory_data)
     except Exception as e:
@@ -179,6 +183,7 @@ async def _session_archive(event: MessageEvent, matcher: Matcher) -> None:
                 async with get_session() as session:
                     async with UserDataExecutor(uni_id, session) as executor:
                         await executor.remove_session(new_id)
+                    await session.commit()
             except Exception as rollback_error:
                 logger.opt(exception=rollback_error, colors=True, raw=True).error(
                     "回滚归档失败。"
@@ -199,6 +204,7 @@ async def _session_clear(event: MessageEvent, matcher: Matcher) -> None:
         async with get_session() as session:
             async with UserDataExecutor(uni_id, session) as executor:
                 await executor.remove_session(*[s.id for s in user_sessions])
+            await session.commit()
     await matcher.finish("✅ 会话已清空。")
 
 

@@ -16,8 +16,8 @@ from nonebot import logger
 from nonebot.adapters.onebot.v11 import Bot, Message, MessageEvent, MessageSegment
 from nonebot.matcher import Matcher
 from nonebot.params import CommandArg
-from nonebot_plugin_amrita.database import UserDataExecutor
-from nonebot_plugin_amrita.memory import CachedUserDataRepository
+from nonebot_plugin_amrita.database import MemorySessions, UserDataExecutor
+from nonebot_plugin_amrita.memory import CachedUserDataRepository, MemorySessionsSchema
 from nonebot_plugin_orm import get_session
 
 from amrita.plugins.chat.utils.libchat import add_usage
@@ -90,7 +90,9 @@ async def _session_list(event: MessageEvent, matcher: Matcher) -> None:
             label = (s.tag or s.data.abstract or "（无描述）")[:15]
             t = datetime.fromtimestamp(s.created_at).strftime("%Y-%m-%d %I:%M:%S %p")
             #  标签来自模型，按文本段发，避免被解析成 CQ 码或提及
-            msg += MessageSegment.text(f"编号：{index}）{label}... 时间：{t}\n")
+            msg += MessageSegment.text(
+                f"编号：{index}）{label}... 时间：{t}（ID {s.id}）\n"
+            )
     await matcher.finish(msg)
 
 
@@ -120,28 +122,43 @@ async def _session_use(event: MessageEvent, matcher: Matcher, index: str) -> Non
 
 
 async def _session_del(event: MessageEvent, matcher: Matcher, index: str) -> None:
-    """删除指定编号的会话"""
+    """删除指定编号或 ``#ID`` 的会话"""
     repo = CachedUserDataRepository()
     uni_id = get_uni_user_id(event)
     try:
-        session_index = int(index)
         user_sessions = await repo.get_sesssions(uni_id)
-    except ValueError:
-        await matcher.finish("请输入正确的编号")
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).exception(
             "删除指定编号会话失败。"
         )
         await matcher.finish("删除指定编号会话失败。")
-    if not 0 <= session_index < len(user_sessions):
-        await matcher.finish("请输入正确的编号")
-    removed = list(user_sessions).pop(session_index)
+    if not user_sessions:
+        await matcher.finish("没有历史会话")
+
+    removed: MemorySessionsSchema | None = None
+    if index.startswith("#"):
+        #  #ID 是稳定寻址：回执丢失后重试仍指向同一条，不会顺位删掉下一条
+        try:
+            target_id = int(index[1:])
+        except ValueError:
+            await matcher.finish("请输入正确的编号或 #ID")
+        removed = next((s for s in user_sessions if s.id == target_id), None)
+        if removed is None:
+            await matcher.finish("该会话已不存在（可能已被删除）。")
+    else:
+        try:
+            session_index = int(index)
+        except ValueError:
+            await matcher.finish("请输入正确的编号")
+        if not 0 <= session_index < len(user_sessions):
+            await matcher.finish("请输入正确的编号")
+        removed = user_sessions[session_index]
+
     try:
         async with get_session() as session:
             async with UserDataExecutor(uni_id, session) as executor:
                 await executor.remove_session(removed.id)
-            #  UserDataExecutor 传入外部 session 时走 begin_nested()，release 只放
-            #  保存点，外层不 commit 的话 get_session 退出时 close 会把它回滚掉
+            #  嵌套事务只是 SAVEPOINT，外层不 commit 会被 close 回滚掉
             await session.commit()
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).exception(
@@ -162,36 +179,37 @@ async def _session_archive(event: MessageEvent, matcher: Matcher) -> None:
         await matcher.finish("归档当前会话失败。")
     if not memory_data.memory_json.messages:
         await matcher.finish("当前对话为空！")
-    #  归档副本同样不能带图片内容：先折叠再深拷贝
+    #  副本不能带图片，且要连 abstract/usage 一起带走：先折叠再深拷贝
     fold_media_in_messages(memory_data.memory_json.messages)
-    #  副本要连 abstract 与 usage 一起带走，否则 /session use 恢复时摘要与占用都丢了
-    new_session = AwaredMemory()
-    restore_history(new_session, memory_data.memory_json)
-    new_id: int | None = None
+    snapshot = AwaredMemory()
+    restore_history(snapshot, memory_data.memory_json)
+    clear_history(memory_data.memory_json)
     try:
         async with get_session() as session:
             async with UserDataExecutor(uni_id, session) as executor:
-                new_id, created_at = await executor.add_session(new_session)
-            await session.commit()
-        clear_history(memory_data.memory_json)
-        await update_memory(memory_data)
-    except Exception as e:
-        logger.opt(exception=e, colors=True, raw=True).exception("归档当前会话失败。")
-        if new_id is not None:
-            #  清空失败时撤掉刚写入的归档，否则用户重试会多出一条重复会话
-            try:
-                async with get_session() as session:
-                    async with UserDataExecutor(uni_id, session) as executor:
-                        await executor.remove_session(new_id)
-                    await session.commit()
-            except Exception as rollback_error:
-                logger.opt(exception=rollback_error, colors=True, raw=True).error(
-                    "回滚归档失败。"
+                new_id, created_at = await executor.add_session(snapshot)
+                #  归档行与清空后的历史同一事务落库，中途崩掉不会只写一半
+                row = await executor.get_or_create_memory()
+                row.memory_json = memory_data.memory_json.model_dump(mode="json")
+                row.extra_prompt = memory_data.extra_prompt
+                #  手动归档同样要守保留上限，否则反复归档会突破配置
+                await MemorySessions._expire(
+                    session,
+                    uni_id,
+                    config_manager.config.session.session_control_history,
                 )
-        await matcher.finish("归档当前会话失败。")
-    assert new_id is not None
+            await session.commit()
+    except BaseException as e:
+        #  事务已回滚，把内存里的历史放回去，别让缓存停在「已清空」的假象
+        restore_history(memory_data.memory_json, snapshot)
+        logger.opt(exception=e, colors=True, raw=True).exception("归档当前会话失败。")
+        if isinstance(e, Exception):
+            await matcher.finish("归档当前会话失败。")
+        raise
+    memory_data.clean()
+    repo._cached_memory[uni_id] = memory_data
     #  标签生成不占锁：任务体在 dispatch 返回、锁释放后才真正跑
-    spawn_tag_backfill(repo, uni_id, new_id, created_at, new_session)
+    spawn_tag_backfill(repo, uni_id, new_id, created_at, snapshot)
     await matcher.finish("✅ 当前会话已归档。")
 
 
@@ -482,7 +500,7 @@ _HELP_TEXT = (
     "/session info — 会话元信息（模型/思考/上下文占用）\n"
     "/session list — 历史会话\n"
     "/session use <编号> — 恢复指定会话\n"
-    "/session del <编号> — 删除指定会话\n"
+    "/session del <编号|#ID> — 删除指定会话（#ID 为重试安全的稳定寻址）\n"
     "/session archive — 归档当前会话\n"
     "/session rename <编号> <新名称> — 重命名归档会话\n"
     "/session clear — 删除全部历史会话（需二次确认）\n"

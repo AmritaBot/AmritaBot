@@ -96,6 +96,7 @@ async def _session_list(event: MessageEvent, matcher: Matcher) -> None:
     await matcher.finish(msg)
 
 
+#  TODO: 编号寻址（use/del/rename）对重试不幂等，后续统一改成 #ID 稳定寻址
 async def _session_use(event: MessageEvent, matcher: Matcher, index: str) -> None:
     """将当前会话覆盖为指定编号的会话"""
     repo = CachedUserDataRepository()

@@ -16,9 +16,7 @@ async def setup_core_runtime() -> None:
     config = await config_manager.safe_get_config()
     core_config = config.core
 
-    #  MCP 由本插件逐个加载：Core 的 `initialize_scripts_all` 会把单个服务的
-    #  异常直接抛给调用方，服务列表里有一条坏的就整个启动失败。这里先把列表
-    #  摘出来交给 `load_mcp_servers`，失败只记日志、不影响其余服务与启动。
+    #  Core 的 initialize_scripts_all 会被单个坏服务打断整个启动，这里改成逐个加载
     function_config = core_config.function_config
     mcp_scripts = (
         list(function_config.agent_mcp_server_scripts)
@@ -26,8 +24,7 @@ async def setup_core_runtime() -> None:
         else []
     )
 
-    #  只在 Core 装配期间清空，装配完立即还原：配置对象是活的，
-    #  留空会被后续的 save_config 写回磁盘，把服务列表抹掉
+    #  装配期间临时清空并立即还原，否则后续 save_config 会把空列表写回磁盘
     saved_scripts = function_config.agent_mcp_server_scripts
     function_config.agent_mcp_server_scripts = []
     try:

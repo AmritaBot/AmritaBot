@@ -12,11 +12,12 @@ from nonebot.params import CommandArg
 
 from amrita.plugins.chat.config import config_manager
 from amrita.plugins.chat.utils.mcp_boot import (
-    MCPLoadReport,
-    _describe,
+    configured_scripts,
     find_state,
     list_states,
     load_mcp_servers,
+    operation_lock,
+    reload_mcp_servers,
     remove_state,
 )
 from amrita.utils.send import send_forward_msg
@@ -104,7 +105,9 @@ async def add_mcp_server(
         return
     if not mcp_server:
         await matcher.finish("请输入MCP Server脚本路径")
-    if find_state(mcp_server) is not None:
+    #  失败过的服务会以 error 状态留在状态表里，那只代表「试过」，不该挡住重试
+    state = find_state(mcp_server)
+    if state is not None and state.status == "connected":
         await matcher.finish("MCP Server脚本已存在")
     report = await load_mcp_servers([mcp_server])
     if report.failed:
@@ -130,7 +133,8 @@ async def del_mcp_server(matcher: Matcher, mcp_server: str):
         await matcher.finish("MCP Server不存在")
     try:
         if state.status == "connected":
-            await ClientManager().unregister_client(state.script)
+            async with operation_lock():
+                await ClientManager().unregister_client(state.script)
         remove_state(state.id)
         scripts = config.core.function_config.agent_mcp_server_scripts
         if state.script in scripts:
@@ -143,46 +147,19 @@ async def del_mcp_server(matcher: Matcher, mcp_server: str):
 
 
 async def reload(matcher: Matcher):
-    if not config_manager.config.core.function_config.agent_mcp_client_enable:
+    if not config_manager.ins_config.core.function_config.agent_mcp_client_enable:
         return
-    client_manager = ClientManager()
-    report = MCPLoadReport()
-    for cl in (client_manager.clients).copy():
-        script = str(cl.server_script)
-        try:
-            await client_manager.unregister_client(cl.server_script)
-            await cl.close_no_wait()  # 虽然热重载，但是为了避免竞态，这里先把会话掐了
-            cl.tools.clear()
-            cl.openai_tools.clear()
-            await cl.bound_to(client_manager)
-        except Exception as e:
-            #  单个服务重连失败不影响其余服务，继续处理下一个
-            logger.opt(exception=e, colors=True, raw=True).warning(
-                f"MCP Server@{script} 重载失败"
-            )
-            report.failed.append((script, _describe(e)))
-        else:
-            report.loaded.append(script)
+    #  以配置为准重连：启动时就失败、没有客户端在册的服务也会在这里被重试
+    async with operation_lock():
+        report = await reload_mcp_servers(configured_scripts())
     await matcher.send(f"重载{'成功' if report.ok else '部分失败'}：{report.summary()}")
 
 
 async def deep_reload(matcher: Matcher):
-    if not config_manager.config.core.function_config.agent_mcp_client_enable:
+    if not config_manager.ins_config.core.function_config.agent_mcp_client_enable:
         return
-    try:
-        client_manager = ClientManager()
-        for cl in (client_manager.clients).copy():
-            await client_manager.unregister_client(cl.server_script)
-            await cl.close_no_wait()  # 虽然热重载，但是为了避免竞态，这里先把会话掐了
-            cl.tools.clear()
-            cl.openai_tools.clear()
-        report = await load_mcp_servers(
-            list(config_manager.config.core.function_config.agent_mcp_server_scripts),
-            manager=client_manager,
-        )
-        await matcher.send(
-            f"完全重载{'成功' if report.ok else '部分失败'}：{report.summary()}"
-        )
-    except BaseException as e:
-        logger.opt(exception=e, colors=True, raw=True).exception(e)
-        await matcher.send("完全重载失败")
+    async with operation_lock():
+        report = await reload_mcp_servers(configured_scripts(), reset_remapping=True)
+    await matcher.send(
+        f"完全重载{'成功' if report.ok else '部分失败'}：{report.summary()}"
+    )

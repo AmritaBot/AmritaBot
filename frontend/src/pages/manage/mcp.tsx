@@ -37,7 +37,11 @@ export function McpPage() {
       toast.success(res.message);
       void qc.invalidateQueries({ queryKey: ["chat-mcp"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      // 部分失败会让 api 抛错，但服务状态已经变了，列表仍要刷新
+      void qc.invalidateQueries({ queryKey: ["chat-mcp"] });
+      toast.error(e.message);
+    },
   });
 
   const createMutation = useMutation({

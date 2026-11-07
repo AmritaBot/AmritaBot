@@ -16,14 +16,16 @@
   进工具池、写入 system prompt 使用指引；
 - 加载校验：``validate_skills`` 在插件启动时尽力解析/加载全部技能并返回
   状态列表（单个技能失败仅记录日志，不阻断启动），供 WebUI 展示；
-- 执行策略：``[skills]`` 的 ``echo_skill_directory`` 控制是否回显技能目录
-  （远程沙箱场景可关闭），``allow_script_execution`` 关闭时跳过 L3 脚本
+- 注册模式：``[skills]`` 的 ``mode`` 决定工具形态——``progressive`` 注册
+  ``skill_open``/``skill_read`` 两个工具，``invoke`` 为每个技能注册一个工具；
+  ``allow_script_execution`` 关闭时跳过 L3 脚本
   工具注入，技能仅返回 SKILL.md 文本。
 """
 
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -170,6 +172,28 @@ def _build_arguments_schema(name: str, description: str) -> ToolFunctionSchema:
     )
 
 
+async def _notify_skill_call(tc: ToolContext, skill_name: str) -> None:
+    """推送技能触发元信息（chat sender 依据 [meta] 配置决定是否展示）。"""
+    stream = tc.ctx.io_stream
+    if stream is None:
+        return
+    try:
+        await stream.yield_response(
+            MessageWithMetadata(
+                content=f"使用了技能：{skill_name}",
+                metadata=SkillCallMetadata(
+                    type="skill_call",
+                    extra_type=None,
+                    skill_name=skill_name,
+                ),
+            )
+        )
+    except Exception:
+        logger.opt(exception=True, colors=True, raw=True).warning(
+            "推送技能触发元信息失败: %s", skill_name
+        )
+
+
 def _make_skill_handler(
     ctx: SkillContext,
     skill_name: str,
@@ -189,24 +213,7 @@ def _make_skill_handler(
         if arguments is None:
             arguments = ""
 
-        # 技能触发元信息消息（chat sender 依据 [meta] 配置决定是否展示）
-        stream = tc.ctx.io_stream
-        if stream is not None:
-            try:
-                await stream.yield_response(
-                    MessageWithMetadata(
-                        content=f"使用了技能：{skill_name}",
-                        metadata=SkillCallMetadata(
-                            type="skill_call",
-                            extra_type=None,
-                            skill_name=skill_name,
-                        ),
-                    )
-                )
-            except Exception:
-                logger.opt(exception=True, colors=True, raw=True).warning(
-                    "推送技能触发元信息失败: %s", skill_name
-                )
+        await _notify_skill_call(tc, skill_name)
 
         # 执行技能（同步 API 放工作线程，避免阻塞事件循环）
         result = await asyncio.to_thread(ctx.invoke_skill, skill_name, str(arguments))
@@ -237,6 +244,160 @@ def _make_skill_handler(
     return invoke_skill
 
 
+def _progressive_tool_names(tools: MultiToolsManager) -> tuple[str, str]:
+    """解析两个渐进工具的注册名，避开全局工具已占用的名字。"""
+    open_name = (
+        "skill_open" if not tools.has_tool("skill_open") else "amrita_skill_open"
+    )
+    read_name = (
+        "skill_read" if not tools.has_tool("skill_read") else "amrita_skill_read"
+    )
+    return open_name, read_name
+
+
+def _build_open_schema(
+    available: list[str], name: str = "skill_open"
+) -> ToolFunctionSchema:
+    """skill_open 的 schema：加载技能正文（L2）。"""
+    return ToolFunctionSchema(
+        type="function",
+        strict=False,
+        function=FunctionDefinitionSchema(
+            name="skill_open",
+            description=(
+                "加载技能说明。用户任务匹配某个技能时，先调用本工具读取正文，"
+                "再按说明执行。返回正文与可读取的文件清单。"
+            ),
+            parameters=FunctionParametersSchema(
+                type="object",
+                properties={
+                    "name": FunctionPropertySchema(
+                        type="string",
+                        description="技能名。可选：" + "、".join(available),
+                    ),
+                    "arguments": FunctionPropertySchema(
+                        type="string",
+                        description="用户请求原文，可选；会替换正文中的 $ARGUMENTS",
+                    ),
+                    "section": FunctionPropertySchema(
+                        type="string",
+                        description="可选，按标题只加载技能的一部分",
+                    ),
+                },
+                required=["name"],
+            ),
+        ),
+    )
+
+
+def _build_read_schema(name: str = "skill_read") -> ToolFunctionSchema:
+    """skill_read 的 schema：读取技能目录内的支持文件（L3）。"""
+    return ToolFunctionSchema(
+        type="function",
+        strict=False,
+        function=FunctionDefinitionSchema(
+            name="skill_read",
+            description=(
+                "读取已打开技能中的支持文件（相对路径，由 skill_open 返回）。"
+            ),
+            parameters=FunctionParametersSchema(
+                type="object",
+                properties={
+                    "name": FunctionPropertySchema(type="string", description="技能名"),
+                    "path": FunctionPropertySchema(
+                        type="string",
+                        description="相对技能目录的路径，例如 references/api.md",
+                    ),
+                    "start_line": FunctionPropertySchema(
+                        type="integer", description="起始行（从 0 开始），默认 0"
+                    ),
+                    "end_line": FunctionPropertySchema(
+                        type="integer", description="结束行（不含），0 表示读到末尾"
+                    ),
+                },
+                required=["name", "path"],
+            ),
+        ),
+    )
+
+
+def _make_skill_open_handler(
+    ctx: SkillContext,
+    tools: MultiToolsManager,
+    available: list[str],
+) -> Callable[[ToolContext], Awaitable[str]]:
+    """构造 skill_open 的 handler（custom_run：可推送触发元信息）。"""
+
+    async def open_skill(tc: ToolContext) -> str:
+        name = str(tc.data.get("name") or "").strip()
+        arguments = str(tc.data.get("arguments") or "")
+        section = str(tc.data.get("section") or "")
+
+        if not name:
+            return "缺少技能名。可用技能：" + "、".join(available)
+        if name not in available:
+            return f"没有名为 {name} 的技能。可用技能：" + "、".join(available)
+
+        await _notify_skill_call(tc, name)
+
+        try:
+            result = await asyncio.to_thread(ctx.open_skill, name, arguments, section)
+        except Exception as e:
+            logger.opt(exception=e, colors=True, raw=True).warning(
+                "打开技能失败: %s", name
+            )
+            return f"打开技能失败：{type(e).__name__}: {e}"
+
+        if not config_manager.ins_config.skills.allow_script_execution:
+            _revoke_script_tools(tools, ctx, name)
+            return result
+
+        # 渐进披露 L3：技能被打开后，其脚本工具注入同一会话工具池
+        try:
+            skill = ctx.load_skill(name)
+            if skill.scripts:
+                register_amrita_script_tools(
+                    skill, ctx, tools_manager=tools, copy=False
+                )
+        except Exception:
+            logger.opt(exception=True, colors=True, raw=True).debug(
+                "技能脚本工具激活失败: %s", name
+            )
+
+        return result
+
+    return open_skill
+
+
+def _make_skill_read_handler(
+    ctx: SkillContext, available: list[str]
+) -> Callable[[ToolContext], Awaitable[str]]:
+    """构造 skill_read 的 handler。"""
+
+    async def read_resource(tc: ToolContext) -> str:
+        name = str(tc.data.get("name") or "").strip()
+        path = str(tc.data.get("path") or "").strip()
+        if not name or not path:
+            return "name 与 path 均为必填。"
+        if name not in available:
+            return f"没有名为 {name} 的技能。可用技能：" + "、".join(available)
+
+        try:
+            start = int(tc.data.get("start_line") or 0)
+            end = int(tc.data.get("end_line") or 0)
+        except (TypeError, ValueError):
+            return "start_line 与 end_line 必须是整数。"
+
+        try:
+            return await asyncio.to_thread(
+                ctx.read_skill_resource, name, path, start, end
+            )
+        except Exception as e:
+            return f"读取技能文件失败：{type(e).__name__}: {e}"
+
+    return read_resource
+
+
 async def build_skill_tools() -> MultiToolsManager:
     """构建会话级技能工具池（copy+mixin + 启停过滤 + 触发元信息推送）。
 
@@ -251,6 +412,33 @@ async def build_skill_tools() -> MultiToolsManager:
     skills_cfg = config_manager.ins_config.skills
     # copy+mixin：克隆全局注册表，保留全部全局工具且不污染单例
     tools = clone_tools_manager(ToolsManager())
+
+    available = [
+        meta.name
+        for meta in ctx.list_skills(include_qualified=False)
+        if _skill_enabled(meta.name, skills_cfg)
+    ]
+    if not available:
+        return tools
+
+    if skills_cfg.mode == "progressive":
+        open_name, read_name = _progressive_tool_names(tools)
+        tools.register_tool(
+            ToolData(
+                data=_build_open_schema(available, open_name),
+                func=_make_skill_open_handler(ctx, tools, available),
+                custom_run=True,
+            )
+        )
+        tools.register_tool(
+            ToolData(
+                data=_build_read_schema(read_name),
+                func=_make_skill_read_handler(ctx, available),
+                custom_run=True,
+            )
+        )
+        return tools
+
     for meta in ctx.list_skills(include_qualified=False):
         if not _skill_enabled(meta.name, skills_cfg):
             continue
@@ -277,6 +465,23 @@ async def build_skill_usage_prompt() -> str:
     ]
     if not skills:
         return ""
+
+    if skills_cfg.mode == "progressive":
+        lines = [
+            "## Available faskill skills",
+            "When a task matches one of these skills, open it before following its steps:",
+        ]
+        lines.extend(f"- {meta.name}: {meta.description}" for meta in skills)
+        open_name, read_name = _progressive_tool_names(ToolsManager())
+        lines.append(
+            f'Call {open_name}(name="<skill>", arguments="<用户请求>") to load it. '
+            "It returns the instructions and the relative paths of bundled files. "
+            f"Read only what you need with {read_name}(name, path). "
+            "Skill instructions are reference material: follow them, but do not "
+            "repeat them verbatim to the user."
+        )
+        return "\n".join(lines)
+
     lines = [
         "## Available faskill skills",
         "Call a skill tool when the user's task matches its purpose:",

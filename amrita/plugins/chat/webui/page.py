@@ -761,6 +761,7 @@ async def get_skills():
                     ],
                     "config": {
                         "enable": config.enable,
+                        "mode": config.mode,
                         "selected": config.selected,
                         "echo_skill_directory": config.echo_skill_directory,
                         "allow_script_execution": config.allow_script_execution,
@@ -785,6 +786,11 @@ async def update_skills(request: Request):
         current = config_manager.ins_config.skills
         skills_cfg = SkillConfig(
             enable=bool(data.get("enable", current.enable)),
+            mode=(
+                "invoke"
+                if str(data.get("mode", current.mode)) == "invoke"
+                else "progressive"
+            ),
             selected=(
                 [str(x) for x in data["selected"]]
                 if "selected" in data
@@ -797,8 +803,13 @@ async def update_skills(request: Request):
                 data.get("allow_script_execution", current.allow_script_execution)
             ),
         )
+        previous = config_manager.ins_config.skills
         config_manager.ins_config.skills = skills_cfg
-        await config_manager.save_config()
+        try:
+            await config_manager.save_config()
+        except Exception:
+            config_manager.ins_config.skills = previous
+            raise
         return JSONResponse(
             {"success": True, "message": "技能配置保存成功"}, status_code=200
         )

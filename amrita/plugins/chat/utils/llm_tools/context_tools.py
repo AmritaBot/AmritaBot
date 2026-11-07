@@ -88,10 +88,12 @@ async def _collect_images(
     if budget <= 0:
         return images
     remaining = budget
-    for index, entry in enumerate(entries):
+    #  预算优先给最近的记录：条目按时间正序排列，越靠后越接近当前对话，
+    #  按正序分配会让最新的图先被挤掉，与 expand_media_in_messages 的口径也不一致
+    for index in range(len(entries) - 1, -1, -1):
         if remaining <= 0:
             break
-        for media_id in entry.media_ids[:remaining]:
+        for media_id in entries[index].media_ids[:remaining]:
             data_uri = await load_media_data_uri(media_id)
             if data_uri is None:
                 #  媒体可能已按 TTL 淘汰，跳过即可，不影响文本记录

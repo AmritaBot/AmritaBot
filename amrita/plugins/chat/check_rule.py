@@ -189,15 +189,21 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
 
         # 图片只有在当前运行真的能把图交给模型时才采集，否则只留文本
         media_ids: list[str] = []
+        image_notices: list[str] = []
         if await is_multimodal_enabled():
             # 局部导入：handlers 包在导入期会反向依赖本模块，放在函数内避免循环导入
             from .handlers.chat.message import _build_image_contents
-            from .utils.context_store import PlaceholderContent
+            from .utils.context_store import PlaceholderContent, TextContent
 
+            parts = await _build_image_contents(bot, message, uni_id)
             media_ids = [
-                item.media_id
-                for item in await _build_image_contents(bot, message, uni_id)
-                if isinstance(item, PlaceholderContent)
+                item.media_id for item in parts if isinstance(item, PlaceholderContent)
+            ]
+            #  取图失败时采集器会写回说明文本，丢掉它会让模型以为消息里本来就没图
+            image_notices = [
+                item.text
+                for item in parts
+                if isinstance(item, TextContent) and item.text
             ]
 
         # 生成消息内容并静默落库（不再写入 LLM 记忆，改由 read_context 工具按需读取），固定 XML 格式
@@ -212,7 +218,8 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
                 str(user_id),
                 content,
                 time=format_current_datetime(),
-            ),
+            )
+            + ("" if not image_notices else "\n" + "\n".join(image_notices)),
             media_ids=media_ids,
         )
         # 默认返回 False

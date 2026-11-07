@@ -201,9 +201,10 @@ async def store_media(uni_id: str, raw: bytes, mime: str) -> str | None:
     async with _lock_for(f"media:{media_id}"):
         async with get_session() as session:
             exists = await session.execute(
-                select(ContextMedia.id).where(ContextMedia.media_id == media_id)
+                select(ContextMedia).where(ContextMedia.media_id == media_id)
             )
-            if exists.scalar_one_or_none() is None:
+            stored = exists.scalar_one_or_none()
+            if stored is None:
                 session.add(
                     ContextMedia(
                         media_id=media_id,
@@ -219,6 +220,10 @@ async def store_media(uni_id: str, raw: bytes, mime: str) -> str | None:
                     #  另一个进程刚写入同一行：内容寻址下两者完全等价，直接复用
                     await session.rollback()
                     logger.debug(f"媒体 {media_id[:8]} 已由其它进程写入，复用已有记录")
+            else:
+                #  再次被引用即续命：TTL 按最近一次使用计算，否则刚被引用的图会先过期
+                stored.created_at = datetime.now()
+                await session.commit()
     await _maybe_prune()
     return media_id
 

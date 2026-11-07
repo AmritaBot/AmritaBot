@@ -53,12 +53,14 @@ from typing import TYPE_CHECKING
 import aiologic
 from amrita_core.types import (
     CONTENT_LIST_TYPE_ITEM,
+    TOOL_RESULT_CONTENT,
     USER_INPUT,
     Content,
     ImageContent,
     ImageUrl,
     Message,
     TextContent,
+    ToolResult,
 )
 from nonebot import logger
 from nonebot_plugin_orm import AsyncSession, get_session
@@ -69,6 +71,7 @@ from amrita.cache import WeakValueLRUCache
 
 from ..config import HARD_MAX_IMAGE_BYTES, config_manager
 from ..models import ContextMedia, ContextRecord, PlaceholderContent
+from .context_vars import current_uni_id
 from .image_norm import normalize_image
 
 if TYPE_CHECKING:
@@ -82,6 +85,7 @@ __all__ = [
     "expand_media_in_messages",
     "fold_media_in_messages",
     "has_placeholders",
+    "ingest_tool_media",
     "inject_image",
     "load_media_data_uri",
     "placeholder_of",
@@ -153,8 +157,12 @@ def _decode_data_uri(url: str) -> tuple[str, str, bytes] | None:
 
 
 def _iter_content_parts(message: CONTENT_LIST_TYPE_ITEM) -> list[Content] | None:
-    """取出消息中 list 形式的内容；字符串内容 / ToolResult 返回 ``None``。"""
-    if not isinstance(message, Message):
+    """取出消息中 list 形式的内容；字符串内容返回 ``None``。
+
+    Core 1.4 起 ``ToolResult.content`` 也可以是内容块列表，工具返回的图片
+    因此与用户输入走同一套折叠/展开路径。
+    """
+    if not isinstance(message, (Message, ToolResult)):
         return None
     content = message.content
     return list(content) if isinstance(content, list) else None
@@ -234,6 +242,8 @@ async def load_media_data_uri(media_id: str) -> str | None:
 _NO_IMAGE_TEXT = "[图片：当前模型不支持图片输入]"
 #  占位符对应的二进制已被淘汰时的说明文本
 _MEDIA_GONE_TEXT = "[图片已过期或不可用]"
+#  工具图片无法入库时的说明文本（归一化失败、体积超限或写库失败）
+_TOOL_MEDIA_REJECTED_TEXT = "[图片：工具返回的图片过大或格式不支持]"
 #  本次请求的图片数量已用完时的说明文本
 _OVER_BUDGET_TEXT = "[图片：超出本次请求的图片数量上限]"
 
@@ -329,11 +339,7 @@ async def expand_media_in_messages(
     expanded: list[CONTENT_LIST_TYPE_ITEM] = []
     for message in reversed(list(messages)):
         parts = _iter_content_parts(message)
-        if (
-            parts is None
-            or not _has_placeholder(parts)
-            or not isinstance(message, Message)
-        ):
+        if parts is None or not _has_placeholder(parts):
             expanded.append(message)
             continue
         replaced = message.model_copy()
@@ -366,6 +372,54 @@ async def expand_media_in_content(
 #  写路径：图片内容 -> 占位符（纯函数）
 
 
+async def ingest_tool_media(result: TOOL_RESULT_CONTENT) -> None:
+    """把工具返回的 data URI 图片归一化入库，失败时换成文本占位。"""
+    if not isinstance(result, list):
+        return
+    try:
+        cfg = config_manager.config.context
+        limit_kb, max_width, max_height = (
+            cfg.max_allowed_size,
+            cfg.max_image_width,
+            cfg.max_image_height,
+        )
+    except Exception:
+        #  配置尚未就绪时按不限制处理，体积闸仍由 store_media 兜底
+        limit_kb, max_width, max_height = 0, 0, 0
+    for index, part in enumerate(result):
+        if not isinstance(part, ImageContent):
+            continue
+        url = part.image_url.url
+        parsed = _decode_data_uri(url)
+        if parsed is None:
+            if url.startswith("data:"):
+                result[index] = TextContent(text=_TOOL_MEDIA_REJECTED_TEXT)
+            continue
+        _, _, raw = parsed
+        normalized = await asyncio.to_thread(
+            normalize_image,
+            raw,
+            max_width=max_width,
+            max_height=max_height,
+            max_bytes=limit_kb * 1024,
+        )
+        if not normalized.ok:
+            logger.debug(f"工具图片未通过归一化：{normalized.reason}")
+            result[index] = TextContent(text=_TOOL_MEDIA_REJECTED_TEXT)
+            continue
+        media_id = await store_media(
+            current_uni_id.get(), normalized.raw, normalized.mime
+        )
+        if media_id is None:
+            result[index] = TextContent(text=_TOOL_MEDIA_REJECTED_TEXT)
+            continue
+        #  URL 换成归一化后的字节，折叠时的哈希才与入库行一致
+        encoded = base64.b64encode(normalized.raw).decode("ascii")
+        result[index] = ImageContent(
+            image_url=ImageUrl(url=f"data:{normalized.mime};base64,{encoded}")
+        )
+
+
 def placeholder_of(url: str) -> PlaceholderContent | None:
     """把 ``data:<mime>;base64,<payload>`` 解析成占位符（纯函数，无 IO）。
 
@@ -392,6 +446,7 @@ def fold_media_in_messages(messages: Iterable[CONTENT_LIST_TYPE_ITEM]) -> None:
     """
     messages = list(messages)
     parsed: dict[str, PlaceholderContent] = {}
+    rejected = False
     for message in messages:
         for part in _iter_content_parts(message) or ():
             url = part.image_url.url if isinstance(part, ImageContent) else None
@@ -399,23 +454,27 @@ def fold_media_in_messages(messages: Iterable[CONTENT_LIST_TYPE_ITEM]) -> None:
                 continue
             if (placeholder := placeholder_of(url)) is not None:
                 parsed[url] = placeholder
-    if not parsed:
+            elif url.startswith("data:"):
+                rejected = True
+    if not parsed and not rejected:
         return
 
     for message in messages:
         parts = _iter_content_parts(message)
-        if parts is None or not isinstance(message, Message):
+        if parts is None:
             continue
         replaced: list[Content] = []
         changed = False
         for part in parts:
-            placeholder = (
-                parsed.get(part.image_url.url)
-                if isinstance(part, ImageContent)
-                else None
-            )
+            url = part.image_url.url if isinstance(part, ImageContent) else None
+            placeholder = parsed.get(url) if url is not None else None
             if placeholder is not None:
                 replaced.append(placeholder)
+                changed = True
+                continue
+            if url is not None and url.startswith("data:"):
+                #  解析不了就不能把 base64 留在历史里
+                replaced.append(TextContent(text=_TOOL_MEDIA_REJECTED_TEXT))
                 changed = True
                 continue
             replaced.append(part)

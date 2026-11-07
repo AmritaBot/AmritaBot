@@ -59,6 +59,7 @@ from amrita_core.types import (
     ImageUrl,
     Message,
     TextContent,
+    ToolResult,
 )
 from nonebot import logger
 from nonebot_plugin_orm import AsyncSession, get_session
@@ -82,6 +83,7 @@ __all__ = [
     "expand_media_in_messages",
     "fold_media_in_messages",
     "has_placeholders",
+    "ingest_tool_media",
     "inject_image",
     "load_media_data_uri",
     "placeholder_of",
@@ -153,8 +155,12 @@ def _decode_data_uri(url: str) -> tuple[str, str, bytes] | None:
 
 
 def _iter_content_parts(message: CONTENT_LIST_TYPE_ITEM) -> list[Content] | None:
-    """取出消息中 list 形式的内容；字符串内容 / ToolResult 返回 ``None``。"""
-    if not isinstance(message, Message):
+    """取出消息中 list 形式的内容；字符串内容返回 ``None``。
+
+    Core 1.4 起 ``ToolResult.content`` 也可以是内容块列表，工具返回的图片
+    因此与用户输入走同一套折叠/展开路径。
+    """
+    if not isinstance(message, (Message, ToolResult)):
         return None
     content = message.content
     return list(content) if isinstance(content, list) else None
@@ -329,11 +335,7 @@ async def expand_media_in_messages(
     expanded: list[CONTENT_LIST_TYPE_ITEM] = []
     for message in reversed(list(messages)):
         parts = _iter_content_parts(message)
-        if (
-            parts is None
-            or not _has_placeholder(parts)
-            or not isinstance(message, Message)
-        ):
+        if parts is None or not _has_placeholder(parts):
             expanded.append(message)
             continue
         replaced = message.model_copy()
@@ -364,6 +366,40 @@ async def expand_media_in_content(
 
 
 #  写路径：图片内容 -> 占位符（纯函数）
+
+
+async def ingest_tool_media(result: object) -> None:
+    """把工具返回内容里的 data URI 图片写入本地存储。
+
+    只处理 data URI：远程 URL 不进库，历史里原样保留交给适配器。二进制先
+    归一化再过体积闸，失败就丢弃并记日志，不打断工具轮。历史里的折叠由
+    :func:`fold_media_in_messages` 负责，两者靠同一个 sha256 对齐。
+    """
+    if not isinstance(result, list):
+        return
+    try:
+        limit_kb = config_manager.config.context.max_allowed_size
+    except Exception:
+        #  配置尚未就绪时按不限制处理，体积闸仍由 store_media 兜底
+        limit_kb = 0
+    for part in result:
+        if not isinstance(part, ImageContent):
+            continue
+        parsed = _decode_data_uri(part.image_url.url)
+        if parsed is None:
+            continue
+        _, _, raw = parsed
+        normalized = await asyncio.to_thread(
+            normalize_image,
+            raw,
+            max_width=0,
+            max_height=0,
+            max_bytes=limit_kb * 1024,
+        )
+        if not normalized.ok:
+            logger.debug(f"工具图片未通过归一化：{normalized.reason}")
+            continue
+        await store_media("", normalized.raw, normalized.mime)
 
 
 def placeholder_of(url: str) -> PlaceholderContent | None:
@@ -404,7 +440,7 @@ def fold_media_in_messages(messages: Iterable[CONTENT_LIST_TYPE_ITEM]) -> None:
 
     for message in messages:
         parts = _iter_content_parts(message)
-        if parts is None or not isinstance(message, Message):
+        if parts is None:
             continue
         replaced: list[Content] = []
         changed = False

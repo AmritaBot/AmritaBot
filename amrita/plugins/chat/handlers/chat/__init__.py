@@ -19,7 +19,7 @@ from amrita_core import debug_log, logger
 from amrita_core.base.backend import BackendSlots
 from amrita_core.chatmanager import ChatObject as CoreChatObject
 from amrita_core.chatmanager.chat_object import DatabackendOptions
-from amrita_core.types import USER_INPUT, Content, Message
+from amrita_core.types import USER_INPUT, Content, Message, ToolResult
 from amrita_sense.hook.exception import MatcherException as ChatException
 from amrita_sense.hook.matcher import MatcherFactory
 from nonebot import get_driver
@@ -125,9 +125,9 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     )
     data = memory.memory_json
 
-    # 清理异常 message content（仅 Message 需要；ToolResult.content 为 str 无需处理）
+    #  清理异常 content：Core 1.4 起 ToolResult 也可能携带内容块列表
     for mem in data.messages:
-        if not isinstance(mem, Message):
+        if not isinstance(mem, (Message, ToolResult)):
             continue
         if mem.content is None or isinstance(mem.content, str):
             continue

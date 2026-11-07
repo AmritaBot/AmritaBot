@@ -161,7 +161,7 @@ function ModelForm({
     const payload: Record<string, unknown> = {
       name,
       model,
-      base_url: baseUrl,
+      base_url: baseUrl.trim(),
       protocol,
       config: buildConfig(),
       thinking_config: buildThinkingConfig(),
@@ -200,7 +200,13 @@ function ModelForm({
             <Input
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
+              aria-invalid={!baseUrl.trim()}
             />
+            {!baseUrl.trim() ? (
+              <p className="text-xs text-destructive">
+                必填。留空会让请求地址失去协议头，直到发消息时才报错。
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label>API Key</Label>
@@ -407,7 +413,7 @@ function ModelForm({
       <DialogFooter className="shrink-0 border-t pt-4">
         <Button
           onClick={() => onSubmit(buildPayload())}
-          disabled={!name || !model || submitting}
+          disabled={!name || !model || !baseUrl.trim() || submitting}
         >
           {submitting ? "保存中…" : "保存"}
         </Button>

@@ -113,6 +113,7 @@ class SkillConfig(BaseModel):
         if isinstance(data, dict) and data and "mode" not in data:
             return {**data, "mode": "invoke"}
         return data
+
     selected: list[str] = Field(
         default=[],
         description=("启用的技能名称列表（空列表=全部启用；非空则仅列表内的技能启用）"),
@@ -324,6 +325,22 @@ class ContextStoreConfig(BaseModel):
         description=(
             "read_context 工具单次返回的默认条数，同时也是模型可请求的条数上限"
             f"（1~{_MAX_READ_CONTEXT_LIMIT}）"
+        ),
+    )
+    read_context_max_images: int = Field(
+        default=4,
+        ge=0,
+        le=_MAX_IMAGES_PER_MESSAGE,
+        description=(
+            "read_context 单次调用最多还原的图片张数（0=不还原图片，只返回文本），"
+            "避免历史图片一次性撑满上下文"
+        ),
+    )
+    read_context_images: bool = Field(
+        default=False,
+        description=(
+            "read_context 是否还原图片：独立开关，与单次请求的图片上限互不影响；"
+            "关闭时只返回文本，不再把历史图片塞进工具结果"
         ),
     )
     max_image_kb: int = Field(

@@ -51,6 +51,12 @@ async def create_model(request: Request):
             return JSONResponse(
                 {"success": False, "message": "缺少模型预设名称"}, status_code=400
             )
+        #  空或非字符串的 base_url 到请求阶段才炸，错误现场离真正原因太远，入口就拦下
+        if not isinstance(base_url, str) or not base_url.strip():
+            return JSONResponse(
+                {"success": False, "message": "Base URL 不能为空"}, status_code=400
+            )
+        base_url = base_url.strip()
         thinking_cfg = ThinkingConfig(**thinking_data) if thinking_data else None
         preset = ModelPreset(
             name=name,
@@ -97,6 +103,16 @@ async def update_model(request: Request, name: str):
             )
 
         data: dict[str, Any] = await request.json()
+
+        #  前端表单未就绪时会把 base_url 写成空串或 null，两者都要在入口拦下
+        if "base_url" in data:
+            raw_base_url = data["base_url"]
+            if not isinstance(raw_base_url, str) or not raw_base_url.strip():
+                return JSONResponse(
+                    {"success": False, "message": "Base URL 不能为空"},
+                    status_code=400,
+                )
+            data["base_url"] = raw_base_url.strip()
 
         # 更新字段
         for key, value in data.items():

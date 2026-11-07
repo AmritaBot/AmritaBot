@@ -274,9 +274,12 @@ export interface ChatPromptsData {
   prompts: { group: ChatPrompt[]; private: ChatPrompt[] };
 }
 export interface McpServer {
+  /** 运行时标识：同一脚本重载后不变，删除再添加才会换 */
+  id: string;
   server_script: string;
   tools_count: number;
   status: "connected" | "disconnected";
+  error: string | null;
 }
 export interface McpServersData {
   servers: McpServer[];

@@ -16,7 +16,10 @@ from amrita.plugins.chat.skills import reload_skills, validate_skills
 from amrita.plugins.chat.utils.mcp_boot import (
     MCPLoadReport,
     _describe,
+    find_state,
+    list_states,
     load_mcp_servers,
+    remove_state,
 )
 from amrita.plugins.webui.API import JSONResponse
 from amrita.plugins.webui.API import app as router
@@ -514,31 +517,20 @@ async def get_prompts():
 async def get_mcp_servers():
     """获取MCP服务器列表"""
     try:
-        client_manager = ClientManager()
-        servers = []
-
-        for client in client_manager.clients:
-            client.get_tools()
-            server_info = {
-                "server_script": str(client.server_script),
-                "tools_count": len(client.openai_tools),
-                "status": "connected",
+        #  以运行时状态表为准：它同时覆盖连上的、连不上的，以及配置里没写进去的。
+        #  之前在 ClientManager 与配置之间做差集，两边都可能是空，列表就成了薛定谔的。
+        servers = [
+            {
+                "id": state.id,
+                "server_script": state.script,
+                "tools_count": len(state.tools),
+                "status": "connected"
+                if state.status == "connected"
+                else "disconnected",
+                "error": state.error,
             }
-            servers.append(server_info)
-
-        # 获取配置中所有已定义的服务器脚本
-        config_scripts = (
-            config_manager.config.core.function_config.agent_mcp_server_scripts
-        )
-        for script in config_scripts:
-            if script not in [s["server_script"] for s in servers]:
-                servers.append(
-                    {
-                        "server_script": script,
-                        "tools_count": 0,
-                        "status": "disconnected",
-                    }
-                )
+            for state in list_states()
+        ]
 
         return JSONResponse(
             {"success": True, "data": {"servers": servers}}, status_code=200
@@ -581,12 +573,21 @@ async def add_mcp_server(request: Request):
                 status_code=400,
             )
 
-        # 保存到配置
-        config.core.function_config.agent_mcp_server_scripts.append(server_script)
+        # 写盘：必须改 ins_config，`config_manager.config` 是替换过环境变量的副本
+        scripts = (
+            config_manager.ins_config.core.function_config.agent_mcp_server_scripts
+        )
+        if server_script not in scripts:
+            scripts.append(server_script)
         await config_manager.save_config()
 
+        state = find_state(server_script)
         return JSONResponse(
-            {"success": True, "message": f"MCP服务器 {server_script} 添加成功"},
+            {
+                "success": True,
+                "message": f"MCP服务器 {server_script} 添加成功（{state.id if state else '-'}）",
+                "data": {"id": state.id if state else None},
+            },
             status_code=200,
         )
     except Exception as e:
@@ -602,25 +603,23 @@ async def add_mcp_server(request: Request):
 
 @router.put("/api/chat/mcp/servers/{server_script}")
 async def update_mcp_server(server_script: str, request: Request):
-    """更新MCP服务器（目标路径在 URL 中）"""
+    """更新MCP服务器（URL 参数是运行时 id 或脚本地址）"""
     try:
         data = await request.json()
         new_server_script = data.get("server_script")
-        old_server_script = server_script
 
         if not new_server_script:
             return JSONResponse(
                 {"success": False, "message": "缺少服务器脚本路径"}, status_code=400
             )
 
-        config = config_manager.ins_config
-        if (
-            old_server_script
-            not in config.core.function_config.agent_mcp_server_scripts
-        ):
+        #  按运行时状态寻址：配置里没有这条时也能更新
+        state = find_state(server_script)
+        if state is None:
             return JSONResponse(
                 {"success": False, "message": "MCP服务器不存在"}, status_code=404
             )
+        old_server_script = state.script
 
         # 先把新服务器连上，成功后再动旧的：否则新地址是坏的，
         # 旧服务器已经从配置与工具池里消失，等于把可用服务一起弄丢
@@ -634,8 +633,14 @@ async def update_mcp_server(server_script: str, request: Request):
 
         client_manager = ClientManager()
         await client_manager.unregister_client(old_server_script)
-        config.core.function_config.agent_mcp_server_scripts.remove(old_server_script)
-        config.core.function_config.agent_mcp_server_scripts.append(new_server_script)
+        remove_state(state.id)
+        scripts = (
+            config_manager.ins_config.core.function_config.agent_mcp_server_scripts
+        )
+        if old_server_script in scripts:
+            scripts.remove(old_server_script)
+        if new_server_script not in scripts:
+            scripts.append(new_server_script)
         await config_manager.save_config()
 
         return JSONResponse(
@@ -658,26 +663,33 @@ async def update_mcp_server(server_script: str, request: Request):
 
 @router.post("/api/chat/mcp/servers/{server_script}/delete")
 async def delete_mcp_server(server_script: str):
-    """删除MCP服务器"""
+    """删除MCP服务器（URL 参数是运行时 id 或脚本地址）"""
     try:
-        config = config_manager.ins_config
-        if server_script not in config.core.function_config.agent_mcp_server_scripts:
+        #  以运行时状态为准：即使配置里没有这条记录（添加时写盘失败），
+        #  它仍然占着工具名，必须能从状态与工具池里清掉
+        state = find_state(server_script)
+        if state is None:
             return JSONResponse(
                 {"success": False, "message": "MCP服务器不存在"}, status_code=404
             )
 
-        # 从配置中移除
-        config.core.function_config.agent_mcp_server_scripts.remove(server_script)
-
-        # 注销客户端
         client_manager = ClientManager()
-        await client_manager.unregister_client(server_script)
+        if state.status == "connected":
+            await client_manager.unregister_client(state.script)
+        remove_state(state.id)
 
-        # 保存配置
-        await config_manager.save_config()
+        scripts = (
+            config_manager.ins_config.core.function_config.agent_mcp_server_scripts
+        )
+        if state.script in scripts:
+            scripts.remove(state.script)
+            await config_manager.save_config()
 
         return JSONResponse(
-            {"success": True, "message": f"MCP服务器 {server_script} 删除成功"},
+            {
+                "success": True,
+                "message": f"MCP服务器 {state.script}（{state.id}）删除成功",
+            },
             status_code=200,
         )
     except Exception as e:

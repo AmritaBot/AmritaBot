@@ -113,6 +113,7 @@ class SkillConfig(BaseModel):
         if isinstance(data, dict) and data and "mode" not in data:
             return {**data, "mode": "invoke"}
         return data
+
     selected: list[str] = Field(
         default=[],
         description=("启用的技能名称列表（空列表=全部启用；非空则仅列表内的技能启用）"),
@@ -812,6 +813,16 @@ class ConfigManager(EnvfulConfigManager[Config]):
     async def save_config(self):
         """保存配置"""
         await UniConfigManager().save_config(self._owner_name)
+        self.sync_core_runtime()
+
+    def sync_core_runtime(self) -> None:
+        """把 ``ins_config`` 的 core 子树推回 Core 全局单例。
+
+        直接改 ``ins_config`` 不会刷新 ``config``（那是替换过环境变量的副本），
+        也不会让 Core 的 ``get_config()`` 看到变化，运行时用的仍是旧对象。
+        改完 core 相关的字段后必须调一次。
+        """
+        self._update_cache()
 
     async def set_config(self, key: str, value: str):
         """

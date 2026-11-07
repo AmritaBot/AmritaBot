@@ -13,6 +13,11 @@ from nonebot_plugin_amrita.memory import CachedUserDataRepository
 
 from amrita.plugins.chat.config import SkillConfig, config_manager
 from amrita.plugins.chat.skills import reload_skills, validate_skills
+from amrita.plugins.chat.utils.mcp_boot import (
+    MCPLoadReport,
+    _describe,
+    load_mcp_servers,
+)
 from amrita.plugins.webui.API import JSONResponse
 from amrita.plugins.webui.API import app as router
 
@@ -567,9 +572,14 @@ async def add_mcp_server(request: Request):
                 {"success": False, "message": "MCP服务器已存在"}, status_code=400
             )
 
-        # 尝试初始化MCP服务器
-        client_manager = ClientManager()
-        await client_manager.initialize_this(server_script, True)
+        # 尝试初始化MCP服务器：失败只影响本次添加，半成品工具会被清理
+        report = await load_mcp_servers([server_script])
+        if report.failed:
+            reason = report.failed[0][1]
+            return JSONResponse(
+                {"success": False, "message": f"MCP服务器连接失败：{reason}"},
+                status_code=400,
+            )
 
         # 保存到配置
         config.core.function_config.agent_mcp_server_scripts.append(server_script)
@@ -612,16 +622,19 @@ async def update_mcp_server(server_script: str, request: Request):
                 {"success": False, "message": "MCP服务器不存在"}, status_code=404
             )
 
-        # 从配置中移除旧服务器
-        config.core.function_config.agent_mcp_server_scripts.remove(old_server_script)
-        # 注销旧客户端
+        # 先把新服务器连上，成功后再动旧的：否则新地址是坏的，
+        # 旧服务器已经从配置与工具池里消失，等于把可用服务一起弄丢
+        report = await load_mcp_servers([new_server_script])
+        if report.failed:
+            reason = report.failed[0][1]
+            return JSONResponse(
+                {"success": False, "message": f"MCP服务器连接失败：{reason}"},
+                status_code=400,
+            )
+
         client_manager = ClientManager()
         await client_manager.unregister_client(old_server_script)
-
-        # 尝试初始化新MCP服务器
-        await client_manager.initialize_this(new_server_script, True)
-
-        # 添加新服务器到配置
+        config.core.function_config.agent_mcp_server_scripts.remove(old_server_script)
         config.core.function_config.agent_mcp_server_scripts.append(new_server_script)
         await config_manager.save_config()
 
@@ -680,15 +693,30 @@ async def reload_mcp_servers():
     """重载所有MCP服务器"""
     try:
         client_manager = ClientManager()
+        report = MCPLoadReport()
         for cl in (client_manager.clients).copy():
-            await client_manager.unregister_client(cl.server_script)
-            await cl.close_no_wait()  # 虽然热重载，但是为了避免竞态，这里先把会话掐了
-            cl.tools.clear()
-            cl.openai_tools.clear()
-            await cl.bound_to(client_manager)
+            script = str(cl.server_script)
+            try:
+                await client_manager.unregister_client(cl.server_script)
+                await (
+                    cl.close_no_wait()
+                )  # 虽然热重载，但是为了避免竞态，这里先把会话掐了
+                cl.tools.clear()
+                cl.openai_tools.clear()
+                await cl.bound_to(client_manager)
+            except Exception as e:
+                #  单个服务重连失败不阻断其余服务
+                logger.opt(exception=e).warning(f"MCP Server@{script} 重载失败")
+                report.failed.append((script, _describe(e)))
+            else:
+                report.loaded.append(script)
 
         return JSONResponse(
-            {"success": True, "message": "MCP服务器重载成功"}, status_code=200
+            {
+                "success": report.ok,
+                "message": f"MCP服务器重载{'成功' if report.ok else '部分失败'}：{report.summary()}",
+            },
+            status_code=200 if report.ok else 207,
         )
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).error("重载MCP服务器失败")

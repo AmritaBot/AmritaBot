@@ -1,7 +1,4 @@
-import asyncio
-
 from amrita_core.tools.mcp import ClientManager
-from exceptiongroup import BaseExceptionGroup
 from nonebot import logger
 from nonebot.adapters.onebot.v11 import (
     Bot,
@@ -14,6 +11,11 @@ from nonebot.matcher import Matcher
 from nonebot.params import CommandArg
 
 from amrita.plugins.chat.config import config_manager
+from amrita.plugins.chat.utils.mcp_boot import (
+    MCPLoadReport,
+    _describe,
+    load_mcp_servers,
+)
 from amrita.utils.send import send_forward_msg
 
 
@@ -119,18 +121,25 @@ async def del_mcp_server(matcher: Matcher, mcp_server: str):
 async def reload(matcher: Matcher):
     if not config_manager.config.core.function_config.agent_mcp_client_enable:
         return
-    try:
-        client_manager = ClientManager()
-        for cl in (client_manager.clients).copy():
+    client_manager = ClientManager()
+    report = MCPLoadReport()
+    for cl in (client_manager.clients).copy():
+        script = str(cl.server_script)
+        try:
             await client_manager.unregister_client(cl.server_script)
             await cl.close_no_wait()  # 虽然热重载，但是为了避免竞态，这里先把会话掐了
             cl.tools.clear()
             cl.openai_tools.clear()
             await cl.bound_to(client_manager)
-        await matcher.send("重载成功")
-    except Exception as e:
-        logger.opt(exception=e, colors=True, raw=True).exception(e)
-        await matcher.send("重载失败")
+        except Exception as e:
+            #  单个服务重连失败不影响其余服务，继续处理下一个
+            logger.opt(exception=e, colors=True, raw=True).warning(
+                f"MCP Server@{script} 重载失败"
+            )
+            report.failed.append((script, _describe(e)))
+        else:
+            report.loaded.append(script)
+    await matcher.send(f"重载{'成功' if report.ok else '部分失败'}：{report.summary()}")
 
 
 async def deep_reload(matcher: Matcher):
@@ -143,17 +152,13 @@ async def deep_reload(matcher: Matcher):
             await cl.close_no_wait()  # 虽然热重载，但是为了避免竞态，这里先把会话掐了
             cl.tools.clear()
             cl.openai_tools.clear()
-        rst = await asyncio.gather(
-            *[
-                client_manager.initialize_this(scr)
-                for scr in config_manager.config.core.function_config.agent_mcp_server_scripts
-            ],
-            return_exceptions=True,
+        report = await load_mcp_servers(
+            list(config_manager.config.core.function_config.agent_mcp_server_scripts),
+            manager=client_manager,
         )
-        if excs := [r for r in rst if isinstance(r, BaseException)]:
-            raise BaseExceptionGroup("部分MCP Server初始化失败", excs)
-
-        await matcher.send("完全重载成功")
+        await matcher.send(
+            f"完全重载{'成功' if report.ok else '部分失败'}：{report.summary()}"
+        )
     except BaseException as e:
         logger.opt(exception=e, colors=True, raw=True).exception(e)
         await matcher.send("完全重载失败")

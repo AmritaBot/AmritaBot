@@ -292,6 +292,8 @@ export interface SkillInfo {
 }
 export interface SkillConfig {
   enable: boolean;
+  /** 工具注册模式：progressive=统一两个工具；invoke=每个技能一个工具 */
+  mode: "progressive" | "invoke";
   /** 启用的技能名称列表（空列表=全部启用；非空则仅列表内的技能启用） */
   selected: string[];
   /** 是否在技能返回内容中回显技能目录（远程沙箱场景可关闭） */

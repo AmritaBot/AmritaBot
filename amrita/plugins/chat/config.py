@@ -105,6 +105,14 @@ class SkillConfig(BaseModel):
             "invoke=每个技能注册一个工具（兼容旧行为）"
         ),
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _legacy_mode(cls, data: Any) -> Any:
+        """旧配置文件没有 mode 字段时按 invoke 处理，保持原有工具形态。"""
+        if isinstance(data, dict) and data and "mode" not in data:
+            return {**data, "mode": "invoke"}
+        return data
     selected: list[str] = Field(
         default=[],
         description=("启用的技能名称列表（空列表=全部启用；非空则仅列表内的技能启用）"),

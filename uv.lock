@@ -309,7 +309,7 @@ requires-dist = [
     { name = "amrita-sense", specifier = ">=1.0.0,<2.0.0" },
     { name = "async-lru", specifier = ">=2.0.5" },
     { name = "bcrypt", specifier = ">=4.3.0" },
-    { name = "faskill", extras = ["amrita"], specifier = ">=0.3.0" },
+    { name = "faskill", extras = ["amrita"], specifier = ">=0.4.0" },
     { name = "importlib", specifier = ">=1.0.4" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "nb-cli", specifier = ">=1.6.0" },
@@ -927,16 +927,16 @@ wheels = [
 
 [[package]]
 name = "faskill"
-version = "0.3.0"
+version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
     { name = "aiologic" },
     { name = "pyyaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/90/56/e4f882653cc58725651d8b38e9d271c5f8cd078dc91e33b6176553444932/faskill-0.3.0.tar.gz", hash = "sha256:8a552670a20cccdc9e8641020d182206a896d3b924e730fbbb5cf58316654160", size = 120817, upload-time = "2026-10-02T03:33:35.626Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/db/dd/82d6fa2284d8b3849affdfe697dd0ef432031a4f442a83ecaa01c7050843/faskill-0.4.0.tar.gz", hash = "sha256:c34a3d172e798ba98251595a4f7800066a42c36a2befac78515702d379b4e375", size = 131654, upload-time = "2026-11-07T06:56:50.43Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d5/60/c1aec386e8625b37104c33a710483cc41e9a7ba0e544a635aefa8b5925d3/faskill-0.3.0-py3-none-any.whl", hash = "sha256:82ba703447e72ab53aed4593d1bb17ca33c79ea4ebdf6468bdcc2e534f8586be", size = 63656, upload-time = "2026-10-02T03:33:34.659Z" },
+    { url = "https://files.pythonhosted.org/packages/1a/79/3b24e1461d67288a05772d148144fd89e77206a9a7b43667a733d3b1fee6/faskill-0.4.0-py3-none-any.whl", hash = "sha256:4305662d6f157265570cada2ff4d96d48d3fbe86df68ea9c99023514878815dc", size = 70286, upload-time = "2026-11-07T06:56:49.076Z" },
 ]
 
 [package.optional-dependencies]

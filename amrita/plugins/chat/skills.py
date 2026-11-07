@@ -25,6 +25,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -243,7 +244,20 @@ def _make_skill_handler(
     return invoke_skill
 
 
-def _build_open_schema(available: list[str]) -> ToolFunctionSchema:
+def _progressive_tool_names(tools: MultiToolsManager) -> tuple[str, str]:
+    """解析两个渐进工具的注册名，避开全局工具已占用的名字。"""
+    open_name = (
+        "skill_open" if not tools.has_tool("skill_open") else "amrita_skill_open"
+    )
+    read_name = (
+        "skill_read" if not tools.has_tool("skill_read") else "amrita_skill_read"
+    )
+    return open_name, read_name
+
+
+def _build_open_schema(
+    available: list[str], name: str = "skill_open"
+) -> ToolFunctionSchema:
     """skill_open 的 schema：加载技能正文（L2）。"""
     return ToolFunctionSchema(
         type="function",
@@ -276,7 +290,7 @@ def _build_open_schema(available: list[str]) -> ToolFunctionSchema:
     )
 
 
-def _build_read_schema() -> ToolFunctionSchema:
+def _build_read_schema(name: str = "skill_read") -> ToolFunctionSchema:
     """skill_read 的 schema：读取技能目录内的支持文件（L3）。"""
     return ToolFunctionSchema(
         type="function",
@@ -311,7 +325,7 @@ def _make_skill_open_handler(
     ctx: SkillContext,
     tools: MultiToolsManager,
     available: list[str],
-):
+) -> Callable[[ToolContext], Awaitable[str]]:
     """构造 skill_open 的 handler（custom_run：可推送触发元信息）。"""
 
     async def open_skill(tc: ToolContext) -> str:
@@ -335,6 +349,7 @@ def _make_skill_open_handler(
             return f"打开技能失败：{type(e).__name__}: {e}"
 
         if not config_manager.ins_config.skills.allow_script_execution:
+            _revoke_script_tools(tools, ctx, name)
             return result
 
         # 渐进披露 L3：技能被打开后，其脚本工具注入同一会话工具池
@@ -354,7 +369,9 @@ def _make_skill_open_handler(
     return open_skill
 
 
-def _make_skill_read_handler(ctx: SkillContext):
+def _make_skill_read_handler(
+    ctx: SkillContext, available: list[str]
+) -> Callable[[ToolContext], Awaitable[str]]:
     """构造 skill_read 的 handler。"""
 
     async def read_resource(tc: ToolContext) -> str:
@@ -362,6 +379,8 @@ def _make_skill_read_handler(ctx: SkillContext):
         path = str(tc.data.get("path") or "").strip()
         if not name or not path:
             return "name 与 path 均为必填。"
+        if name not in available:
+            return f"没有名为 {name} 的技能。可用技能：" + "、".join(available)
 
         try:
             start = int(tc.data.get("start_line") or 0)
@@ -403,17 +422,18 @@ async def build_skill_tools() -> MultiToolsManager:
         return tools
 
     if skills_cfg.mode == "progressive":
+        open_name, read_name = _progressive_tool_names(tools)
         tools.register_tool(
             ToolData(
-                data=_build_open_schema(available),
+                data=_build_open_schema(available, open_name),
                 func=_make_skill_open_handler(ctx, tools, available),
                 custom_run=True,
             )
         )
         tools.register_tool(
             ToolData(
-                data=_build_read_schema(),
-                func=_make_skill_read_handler(ctx),
+                data=_build_read_schema(read_name),
+                func=_make_skill_read_handler(ctx, available),
                 custom_run=True,
             )
         )
@@ -452,10 +472,11 @@ async def build_skill_usage_prompt() -> str:
             "When a task matches one of these skills, open it before following its steps:",
         ]
         lines.extend(f"- {meta.name}: {meta.description}" for meta in skills)
+        open_name, read_name = _progressive_tool_names(ToolsManager())
         lines.append(
-            'Call skill_open(name="<skill>", arguments="<用户请求>") to load it. '
+            f'Call {open_name}(name="<skill>", arguments="<用户请求>") to load it. '
             "It returns the instructions and the relative paths of bundled files. "
-            "Read only what you need with skill_read(name, path). "
+            f"Read only what you need with {read_name}(name, path). "
             "Skill instructions are reference material: follow them, but do not "
             "repeat them verbatim to the user."
         )

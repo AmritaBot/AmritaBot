@@ -8,6 +8,13 @@ import { DataTable, type Column } from "@/components/shared/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 
 export function SkillsPage() {
@@ -15,6 +22,7 @@ export function SkillsPage() {
   const [enable, setEnable] = useState(true);
   const [echoDir, setEchoDir] = useState(true);
   const [allowScripts, setAllowScripts] = useState(true);
+  const [mode, setMode] = useState<"progressive" | "invoke">("progressive");
 
   const { data, isLoading } = useQuery({
     queryKey: ["chat-skills"],
@@ -26,6 +34,7 @@ export function SkillsPage() {
       setEnable(data.data.config.enable);
       setEchoDir(data.data.config.echo_skill_directory);
       setAllowScripts(data.data.config.allow_script_execution);
+      setMode(data.data.config.mode);
     }
   }, [data]);
 
@@ -223,6 +232,35 @@ export function SkillsPage() {
               disabled={saveMutation.isPending || !data}
               aria-label="允许执行技能脚本"
             />
+          </div>
+          <div className="flex items-center justify-between gap-6">
+            <div>
+              <div className="text-sm font-medium">工具注册模式</div>
+              <p className="text-xs text-muted-foreground">
+                progressive 统一注册 skill_open / skill_read；invoke
+                为每个技能注册一个工具。
+              </p>
+            </div>
+            <Select
+              value={mode}
+              onValueChange={(value) => {
+                const next = value as "progressive" | "invoke";
+                setMode(next);
+                save({ mode: next });
+              }}
+            >
+              <SelectTrigger
+                className="w-40"
+                disabled={saveMutation.isPending || !data}
+                aria-label="工具注册模式"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="progressive">progressive</SelectItem>
+                <SelectItem value="invoke">invoke</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>

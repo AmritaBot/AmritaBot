@@ -10,8 +10,10 @@ import asyncio
 import re
 from typing import TYPE_CHECKING, cast
 
+from amrita_core.config import get_config
 from amrita_core.libchat import call_completion, get_last_response, text_generator
 from amrita_core.types import CONTENT_LIST_TYPE, Message
+from amrita_core.types.preset import resolve_max_output
 from amrita_core.usage import SessionUsageProxy
 from nonebot import logger
 
@@ -22,7 +24,8 @@ if TYPE_CHECKING:
     from amrita_core.types import MemoryModel as AwaredMemory
     from nonebot_plugin_amrita.memory import CachedUserDataRepository
 
-TAG_MAX_LEN = 24
+TAG_MAX_LEN = 64
+TAG_GENERATE_MAX_LEN = 24
 #  思考模型会先花掉 reasoning tokens，预算太小会让正文一个字都出不来
 TAG_MAX_OUTPUT = 2048
 #  一次标签调用的上限，provider 挂起时不能让任务永远挂在 _background 里
@@ -63,13 +66,13 @@ def _clean(raw: str) -> str | None:
     text = text.rstrip("。.,，;；")
     text = _SPACE_RE.sub(" ", text).strip()
     #  模型偶尔会把一句写成一段：优先保留第一个分句，再兜底截断
-    if len(text) > TAG_MAX_LEN:
+    if len(text) > TAG_GENERATE_MAX_LEN:
         text = re.split(r"[，,；;。]", text)[0].strip() or text
     #  方括号与 @ 会拼出 CQ 码，或被解析成提及；展示层还会再转一次文本段
     text = text.replace("[", "【").replace("]", "】").replace("@", "＠")
     if not text:
         return None
-    return text[:TAG_MAX_LEN]
+    return text[:TAG_GENERATE_MAX_LEN]
 
 
 async def generate_session_tag(
@@ -97,11 +100,9 @@ async def generate_session_tag(
     )
     try:
         preset = await resolve_preset()
-        #  标签只要一句，但思考模型的 reasoning 与正文共用这份预算；
-        #  沿用预设里偏小的值会让正文被饿成空串，因此给一个下限。
-        preset = preset.model_copy(
-            update={"max_output": max(preset.max_output or 0, TAG_MAX_OUTPUT)}
-        )
+        #  标签只要一句，但 reasoning 与正文共用预算，这里给解析后的预算兜个下限。
+        budget = max(resolve_max_output(preset, get_config()), TAG_MAX_OUTPUT)
+        preset = preset.model_copy(update={"max_output": budget})
         resp = await asyncio.wait_for(
             get_last_response(call_completion(messages, preset=preset, usage=ledger)),
             timeout=TAG_TIMEOUT,

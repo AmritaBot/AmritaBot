@@ -44,9 +44,11 @@ import asyncio
 import base64
 import binascii
 import hashlib
+import json
 import re
 import time
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -78,6 +80,7 @@ if TYPE_CHECKING:
     from amrita_core.hook.event import Event
 
 __all__ = [
+    "ContextEntry",
     "MediaExpandBudget",
     "PlaceholderContent",
     "append_context_record",
@@ -90,6 +93,7 @@ __all__ = [
     "load_media_data_uri",
     "placeholder_of",
     "prune_context_store",
+    "read_context_entries",
     "read_context_records",
     "store_media",
 ]
@@ -549,11 +553,14 @@ async def append_context_record(
     nickname: str,
     role: str,
     content: str,
+    media_ids: Iterable[str] | None = None,
 ) -> None:
     """静默记录一条群聊上下文（不进入 LLM 记忆）。
 
     ``content`` 需是已渲染好的文本（调用方用 ``utils.format.format_msg_xml``
-    生成），本函数不再做格式处理。
+    生成），本函数不再做格式处理。``media_ids`` 是该条消息附带图片的
+    ``media_id``（已由采集侧归一化并落库），按顺序存成 JSON 数组，
+    ``read_context`` 读取时按需还原。
     """
     if not config_manager.config.context.enable or not content.strip():
         return
@@ -567,6 +574,7 @@ async def append_context_record(
                     nickname=nickname,
                     role=role,
                     content=content,
+                    media_ids=(json.dumps(list(media_ids)) if media_ids else None),
                 )
             )
             #  触发 autoflush，让本次新增记录参与条数上限淘汰
@@ -577,22 +585,57 @@ async def append_context_record(
     await _maybe_prune()
 
 
-async def read_context_records(
+@dataclass(frozen=True)
+class ContextEntry:
+    """一条静默上下文记录：渲染好的文本 + 该条消息附带的图片 ``media_id``。"""
+
+    content: str
+    media_ids: tuple[str, ...] = ()
+
+
+def _parse_media_ids(raw: object) -> tuple[str, ...]:
+    """解析 ``ContextRecord.media_ids``；坏数据一律当作没有图片。"""
+    if not isinstance(raw, str) or not raw:
+        return ()
+    try:
+        parsed = json.loads(raw)
+    except ValueError:
+        return ()
+    if not isinstance(parsed, list):
+        return ()
+    return tuple(item for item in parsed if isinstance(item, str) and item)
+
+
+async def read_context_entries(
     uni_id: str, limit: int, keyword: str | None = None
-) -> list[str]:
-    """读取指定会话最近的上下文记录，按时间正序返回（已渲染好的文本）。"""
+) -> list[ContextEntry]:
+    """读取指定会话最近的上下文记录，按时间正序返回。"""
     cfg = config_manager.config.context
     #  ``read_context_limit`` 同时是默认值与上限，这里对任何调用者再夹一次
     limit = max(1, min(limit, cfg.read_context_limit))
-    stmt = select(ContextRecord.content).where(ContextRecord.uni_id == uni_id)
+    stmt = select(ContextRecord.content, ContextRecord.media_ids).where(
+        ContextRecord.uni_id == uni_id
+    )
     if keyword:
         stmt = stmt.where(ContextRecord.content.contains(keyword))
     stmt = stmt.order_by(
         ContextRecord.created_at.desc(), ContextRecord.id.desc()
     ).limit(limit)
     async with get_session() as session:
-        rows = (await session.execute(stmt)).scalars().all()
-    return list(reversed(rows))
+        rows = (await session.execute(stmt)).all()
+    return [
+        ContextEntry(content=content, media_ids=_parse_media_ids(media_ids))
+        for content, media_ids in reversed(rows)
+    ]
+
+
+async def read_context_records(
+    uni_id: str, limit: int, keyword: str | None = None
+) -> list[str]:
+    """读取指定会话最近的上下文记录，按时间正序返回（已渲染好的文本）。"""
+    return [
+        entry.content for entry in await read_context_entries(uni_id, limit, keyword)
+    ]
 
 
 #  淘汰（条数上限 + TTL）

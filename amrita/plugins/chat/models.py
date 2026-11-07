@@ -77,6 +77,9 @@ class ContextRecord(Model):
     role: Mapped[str] = mapped_column(String(32), default="")
     #  已按 XML 格式渲染、可直接喂给 LLM 的文本（旧记录可能为 legacy 格式）
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    #  该条消息附带的图片 media_id 列表（JSON 数组文本）；NULL 表示没有图片，
+    #  兼容迁移前的历史记录，不设服务端默认值
+    media_ids: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now, nullable=False
     )

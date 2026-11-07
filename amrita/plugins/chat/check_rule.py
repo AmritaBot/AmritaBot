@@ -24,6 +24,7 @@ from .utils.data_access import get_group_config, get_memory, update_memory
 from .utils.debounce import has_active_batch
 from .utils.format import format_msg_xml
 from .utils.functions import format_current_datetime, synthesize_message
+from .utils.preset import is_multimodal_enabled
 
 nb_config = get_driver().config
 
@@ -184,9 +185,24 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
             else event.sender.nickname
         )
 
+        uni_id = make_uni_id(ins_id, is_group)
+
+        # 图片只有在当前运行真的能把图交给模型时才采集，否则只留文本
+        media_ids: list[str] = []
+        if await is_multimodal_enabled():
+            # 局部导入：handlers 包在导入期会反向依赖本模块，放在函数内避免循环导入
+            from .handlers.chat.message import _build_image_contents
+            from .utils.context_store import PlaceholderContent
+
+            media_ids = [
+                item.media_id
+                for item in await _build_image_contents(bot, message, uni_id)
+                if isinstance(item, PlaceholderContent)
+            ]
+
         # 生成消息内容并静默落库（不再写入 LLM 记忆，改由 read_context 工具按需读取），固定 XML 格式
         await append_context_record(
-            uni_id=make_uni_id(ins_id, is_group),
+            uni_id=uni_id,
             user_id=str(user_id),
             nickname=str(user_name),
             role=role,
@@ -197,6 +213,7 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
                 content,
                 time=format_current_datetime(),
             ),
+            media_ids=media_ids,
         )
         # 默认返回 False
         return False

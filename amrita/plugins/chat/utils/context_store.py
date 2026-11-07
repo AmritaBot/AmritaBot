@@ -53,6 +53,7 @@ from typing import TYPE_CHECKING
 import aiologic
 from amrita_core.types import (
     CONTENT_LIST_TYPE_ITEM,
+    TOOL_RESULT_CONTENT,
     USER_INPUT,
     Content,
     ImageContent,
@@ -371,7 +372,7 @@ async def expand_media_in_content(
 #  写路径：图片内容 -> 占位符（纯函数）
 
 
-async def ingest_tool_media(result: object) -> None:
+async def ingest_tool_media(result: TOOL_RESULT_CONTENT) -> None:
     """把工具返回的 data URI 图片归一化入库，失败时换成文本占位。"""
     if not isinstance(result, list):
         return

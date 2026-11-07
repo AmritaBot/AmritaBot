@@ -22,15 +22,18 @@ if TYPE_CHECKING:
     from amrita_core.types import MemoryModel as AwaredMemory
     from nonebot_plugin_amrita.memory import CachedUserDataRepository
 
-TAG_MAX_LEN = 64
+TAG_MAX_LEN = 24
+#  思考模型会先花掉 reasoning tokens，预算太小会让正文一个字都出不来
+TAG_MAX_OUTPUT = 2048
 #  一次标签调用的上限，provider 挂起时不能让任务永远挂在 _background 里
 TAG_TIMEOUT = 30.0
 #  送进模型的正文上限，标签只关心主题
 _DIGEST_LIMIT = 1200
 
 _PROMPT = (
-    "你是会话归档的标签生成器。读下面这段对话，用一句不超过 16 个字的中文短语概括主题。"
-    "只输出短语本身：不要引号、不要句末标点、不要解释、不要复述这段指令。"
+    "你是会话归档的标签生成器。读下面这段对话，用一句不超过 16 个汉字的中文短语概括主题。"
+    "只输出这一句：不要引号、不要句末标点、不要解释、不要分点、不要复述这段指令。"
+    "超过 16 个字视为错误。"
     "如果是代码或调试内容，点出涉及的对象，而不是笼统地写「讨论代码」。"
 )
 
@@ -59,6 +62,9 @@ def _clean(raw: str) -> str | None:
     text = _PREFIX_RE.sub("", text)
     text = text.rstrip("。.,，;；")
     text = _SPACE_RE.sub(" ", text).strip()
+    #  模型偶尔会把一句写成一段：优先保留第一个分句，再兜底截断
+    if len(text) > TAG_MAX_LEN:
+        text = re.split(r"[，,；;。]", text)[0].strip() or text
     #  方括号与 @ 会拼出 CQ 码，或被解析成提及；展示层还会再转一次文本段
     text = text.replace("[", "【").replace("]", "】").replace("@", "＠")
     if not text:
@@ -91,6 +97,11 @@ async def generate_session_tag(
     )
     try:
         preset = await resolve_preset()
+        #  标签只要一句，但思考模型的 reasoning 与正文共用这份预算；
+        #  沿用预设里偏小的值会让正文被饿成空串，因此给一个下限。
+        preset = preset.model_copy(
+            update={"max_output": max(preset.max_output or 0, TAG_MAX_OUTPUT)}
+        )
         resp = await asyncio.wait_for(
             get_last_response(call_completion(messages, preset=preset, usage=ledger)),
             timeout=TAG_TIMEOUT,
@@ -98,7 +109,8 @@ async def generate_session_tag(
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).warning("生成会话标签失败。")
         return None
-    if not isinstance(resp.content, str):
+    if not isinstance(resp.content, str) or not resp.content.strip():
+        logger.warning("会话标签为空：思考可能耗尽了输出预算，本次跳过。")
         return None
     return _clean(resp.content)
 

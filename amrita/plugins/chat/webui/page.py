@@ -761,6 +761,7 @@ async def get_skills():
                     ],
                     "config": {
                         "enable": config.enable,
+                        "mode": config.mode,
                         "selected": config.selected,
                         "echo_skill_directory": config.echo_skill_directory,
                         "allow_script_execution": config.allow_script_execution,
@@ -785,6 +786,7 @@ async def update_skills(request: Request):
         current = config_manager.ins_config.skills
         skills_cfg = SkillConfig(
             enable=bool(data.get("enable", current.enable)),
+            mode=str(data.get("mode", current.mode)),
             selected=(
                 [str(x) for x in data["selected"]]
                 if "selected" in data

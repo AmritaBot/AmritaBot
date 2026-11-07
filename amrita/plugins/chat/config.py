@@ -98,6 +98,13 @@ class SkillConfig(BaseModel):
     """技能系统配置（faskill Skills）"""
 
     enable: bool = Field(default=True, description="是否启用技能系统")
+    mode: Literal["progressive", "invoke"] = Field(
+        default="progressive",
+        description=(
+            "技能工具注册模式：progressive=统一注册 skill_open/skill_read 两个工具；"
+            "invoke=每个技能注册一个工具（兼容旧行为）"
+        ),
+    )
     selected: list[str] = Field(
         default=[],
         description=("启用的技能名称列表（空列表=全部启用；非空则仅列表内的技能启用）"),

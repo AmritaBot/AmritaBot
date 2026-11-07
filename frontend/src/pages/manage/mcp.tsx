@@ -37,7 +37,11 @@ export function McpPage() {
       toast.success(res.message);
       void qc.invalidateQueries({ queryKey: ["chat-mcp"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      // 部分失败会让 api 抛错，但服务状态已经变了，列表仍要刷新
+      void qc.invalidateQueries({ queryKey: ["chat-mcp"] });
+      toast.error(e.message);
+    },
   });
 
   const createMutation = useMutation({
@@ -53,8 +57,8 @@ export function McpPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ old, newScript }: { old: string; newScript: string }) =>
-      api.post(`/api/chat/mcp/servers/${encodeURIComponent(old)}`, {
+    mutationFn: ({ id, newScript }: { id: string; newScript: string }) =>
+      api.post(`/api/chat/mcp/servers/${encodeURIComponent(id)}`, {
         server_script: newScript,
       }),
     onSuccess: (res) => {
@@ -66,8 +70,8 @@ export function McpPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (script: string) =>
-      api.post(`/api/chat/mcp/servers/${encodeURIComponent(script)}/delete`),
+    mutationFn: (id: string) =>
+      api.post(`/api/chat/mcp/servers/${encodeURIComponent(id)}/delete`),
     onSuccess: (res) => {
       toast.success(res.message);
       void qc.invalidateQueries({ queryKey: ["chat-mcp"] });
@@ -76,6 +80,11 @@ export function McpPage() {
   });
 
   const columns: Column<McpServer>[] = [
+    {
+      key: "id",
+      header: "标识",
+      render: (s) => <code className="font-mono text-xs">{s.id}</code>,
+    },
     {
       key: "server_script",
       header: "脚本路径",
@@ -107,7 +116,7 @@ export function McpPage() {
           <Button
             variant="destructive"
             size="sm"
-            onClick={() => deleteMutation.mutate(s.server_script)}
+            onClick={() => deleteMutation.mutate(s.id)}
             disabled={deleteMutation.isPending}
           >
             删除
@@ -195,7 +204,7 @@ export function McpPage() {
               onClick={() =>
                 editing &&
                 updateMutation.mutate({
-                  old: editing.server_script,
+                  id: editing.id,
                   newScript: editScript,
                 })
               }

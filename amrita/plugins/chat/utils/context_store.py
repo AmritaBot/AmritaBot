@@ -68,6 +68,7 @@ from nonebot import logger
 from nonebot_plugin_orm import AsyncSession, get_session
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import StaleDataError
 
 from amrita.cache import WeakValueLRUCache
 
@@ -223,7 +224,21 @@ async def store_media(uni_id: str, raw: bytes, mime: str) -> str | None:
             else:
                 #  再次被引用即续命：TTL 按最近一次使用计算，否则刚被引用的图会先过期
                 stored.created_at = datetime.now()
-                await session.commit()
+                try:
+                    await session.commit()
+                except StaleDataError:
+                    #  续命的同时淘汰任务把它删了：这条已不存在，重新插入即可
+                    await session.rollback()
+                    session.add(
+                        ContextMedia(
+                            media_id=media_id,
+                            uni_id=uni_id,
+                            mime=mime,
+                            size=len(raw),
+                            data=raw,
+                        )
+                    )
+                    await session.commit()
     await _maybe_prune()
     return media_id
 

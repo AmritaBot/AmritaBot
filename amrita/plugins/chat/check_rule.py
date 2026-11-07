@@ -195,16 +195,23 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
             from .handlers.chat.message import _build_image_contents
             from .utils.context_store import PlaceholderContent, TextContent
 
-            parts = await _build_image_contents(bot, message, uni_id)
-            media_ids = [
-                item.media_id for item in parts if isinstance(item, PlaceholderContent)
-            ]
-            #  取图失败时采集器会写回说明文本，丢掉它会让模型以为消息里本来就没图
-            image_notices = [
-                item.text
-                for item in parts
-                if isinstance(item, TextContent) and item.text
-            ]
+            try:
+                parts = await _build_image_contents(bot, message, uni_id)
+            except Exception as e:
+                #  采集链路自己出错也不能连着文本记录一起丢，降级为纯文本
+                logger.opt(exception=e).warning("上下文图片采集失败，本次只记录文本")
+            else:
+                media_ids = [
+                    item.media_id
+                    for item in parts
+                    if isinstance(item, PlaceholderContent)
+                ]
+                #  取图失败时采集器会写回说明文本，丢掉它会让模型以为消息里本来就没图
+                image_notices = [
+                    item.text
+                    for item in parts
+                    if isinstance(item, TextContent) and item.text
+                ]
 
         # 生成消息内容并静默落库（不再写入 LLM 记忆，改由 read_context 工具按需读取），固定 XML 格式
         await append_context_record(
@@ -216,10 +223,9 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
                 role,
                 str(user_name),
                 str(user_id),
-                content,
+                "\n".join([content, *image_notices]) if image_notices else content,
                 time=format_current_datetime(),
-            )
-            + ("" if not image_notices else "\n" + "\n".join(image_notices)),
+            ),
             media_ids=media_ids,
         )
         # 默认返回 False

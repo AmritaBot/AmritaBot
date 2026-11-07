@@ -38,7 +38,7 @@ _READ_CONTEXT_DEFINITION = FunctionDefinitionSchema(
         '（<msg role="群主/管理员/普通成员" name="昵称" uid="QQ号" '
         'time="2026-09-19 Saturday 15:24:37">内容</msg>），'
         "time 属性为消息发送时间。\n"
-        "消息附带的图片会作为图片内容块一并返回，紧随对应的文本之后。"
+        "记录附带的图片在开启图片还原且模型支持图片时，会作为图片内容块紧随文本返回，否则只返回文本。"
     ),
     parameters=FunctionParametersSchema(
         type="object",

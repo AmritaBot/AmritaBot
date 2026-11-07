@@ -228,6 +228,7 @@ async def reload_mcp_servers(
         manager.tools_remapping.clear()
         manager.reversed_remappings.clear()
 
+    teardown_failed: dict[str, str] = {}
     for cl in list(manager.clients):
         script = str(cl.server_script)
         try:
@@ -235,6 +236,7 @@ async def reload_mcp_servers(
             await asyncio.wait_for(cl.close_no_wait(), timeout)
         except Exception as e:
             #  一个服务拆不干净也不能拦住其余服务的重连
+            teardown_failed[script] = _describe(e)
             logger.opt(exception=e).warning(
                 f"MCP Server@{script} 断开失败，继续重连其余服务"
             )
@@ -243,4 +245,26 @@ async def reload_mcp_servers(
     for state in list_states():
         if state.script not in targets:
             remove_state(state.id)
-    return await load_mcp_servers(targets, manager=manager, timeout=timeout)
+    report = await load_mcp_servers(targets, manager=manager, timeout=timeout)
+    for script, reason in teardown_failed.items():
+        if script in report.loaded:
+            #  旧连接没拆干净：新连接虽然起来了，但可能同时存在两个，不能报成功
+            report.loaded.remove(script)
+            report.failed.append((script, f"旧连接断开失败：{reason}"))
+    return report
+
+
+def restore_state_id(script: str, state_id: str) -> None:
+    """把某个脚本重新绑定回指定 id，供回滚场景避免标识漂移。"""
+    state = find_state(script)
+    if state is None or state.id == state_id:
+        return
+    _states.pop(state.id, None)
+    _states[state_id] = MCPServerState(
+        id=state_id,
+        script=script,
+        status=state.status,
+        tools=state.tools,
+        error=state.error,
+    )
+    _script_ids[script] = state_id

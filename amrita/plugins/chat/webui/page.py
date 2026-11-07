@@ -21,6 +21,7 @@ from amrita.plugins.chat.utils.mcp_boot import (
     operation_lock,
     reload_mcp_servers,
     remove_state,
+    restore_state_id,
 )
 from amrita.plugins.webui.API import JSONResponse
 from amrita.plugins.webui.API import app as router
@@ -563,10 +564,12 @@ async def add_mcp_server(request: Request):
         scripts = config.core.function_config.agent_mcp_server_scripts
         async with operation_lock():
             state = find_state(server_script)
-            #  已连上或已在配置里都算重复；error 状态只代表试过，允许重试
-            if server_script in scripts or (
-                state is not None and state.status == "connected"
-            ):
+            #  error 状态只代表试过，允许重试；连着的或配置里全新的才算重复
+            if state is not None and state.status == "connected":
+                return JSONResponse(
+                    {"success": False, "message": "MCP服务器已存在"}, status_code=400
+                )
+            if server_script in scripts and state is None:
                 return JSONResponse(
                     {"success": False, "message": "MCP服务器已存在"}, status_code=400
                 )
@@ -670,6 +673,7 @@ async def update_mcp_server(server_script: str, request: Request):
                 remove_state(new_server_script)
                 scripts[:] = snapshot
                 await load_mcp_servers([old_server_script])
+                restore_state_id(old_server_script, state.id)
                 raise
 
         return JSONResponse(

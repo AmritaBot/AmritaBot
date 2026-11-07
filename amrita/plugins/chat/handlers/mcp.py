@@ -1,3 +1,5 @@
+import contextlib
+
 from amrita_core.tools.mcp import ClientManager
 from nonebot import logger
 from nonebot.adapters.onebot.v11 import (
@@ -105,17 +107,30 @@ async def add_mcp_server(
         return
     if not mcp_server:
         await matcher.finish("请输入MCP Server脚本路径")
-    #  失败过的服务会以 error 状态留在状态表里，那只代表「试过」，不该挡住重试
-    state = find_state(mcp_server)
-    if state is not None and state.status == "connected":
-        await matcher.finish("MCP Server脚本已存在")
-    report = await load_mcp_servers([mcp_server])
+    async with operation_lock():
+        #  error 状态只代表试过，不该挡住重试；已连上的才算重复
+        state = find_state(mcp_server)
+        if state is not None and state.status == "connected":
+            await matcher.finish("MCP Server脚本已存在")
+        report = await load_mcp_servers([mcp_server])
+        if not report.failed:
+            scripts = config.core.function_config.agent_mcp_server_scripts
+            added = mcp_server not in scripts
+            if added:
+                scripts.append(mcp_server)
+                try:
+                    await config_manager.save_config()
+                except Exception as e:
+                    #  写盘失败就把刚连上的连接撤掉，别让运行态与配置分叉
+                    logger.opt(exception=e).error("保存 MCP 配置失败")
+                    with contextlib.suppress(Exception):
+                        await ClientManager().unregister_client(mcp_server)
+                    scripts.remove(mcp_server)
+                    remove_state(mcp_server)
+                    report.failed.append((mcp_server, "保存配置失败"))
     if report.failed:
         await matcher.send(f"添加失败：{report.failed[0][1]}")
         return
-    if mcp_server not in config.core.function_config.agent_mcp_server_scripts:
-        config.core.function_config.agent_mcp_server_scripts.append(mcp_server)
-        await config_manager.save_config()
     state = find_state(mcp_server)
     await matcher.send(f"添加成功（{state.id if state else mcp_server}）")
 
@@ -126,8 +141,7 @@ async def del_mcp_server(matcher: Matcher, mcp_server: str):
     config = config_manager.ins_config
     if not mcp_server:
         await matcher.finish("请输入要删除的MCP Server（id 或脚本路径）")
-    #  以运行时状态为准：配置里可能压根没有这条（添加时写盘失败），
-    #  但它确实连着、也占了工具名，必须能删掉
+    #  以运行时状态为准：配置里可能没有这条，但它连着、也占着工具名
     state = find_state(mcp_server)
     if state is None:
         await matcher.finish("MCP Server不存在")

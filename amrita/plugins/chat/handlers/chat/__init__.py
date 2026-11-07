@@ -45,6 +45,7 @@ from amrita.plugins.chat.utils.context_store import (
     expand_media_in_content,
     expand_media_in_messages,
 )
+from amrita.plugins.chat.utils.context_vars import current_uni_id
 from amrita.plugins.chat.utils.debounce import collect_batch
 from amrita.plugins.chat.utils.lock import get_group_lock, get_private_lock
 from amrita.plugins.chat.utils.preset import is_multimodal_enabled, resolve_preset
@@ -246,10 +247,12 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
 
                 #  私聊模式后台超时监控：Agent 工作时间超过阈值仍未返回时提示用户如何终止任务
                 stream.start_monitor()
+                token = current_uni_id.set(session_id)
                 try:
                     async with chat.begin():
                         await chat
                 finally:
+                    current_uni_id.reset(token)
                     await stream.stop_monitor()
 
                 stream.mark_received()

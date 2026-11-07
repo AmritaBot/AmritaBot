@@ -1,9 +1,4 @@
-"""工具返回多模态内容的入库钩子。
-
-工具结果里的图片二进制在这里落库；历史仍由写库前的
-:func:`fold_media_in_messages` 折成占位符，两者靠同一个 sha256 对齐。
-钩子只做入库，不改写 ``event.result``，模型当轮仍能看到原图。
-"""
+"""工具返回多模态内容的入库钩子。"""
 
 from nonebot import logger
 

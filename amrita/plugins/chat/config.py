@@ -336,6 +336,13 @@ class ContextStoreConfig(BaseModel):
             "避免历史图片一次性撑满上下文"
         ),
     )
+    read_context_images: bool = Field(
+        default=False,
+        description=(
+            "read_context 是否还原图片：独立开关，与单次请求的图片上限互不影响；"
+            "关闭时只返回文本，不再把历史图片塞进工具结果"
+        ),
+    )
     max_image_kb: int = Field(
         default=10240,
         ge=0,

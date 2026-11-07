@@ -136,12 +136,16 @@ async def read_context(tool_ctx: ToolContext) -> TOOL_RESULT_CONTENT:
     if not any(entry.media_ids for entry in entries):
         return header + "\n" + "\n".join(entry.content for entry in entries)
 
+    context_config = config_manager.config.context
     budget = (
-        config_manager.config.context.read_context_max_images
-        if await is_multimodal_enabled()
+        context_config.read_context_max_images
+        if context_config.read_context_images and await is_multimodal_enabled()
         else 0
     )
     images = await _collect_images(entries, budget)
+    if not images:
+        #  没还原出图（开关关闭/媒体已淘汰/预算为 0）时退回纯文本，保持返回类型稳定
+        return header + "\n" + "\n".join(entry.content for entry in entries)
 
     #  有图时按「记录 -> 该记录的图」顺序交错排布，保持图片与发送者的对应关系
     blocks: list[Content] = []

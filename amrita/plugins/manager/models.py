@@ -65,10 +65,16 @@ async def get_usage(bot_id: str) -> list[DailyUsagePydantic]:
         async with get_session() as session:
             await expire_usage(session)
             stmt = select(DailyUsage).where(DailyUsage.bot_id == bot_id)
-            if not (result := (await session.execute(stmt)).scalars().all()):
-                stmt = insert(DailyUsage).values(bot_id=bot_id)
-                await session.execute(stmt)
-                result = (await session.execute(stmt)).scalars().all()
+            result = (await session.execute(stmt)).scalars().all()
+            if not result:
+                # 原实现把 insert 语句重复执行了一次，导致 (bot_id, created_at) 唯一约束冲突
+                await session.execute(insert(DailyUsage).values(bot_id=bot_id))
+                await session.commit()
+                result = (
+                    await session.execute(
+                        select(DailyUsage).where(DailyUsage.bot_id == bot_id)
+                    )
+                ).scalars().all()
             session.add_all(result)
             return [
                 DailyUsagePydantic.model_validate(x, from_attributes=True)

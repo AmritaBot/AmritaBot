@@ -33,9 +33,8 @@ QQ_PLATFORM = "QQPlatform"
 """QQ 系平台在会话 ID 中的适配器名"""
 
 #  nonebot_plugin_amrita 推荐格式：AdapterType_ExtraType_UserPayload（如 QQPlatform_Private_12345）
-#  平台段与载荷段都不再限定字符集：部分平台的会话 ID 并非数字（如 Matrix 的 ``!room:server``），
-#  平台名也可能带下划线（如 ``qq_official``）。这里只校验结构，载荷原样保留。
-_UNI_ID_PATTERN = re.compile(r"^(?:.+)_(Private|Group|Channel)_(.+)$")
+#  只校验结构、不限字符集：Matrix 会话 ID 形如 !room:server，平台名也可能带下划线（qq_official）
+_UNI_ID_PATTERN = re.compile(r"^(?:.+?)_(Private|Group|Channel)_(.+)\Z")
 #  v1.8.0 及更早的历史格式：user_{qq} / group_{群号}
 _LEGACY_UNI_ID_PATTERN = re.compile(r"^(user|group)_([0-9]+)$")
 
@@ -106,7 +105,7 @@ def validate_and_ret(uid: str) -> str:
 
 
 def unwrap_uni_user_id(user_id: str) -> tuple[Literal["user", "group"], str]:
-    """拆出 ``(user|group, payload)``，payload 保持会话 ID 中的原始形态。"""
+    """payload 保持字符串形态：部分平台会话 ID 非数字，调用方需要数字时自行转换。"""
     parsed = parse_uni_user_id(user_id)
     if parsed is None:
         raise ValueError(f"Invalid uni_user_id: {user_id}")

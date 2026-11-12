@@ -1,0 +1,23 @@
+{
+  "name": "@amrita/webui-plugin-kit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AmritaBot WebUI 插件构建套件：把宿主运行时依赖解析成 window.__AMRITA_HOST__ 的引用，避免插件打进第二份 React",
+  "exports": {
+    ".": "./src/index.ts",
+    "./build": "./src/build.ts",
+    "./runtime": "./src/runtime.ts",
+    "./host": "./src/host.ts",
+    "./ui": "./src/ui.ts",
+    "./ui-exports": "./src/ui-exports.ts"
+  },
+  "bin": {
+    "amrita-plugin-build": "./bin/build-plugin.ts"
+  },
+  "files": ["src", "bin", "README.md"],
+  "peerDependencies": {
+    "react": "^19",
+    "react-dom": "^19"
+  }
+}

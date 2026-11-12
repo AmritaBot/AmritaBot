@@ -100,8 +100,11 @@ class RouteRegistry:
     与侧边栏不同，这里包含所有页面（含 __HIDDEN__ 页），
     因为隐藏页面同样需要前端路由匹配。
 
-    ``external_url`` / ``module_url`` 用于让第三方插件在不重新构建前端的前提下
-    接入自定义页面（见 :func:`amrita.plugins.webui.API.register_page`）。
+    ``external_url`` / ``module_dir`` / ``module_url`` 用于让第三方插件在不重新构建
+    前端的前提下接入自定义页面（见 :func:`amrita.plugins.webui.API.register_page`）。
+
+    优先用 ``module_dir``：插件只声明产物名，URL、版本参数与可用性都由宿主解析。
+    ``module_url`` 是 1.10 起的旧接口，保留给已发布的插件，宿主原样下发不做改写。
     """
 
     _instance: Self | None = None
@@ -121,6 +124,7 @@ class RouteRegistry:
         icon: str | None = None,
         hidden: bool = False,
         external_url: str | None = None,
+        module_dir: str | None = None,
         module_url: str | None = None,
     ):
         self._routes.append(
@@ -131,9 +135,37 @@ class RouteRegistry:
                 "icon": icon,
                 "hidden": hidden,
                 "external_url": external_url,
+                "module_dir": module_dir,
                 "module_url": module_url,
             }
         )
 
     def get_routes(self) -> list[dict]:
-        return list(self._routes)
+        """导出路由元数据，插件页面的 module_url 在这里按目录解析。
+
+        解析放在导出时而非注册时：产物可能在插件 import 之后才落盘
+        （构建与启动的先后顺序不固定），注册时算 mtime 会拿到过期值。
+        """
+        from .plugin_assets import resolve_plugin_assets
+
+        routes: list[dict] = []
+        for route in self._routes:
+            item = dict(route)
+            module_dir = item.get("module_dir")
+            if isinstance(module_dir, str):
+                info = resolve_plugin_assets(module_dir)
+                available = bool(info.get("available"))
+                # 产物缺失时不给 URL：前端会渲染占位页，而不是让用户点进去撞 404
+                item["module_url"] = info["module_url"] if available else None
+                item["module_available"] = available
+                item["module_reason"] = info.get("reason")
+            elif isinstance(item.get("module_url"), str):
+                # 旧接口：插件自己给完整 URL，宿主无法校验可用性，一律当作可用
+                item["module_available"] = True
+                item["module_reason"] = None
+            else:
+                item["module_url"] = None
+                item["module_available"] = None
+                item["module_reason"] = None
+            routes.append(item)
+        return routes

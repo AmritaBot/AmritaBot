@@ -9,8 +9,14 @@ export interface MenuRoute {
   hidden: boolean;
   /** iframe 页面地址（第三方插件用，无需重新构建前端） */
   external_url?: string | null;
-  /** 运行期 ESM 模块地址，默认导出 React 组件（第三方插件用） */
+  /** 插件前端产物目录名（第三方插件注册时声明，宿主解析为 module_url） */
+  module_dir?: string | null;
+  /** 运行期 ESM 模块地址，由宿主按 module_dir 解析并附加版本参数 */
   module_url?: string | null;
+  /** 产物是否可用；null 表示该页面不是插件产物页面 */
+  module_available?: boolean | null;
+  /** 产物不可用时的原因（后端给出） */
+  module_reason?: string | null;
 }
 
 export interface MenuData {

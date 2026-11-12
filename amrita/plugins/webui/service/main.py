@@ -63,7 +63,14 @@ async def auth_middleware(request: Request, call_next):
         "/robots.txt",
         "/sitemap.xml",
     }
-    if path.startswith("/static") or path in public_paths:
+    # 静态资源放行：/static 是宿主构建产物，/plugin-assets 是插件自带的 UI 产物。
+    # 两者都只含前端代码，不带数据；插件的真实数据必须走 /api 前缀，
+    # 那里仍然受下面的登录校验保护。
+    if (
+        path.startswith("/static")
+        or path.startswith("/plugin-assets")
+        or path in public_paths
+    ):
         return await call_next(request)
 
     # 安全锁：登录失败次数过多，UI 永久锁定（重启解除），所有访问拒绝

@@ -11,7 +11,7 @@ WebUI 扩展 API
 
 页面渲染完全交给前端 SPA，后端只负责菜单/路由元数据与 JSON 数据 API。
 页面组件有三种来源（见 :func:`register_page`）：前端内置 registry、
-``module_url`` 运行期 ESM 模块、``external_url`` iframe 页面。
+``module_dir`` 指向的运行期 ESM 产物、``external_url`` iframe 页面。
 """
 
 from __future__ import annotations
@@ -39,6 +39,7 @@ def _register_page(
     icon: str | None,
     hidden: bool,
     external_url: str | None,
+    module_dir: str | None,
     module_url: str | None,
 ) -> None:
     real_hidden = hidden or category == "__HIDDEN__"
@@ -50,6 +51,7 @@ def _register_page(
         icon=icon,
         hidden=real_hidden,
         external_url=external_url,
+        module_dir=module_dir,
         module_url=module_url,
     )
     # 非隐藏页面才进入侧边栏（注册表包含全部，侧边栏只显示可见项）
@@ -71,6 +73,7 @@ def register_page(
     icon: str | None = None,
     hidden: bool = False,
     external_url: str | None = None,
+    module_dir: str | None = None,
     module_url: str | None = None,
 ) -> None:
     """命令式注册页面（:func:`on_page` 的函数版，无需写占位函数）。
@@ -78,11 +81,11 @@ def register_page(
     前端按以下顺序决定渲染哪个组件：
 
     1. 内置 ``registry``（Amrita 自带页面，需要前端构建）
-    2. ``module_url``：运行期 ``import()`` 的 ESM 模块，取 ``default`` 作为组件
+    2. ``module_dir``：运行期 ``import()`` 的 ESM 产物，取 ``default`` 作为组件
     3. ``external_url``：``<iframe>`` 嵌入的独立页面
     4. 都没有时渲染占位页
 
-    因此插件只要提供 ``module_url`` 或 ``external_url``，**不需要重新构建前端**。
+    因此插件只要提供 ``module_dir`` 或 ``external_url``，**不需要重新构建前端**。
 
     Args:
         path: 页面的 URL 路径模式，如 ``/myplugin/stats/{group_id}``
@@ -91,11 +94,18 @@ def register_page(
         icon: 图标标识（前端映射为 lucide 图标名）
         hidden: 是否为隐藏页面（不出现在侧边栏，但保留前端路由）
         external_url: iframe 页面地址，适合用任意技术栈写的独立页面
-        module_url: ESM 模块地址，模块需默认导出 React 组件；
-            宿主依赖（``react`` / ``react-dom`` / ``react-router-dom``）
-            通过 ``window.__AMRITA_HOST__`` 提供，模块应把它们作为 external 处理
+        module_dir: 插件前端产物名（单层名字），宿主负责解析成 URL 并附加版本参数。
+            推荐用 :func:`amrita.plugins.webui.service.plugin_assets.mount_plugin_assets`
+            把产物随插件包分发；也可把产物放进 ``static/plugins/<name>/``。
+            模块需默认导出 React 组件，宿主依赖通过 ``window.__AMRITA_HOST__`` 提供
+        module_url: 旧的完整 URL 形式，保留兼容 1.10~1.16 已发布的插件。
+            新插件请用 ``module_dir``：宿主无法校验这种 URL 的可用性
     """
-    _register_page(path, page_name, category, icon, hidden, external_url, module_url)
+    if module_dir and module_url:
+        raise ValueError("module_dir 与 module_url 只能给一个")
+    _register_page(
+        path, page_name, category, icon, hidden, external_url, module_dir, module_url
+    )
 
 
 def on_page(
@@ -105,6 +115,7 @@ def on_page(
     icon: str | None = None,
     hidden: bool = False,
     external_url: str | None = None,
+    module_dir: str | None = None,
     module_url: str | None = None,
 ):
     """页面路由注册装饰器（:func:`register_page` 的装饰器版）。
@@ -120,12 +131,20 @@ def on_page(
         icon (str | None): 图标标识（前端映射为 lucide 图标名）
         hidden (bool): 是否为隐藏页面（不出现在侧边栏，但保留前端路由）
         external_url (str | None): iframe 页面地址，见 :func:`register_page`
-        module_url (str | None): 运行期 ESM 模块地址，见 :func:`register_page`
+        module_dir (str | None): 插件前端产物名，见 :func:`register_page`
+        module_url (str | None): 旧的完整 URL 形式，见 :func:`register_page`
     """
 
     def decorator(func: Callable[..., Any]):
         _register_page(
-            path, page_name, category, icon, hidden, external_url, module_url
+            path,
+            page_name,
+            category,
+            icon,
+            hidden,
+            external_url,
+            module_dir,
+            module_url,
         )
         return func
 

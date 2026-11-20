@@ -1,3 +1,4 @@
+import ipaddress
 import json
 import os
 import re
@@ -296,6 +297,15 @@ _MAX_IMAGES_PER_MESSAGE = 64
 _MAX_IMAGES_PER_REQUEST = 64
 
 
+def _is_cidr(raw: str) -> bool:
+    """是否为合法的 CIDR 表示。"""
+    try:
+        ipaddress.ip_network(raw, strict=False)
+    except ValueError:
+        return False
+    return True
+
+
 class ContextStoreConfig(BaseModel):
     """群聊上下文静默存储与多模态本地存储配置
 
@@ -423,6 +433,16 @@ class ContextStoreConfig(BaseModel):
         ),
     )
 
+    fake_ip_ranges: list[str] = Field(
+        default=[],
+        description=(
+            "放行的 fake-ip 保留段（CIDR，如 198.18.0.0/15），空列表=不放行。"
+            "仅对域名解析结果生效，字面量 IP 一律按公网判定；"
+            "Clash 等代理开启 fake-ip 后需在此显式登记，否则腾讯图床一类域名会被 SSRF 护栏拒绝。"
+            "放行后能否连通取决于 TUN / 透明代理是否按域名路由，HTTP 代理模式下无效。"
+        ),
+    )
+
     @field_validator("local_media_dirs")
     @classmethod
     def _check_local_media_dirs(cls, value: list[str]) -> list[str]:
@@ -434,6 +454,15 @@ class ContextStoreConfig(BaseModel):
                 raise ValueError(
                     f"local_media_dirs 必须是绝对路径（或 ~ 开头）: {raw!r}"
                 )
+        return value
+
+    @field_validator("fake_ip_ranges")
+    @classmethod
+    def _check_fake_ip_ranges(cls, value: list[str]) -> list[str]:
+        """fake-ip 段必须是合法 CIDR，否则运行期会被静默忽略。"""
+        for raw in value:
+            if not _is_cidr(raw):
+                raise ValueError(f"fake_ip_ranges 不是合法的 CIDR: {raw!r}")
         return value
 
 

@@ -6,6 +6,8 @@
 
 远程地址（:func:`fetch_remote_bytes`）
     - 协议白名单（仅 ``http`` / ``https``），拒绝 URL 内嵌用户信息（``user:pass@``）；
+    - 例外：``context.fake_ip_ranges`` 中显式登记的保留段，仅对域名解析结果放行，
+      供代理的 fake-ip 模式使用（字面量 IP 不适用，默认空=严格）；
     - DNS 解析后要求**全部**结果为公网地址（拒绝回环、私网、链路本地、保留段、
       IPv4-mapped / 6to4 / Teredo 内嵌地址），阻断 ``127.0.0.1``、
       ``169.254.169.254``（云元数据）、``10.0.0.0/8`` 等内网探测；
@@ -127,6 +129,40 @@ def is_public_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     )
 
 
+def _parse_network(
+    raw: str,
+) -> ipaddress.IPv4Network | ipaddress.IPv6Network | None:
+    """解析单个 CIDR，非法项记 debug 日志后返回 ``None``。"""
+    try:
+        return ipaddress.ip_network(raw, strict=False)
+    except ValueError:
+        logger.debug(f"忽略无法解析的 fake-ip 段 {raw!r}")
+        return None
+
+
+def _parse_fake_ip_ranges(
+    values: Sequence[str],
+) -> tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]:
+    """把配置中的 CIDR 解析成网络对象，非法项跳过。"""
+    return tuple(
+        network for network in map(_parse_network, values) if network is not None
+    )
+
+
+def _in_networks(
+    ip: ipaddress.IPv4Address | ipaddress.IPv6Address,
+    networks: Sequence[ipaddress.IPv4Network | ipaddress.IPv6Network],
+) -> bool:
+    """按地址族分别做成员判断，避免 IPv4 与 IPv6 之间比较。"""
+    for network in networks:
+        if isinstance(ip, ipaddress.IPv4Address):
+            if isinstance(network, ipaddress.IPv4Network) and ip in network:
+                return True
+        elif isinstance(network, ipaddress.IPv6Network) and ip in network:
+            return True
+    return False
+
+
 async def _resolve_host(host: str, port: int) -> list[tuple[int, str]]:
     """解析主机名，返回去重后的 ``(family, ip)`` 列表；超时抛 ``asyncio.TimeoutError``。"""
     loop = asyncio.get_running_loop()
@@ -148,11 +184,19 @@ async def _resolve_host(host: str, port: int) -> list[tuple[int, str]]:
     return resolved
 
 
-async def _validate_remote_url(url: str) -> tuple[str, int, list[tuple[int, str]]]:
+async def _validate_remote_url(
+    url: str, *, fake_ip_ranges: Sequence[str] = ()
+) -> tuple[str, int, list[tuple[int, str]]]:
     """校验远程 URL 并返回 ``(host, port, 已校验的解析结果)``。
 
     任一解析结果不是公网地址即整体拒绝（不做"择优选取"），
     避免攻击者用"公网 + 内网"混合解析结果试探。
+
+    唯一例外是 ``fake_ip_ranges`` 里显式登记的保留段：代理的 fake-ip 模式把域名
+    解析到这些段，再由本机按域名路由到公网目标；写死放行等于对所有部署放宽默认
+    拒绝策略，故默认空=严格。该例外只作用于域名解析结果，字面量 IP 仍一律拒绝——
+    这是有意的安全取舍；能否真正连通还取决于 TUN / 透明代理，HTTP 代理模式
+    （本模块 ``trust_env=False``）下这条路走不通。
     """
     parts = urlsplit(url)
     scheme = parts.scheme.lower()
@@ -181,9 +225,10 @@ async def _validate_remote_url(url: str) -> tuple[str, int, list[tuple[int, str]
         return host, port, [(family, str(literal))]
 
     resolved = await _resolve_host(host, port)
+    fake_networks = _parse_fake_ip_ranges(fake_ip_ranges)
     for _family, ip in resolved:
         address = ipaddress.ip_address(ip)
-        if not is_public_ip(address):
+        if not is_public_ip(address) and not _in_networks(address, fake_networks):
             raise UnsafeUrlError(f"主机名 {host} 解析到非公网地址: {ip}")
     return host, port, resolved
 
@@ -243,18 +288,25 @@ async def _read_capped(resp: aiohttp.ClientResponse, max_bytes: int) -> FetchRes
 
 
 async def fetch_remote_bytes(
-    url: str, *, max_bytes: int, timeout: float
+    url: str,
+    *,
+    max_bytes: int,
+    timeout: float,
+    fake_ip_ranges: Sequence[str] = (),
 ) -> FetchResult:
     """下载远程资源。
 
     每一跳（含重定向目标）都会重新做协议、主机与解析结果校验；
     体积超过 ``max_bytes``、状态码非 200、重定向超过 :data:`_MAX_REDIRECTS` 跳
-    或任何网络异常均返回带 ``reason`` 的失败结果。
+    或任何网络异常均返回带 ``reason`` 的失败结果。``fake_ip_ranges`` 原样交给
+    :func:`_validate_remote_url`，其语义见该函数说明。
     """
     current = url
     for _ in range(_MAX_REDIRECTS + 1):
         try:
-            host, port, addrs = await _validate_remote_url(current)
+            host, port, addrs = await _validate_remote_url(
+                current, fake_ip_ranges=fake_ip_ranges
+            )
         except UnsafeUrlError as e:
             logger.debug(f"已拒绝不符合访问策略的图片地址 {current!r}: {e}")
             return FetchResult(reason=f"地址被安全策略拒绝（{e}）")

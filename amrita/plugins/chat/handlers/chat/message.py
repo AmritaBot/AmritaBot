@@ -174,7 +174,10 @@ async def _resolve_media_bytes(value: str, limit: int) -> FetchResult:
     """
     if value.startswith(("http://", "https://")):
         return await fetch_remote_bytes(
-            value, max_bytes=limit, timeout=_IMAGE_DOWNLOAD_TIMEOUT
+            value,
+            max_bytes=limit,
+            timeout=_IMAGE_DOWNLOAD_TIMEOUT,
+            fake_ip_ranges=config_manager.config.context.fake_ip_ranges,
         )
     if value.startswith(("data:", "base64://")):
         raw = decode_inline_bytes(value, max_bytes=limit)

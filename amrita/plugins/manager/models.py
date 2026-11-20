@@ -13,6 +13,7 @@ from sqlalchemy import (
     insert,
     select,
 )
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, mapped_column
 
 from amrita.cache import WeakValueLRUCache
@@ -65,9 +66,14 @@ async def get_usage(bot_id: str) -> list[DailyUsagePydantic]:
         async with get_session() as session:
             await expire_usage(session)
             stmt = select(DailyUsage).where(DailyUsage.bot_id == bot_id)
-            if not (result := (await session.execute(stmt)).scalars().all()):
-                stmt = insert(DailyUsage).values(bot_id=bot_id)
-                await session.execute(stmt)
+            result = (await session.execute(stmt)).scalars().all()
+            if not result:
+                try:
+                    await session.execute(insert(DailyUsage).values(bot_id=bot_id))
+                    await session.commit()
+                except IntegrityError:
+                    # 多 worker 部署下另一进程可能已插入同一行，回滚后按正常路径重读
+                    await session.rollback()
                 result = (await session.execute(stmt)).scalars().all()
             session.add_all(result)
             return [

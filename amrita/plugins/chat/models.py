@@ -71,7 +71,7 @@ class ContextRecord(Model):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     #  会话 ID（QQPlatform_Group_xxx / QQPlatform_Private_xxx），见 utils/sql.py:make_uni_id
     uni_id: Mapped[str] = mapped_column(String(64), nullable=False)
-    user_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    user_id: Mapped[str] = mapped_column(String(64), nullable=False)
     nickname: Mapped[str] = mapped_column(String(128), default="")
     #  消息发送者在群内的角色（群主/群管理员/普通成员）
     role: Mapped[str] = mapped_column(String(32), default="")

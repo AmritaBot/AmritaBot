@@ -33,12 +33,16 @@ QQ_PLATFORM = "QQPlatform"
 """QQ 系平台在会话 ID 中的适配器名"""
 
 #  nonebot_plugin_amrita 推荐格式：AdapterType_ExtraType_UserPayload（如 QQPlatform_Private_12345）
-_UNI_ID_PATTERN = re.compile(r"^[A-Za-z0-9]+_(Private|Group|Channel)_([0-9]+)$")
+#  只校验结构、不限字符集：Matrix 会话 ID 形如 !room:server，平台名也可能带下划线（qq_official）
+_UNI_ID_PATTERN = re.compile(r"^(?:.+?)_(Private|Group|Channel)_(.+)\Z")
 #  v1.8.0 及更早的历史格式：user_{qq} / group_{群号}
 _LEGACY_UNI_ID_PATTERN = re.compile(r"^(user|group)_([0-9]+)$")
 
 _EXTRA_PRIVATE = "Private"
 _EXTRA_GROUP = "Group"
+
+#  与 amrita_user_metadata.user_id 的列宽一致，超出部分无法落库
+_MAX_UNI_ID_LEN = 64
 
 
 def get_uni_user_id(event: Event) -> str:
@@ -69,18 +73,23 @@ def make_uni_id(id: int | str, is_group: bool) -> str:
     return f"{QQ_PLATFORM}_{extra}_{id!s}"
 
 
-def parse_uni_user_id(user_id: str) -> tuple[str, int] | None:
+def parse_uni_user_id(user_id: str) -> tuple[str, str] | None:
     """解析会话 ID 为 ``(ExtraType, payload)``，格式不符返回 None
+
+    ``payload`` 原样返回，不做数字转换：部分平台的会话 ID 并非数字，强转会让历史读取失败。
 
     兼容 v1.8.0 及更早的 ``user_{qq}`` / ``group_{群号}``，用于读取尚未迁移的历史数据。
     """
+    if len(user_id) > _MAX_UNI_ID_LEN:
+        return None
     if match := _UNI_ID_PATTERN.match(user_id):
-        return match.group(1), int(match.group(2))
+        payload = match.group(2)
+        if not payload or any(ch.isspace() for ch in payload):
+            return None
+        return match.group(1), payload
     if match := _LEGACY_UNI_ID_PATTERN.match(user_id):
         kind = match.group(1)
-        return (_EXTRA_GROUP if kind == "group" else _EXTRA_PRIVATE), int(
-            match.group(2)
-        )
+        return (_EXTRA_GROUP if kind == "group" else _EXTRA_PRIVATE), match.group(2)
     return None
 
 
@@ -100,7 +109,7 @@ def validate_and_ret(uid: str) -> str:
     raise ValueError(f"Invalid uni_user_id: {uid}")
 
 
-def unwrap_uni_user_id(user_id: str) -> tuple[Literal["user", "group"], int]:
+def unwrap_uni_user_id(user_id: str) -> tuple[Literal["user", "group"], str]:
     parsed = parse_uni_user_id(user_id)
     if parsed is None:
         raise ValueError(f"Invalid uni_user_id: {user_id}")

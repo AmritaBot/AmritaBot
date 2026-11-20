@@ -41,6 +41,9 @@ _LEGACY_UNI_ID_PATTERN = re.compile(r"^(user|group)_([0-9]+)$")
 _EXTRA_PRIVATE = "Private"
 _EXTRA_GROUP = "Group"
 
+#  与 amrita_user_metadata.user_id 的列宽一致，超出部分无法落库
+_MAX_UNI_ID_LEN = 64
+
 
 def get_uni_user_id(event: Event) -> str:
     if uid := getattr(event, "group_id", None):
@@ -77,6 +80,8 @@ def parse_uni_user_id(user_id: str) -> tuple[str, str] | None:
 
     兼容 v1.8.0 及更早的 ``user_{qq}`` / ``group_{群号}``，用于读取尚未迁移的历史数据。
     """
+    if len(user_id) > _MAX_UNI_ID_LEN:
+        return None
     if match := _UNI_ID_PATTERN.match(user_id):
         payload = match.group(2)
         if not payload or any(ch.isspace() for ch in payload):
@@ -105,7 +110,6 @@ def validate_and_ret(uid: str) -> str:
 
 
 def unwrap_uni_user_id(user_id: str) -> tuple[Literal["user", "group"], str]:
-    """payload 保持字符串形态：部分平台会话 ID 非数字，调用方需要数字时自行转换。"""
     parsed = parse_uni_user_id(user_id)
     if parsed is None:
         raise ValueError(f"Invalid uni_user_id: {user_id}")

@@ -297,15 +297,6 @@ _MAX_IMAGES_PER_MESSAGE = 64
 _MAX_IMAGES_PER_REQUEST = 64
 
 
-def _is_cidr(raw: str) -> bool:
-    """是否为合法的 CIDR 表示。"""
-    try:
-        ipaddress.ip_network(raw, strict=False)
-    except ValueError:
-        return False
-    return True
-
-
 class ContextStoreConfig(BaseModel):
     """群聊上下文静默存储与多模态本地存储配置
 
@@ -459,10 +450,14 @@ class ContextStoreConfig(BaseModel):
     @field_validator("fake_ip_ranges")
     @classmethod
     def _check_fake_ip_ranges(cls, value: list[str]) -> list[str]:
-        """fake-ip 段必须是合法 CIDR，否则运行期会被静默忽略。"""
+        """fake-ip 段必须是合法的非公网 CIDR。"""
         for raw in value:
-            if not _is_cidr(raw):
-                raise ValueError(f"fake_ip_ranges 不是合法的 CIDR: {raw!r}")
+            try:
+                network = ipaddress.ip_network(raw, strict=False)
+            except ValueError:
+                raise ValueError(f"fake_ip_ranges 不是合法的 CIDR: {raw!r}") from None
+            if network.is_global:
+                raise ValueError(f"fake_ip_ranges 不能登记公网段: {raw!r}")
         return value
 
 

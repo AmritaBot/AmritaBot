@@ -70,6 +70,9 @@ _DNS_TIMEOUT_SECONDS = 5.0
 _CHUNK_SIZE = 64 * 1024
 #  base64 编码长度换算时允许的填充余量
 _BASE64_PADDING_SLACK = 8
+#  本机代理（Clash 一类）fake-ip 模式使用的保留段，实际仍指向公网目标
+_FAKE_IPV4_NETWORK = ipaddress.IPv4Network("198.18.0.0/15")
+_FAKE_IPV6_NETWORK = ipaddress.IPv6Network("2001:2::/48")
 
 
 class UnsafeUrlError(ValueError):
@@ -125,6 +128,13 @@ def is_public_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
         and not target.is_unspecified
         and not getattr(target, "is_site_local", False)
     )
+
+
+def _is_fake_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """是否落在本地代理的 fake-ip 保留段内（按地址族分别比较，不做跨族比较）。"""
+    if isinstance(ip, ipaddress.IPv4Address):
+        return ip in _FAKE_IPV4_NETWORK
+    return ip in _FAKE_IPV6_NETWORK
 
 
 async def _resolve_host(host: str, port: int) -> list[tuple[int, str]]:
@@ -186,9 +196,7 @@ async def _validate_remote_url(url: str) -> tuple[str, int, list[tuple[int, str]
         if not is_public_ip(address):
             # 本机代理（Clash 等）常用 198.18.0.0/15 与 2001:2::/48 作为 fake-ip，
             # 这类地址实际仍指向公网目标；直接拒绝会导致腾讯图床等域名整体不可用。
-            fake_v4 = address.version == 4 and ipaddress.ip_address("198.18.0.0") <= address <= ipaddress.ip_address("198.19.255.255")
-            fake_v6 = address.version == 6 and ipaddress.ip_address("2001:2::") <= address <= ipaddress.ip_address("2001:2:0:ffff:ffff:ffff:ffff:ffff")
-            if not (fake_v4 or fake_v6):
+            if not _is_fake_ip(address):
                 raise UnsafeUrlError(f"主机名 {host} 解析到非公网地址: {ip}")
     return host, port, resolved
 

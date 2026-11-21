@@ -20,6 +20,7 @@ from nonebot.params import CommandArg
 from nonebot_plugin_amrita.database import MemorySessions, UserDataExecutor
 from nonebot_plugin_amrita.memory import CachedUserDataRepository, MemorySessionsSchema
 from nonebot_plugin_orm import get_session
+from sqlalchemy import delete
 
 from amrita.plugins.chat.utils.libchat import add_usage
 
@@ -82,17 +83,16 @@ def _live_usage(chat: CoreChatObject) -> UniResponseUsage[int] | None:
 def _resolve_session(
     sessions: Sequence[MemorySessionsSchema], raw: str
 ) -> MemorySessionsSchema | None:
-    """定位一条归档会话：``ID`` 或 ``#ID``，只按会话 ID 精确匹配。
-
-    列表已经按当前用户过滤，ID 不存在与不属于该用户都返回 None，
-    调用方统一回同一句提示，避免用不同回执探测他人会话。
-    """
+    """在按用户过滤的归档里按 ID 精确匹配，缺失与越权都返回 None。"""
     token = raw.strip()
     if token.startswith("#"):
         token = token[1:]
     if not token.isdigit():
         return None
-    target_id = int(token)
+    try:
+        target_id = int(token)
+    except ValueError:
+        return None
     return next((item for item in sessions if item.id == target_id), None)
 
 
@@ -154,9 +154,13 @@ async def _session_del(event: MessageEvent, matcher: Matcher, index: str) -> Non
 
     try:
         async with get_session() as session:
-            async with UserDataExecutor(uni_id, session) as executor:
-                await executor.remove_session(removed.id)
-            #  嵌套事务只是 SAVEPOINT，外层不 commit 会被 close 回滚掉
+            #  user_id 一并进谓词：即使插件版本没有该约束，也不能删到别人的行
+            await session.execute(
+                delete(MemorySessions).where(
+                    MemorySessions.id == removed.id,
+                    MemorySessions.user_id == uni_id,
+                )
+            )
             await session.commit()
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).exception(
@@ -245,8 +249,13 @@ async def _session_rename(
         new_tag = new_tag[:TAG_MAX_LEN]
         await matcher.send(f"名称超过 {TAG_MAX_LEN} 字，已截断。")
     try:
-        #  不传 created_at：MySQL 的 FLOAT 精度不足以等值比较，会稳定返回 0 行
-        ok = await repo.rename_session(uni_id, target.id, new_tag)
+        ok = await repo.rename_session(uni_id, target.id, new_tag, target.created_at)
+        if not ok:
+            #  0.5.0 的 MySQL FLOAT 精度会让等值比较失败；先确认这行没被回收复用再降级
+            fresh = await repo.get_sesssions(uni_id)
+            current = next((s for s in fresh if s.id == target.id), None)
+            if current is not None and current.created_at == target.created_at:
+                ok = await repo.rename_session(uni_id, target.id, new_tag)
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).exception("重命名会话失败。")
         await matcher.finish("重命名失败。")

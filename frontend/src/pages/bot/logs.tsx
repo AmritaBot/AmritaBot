@@ -89,7 +89,7 @@ export function LogsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">实时日志</h1>
           <p className="text-sm text-muted-foreground">
@@ -98,7 +98,7 @@ export function LogsPage() {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <label className="flex items-center gap-2 whitespace-nowrap text-sm text-muted-foreground">
             <Switch
               checked={tracking}
               onCheckedChange={setTracking}
@@ -161,13 +161,17 @@ export function LogsPage() {
               filtered.map((l, i) => (
                 <div
                   key={`${l.time}-${i}`}
-                  className="flex items-start gap-2 border-b border-border/50 px-3 py-1.5 last:border-0"
+                  className="flex flex-col gap-1 border-b border-border/50 px-3 py-2 last:border-0 sm:flex-row sm:items-start sm:gap-2 sm:py-1.5"
                 >
-                  <span className="shrink-0 text-muted-foreground">
-                    {l.time}
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="shrink-0 text-muted-foreground">
+                      {l.time}
+                    </span>
+                    <LevelBadge level={l.title} />
+                  </div>
+                  <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">
+                    {l.desc}
                   </span>
-                  <LevelBadge level={l.title} />
-                  <span className="break-all">{l.desc}</span>
                 </div>
               ))
             )}

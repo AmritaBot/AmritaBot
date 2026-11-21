@@ -16,8 +16,8 @@
 
 前置条件：
 
-- AmritaBot-UI 仓库的 Actions secrets 里有 `NPM_TOKEN`，且该 token 具备 `@amrita` 作用域的发布权限
-- npm 上存在 `@amrita` 作用域（组织或用户名占用）
+- npm 上已为 `@amrita-constant/ambot-ui` 配置 trusted publisher：Repository 填 `AmritaBot-UI`，Workflow filename 填 `publish.yml`，Environment 留空
+- 组织若开了 staged publishing，发布会先进暂存区，通常几分钟内自动对外可见；需要人工卡口时在包页面审批
 
 步骤：
 
@@ -25,7 +25,7 @@
 2. bump `package.json` 的 `version`（0.x 阶段递增次版本）
 3. 提交并推送 `main`
 4. 在 GitHub 创建 release，tag 与版本号对齐（如 `v0.1.0`）
-5. `publish.yml` 会跑 typecheck 后执行 `npm publish --access public --provenance`
+5. `publish.yml` 用 OIDC（无需 token）跑 typecheck 后执行 `npm publish --access public --provenance`
 6. 回主仓库更新 `frontend/packages/ui` 子模块指针，提交并推送
 
 契约约定：

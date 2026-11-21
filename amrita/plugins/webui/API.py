@@ -39,9 +39,11 @@ def _register_page(
     icon: str | None,
     hidden: bool,
     external_url: str | None,
-    module_dir: str | None,
     module_url: str | None,
+    module_dir: str | None,
 ) -> None:
+    if module_dir and module_url:
+        raise ValueError("module_dir 与 module_url 只能给一个")
     real_hidden = hidden or category == "__HIDDEN__"
     # 注册到路由注册表（所有页面，含隐藏页）
     RouteRegistry().register(
@@ -73,8 +75,9 @@ def register_page(
     icon: str | None = None,
     hidden: bool = False,
     external_url: str | None = None,
-    module_dir: str | None = None,
     module_url: str | None = None,
+    *,
+    module_dir: str | None = None,
 ) -> None:
     """命令式注册页面（:func:`on_page` 的函数版，无需写占位函数）。
 
@@ -94,17 +97,15 @@ def register_page(
         icon: 图标标识（前端映射为 lucide 图标名）
         hidden: 是否为隐藏页面（不出现在侧边栏，但保留前端路由）
         external_url: iframe 页面地址，适合用任意技术栈写的独立页面
+        module_url: 旧的完整 URL 形式，保留兼容 1.10~1.16 已发布的插件。
+            新插件请用 ``module_dir``：宿主无法校验这种 URL 的可用性
         module_dir: 插件前端产物名（单层名字），宿主负责解析成 URL 并附加版本参数。
             推荐用 :func:`amrita.plugins.webui.service.plugin_assets.mount_plugin_assets`
             把产物随插件包分发；也可把产物放进 ``static/plugins/<name>/``。
             模块需默认导出 React 组件，宿主依赖通过 ``window.__AMRITA_HOST__`` 提供
-        module_url: 旧的完整 URL 形式，保留兼容 1.10~1.16 已发布的插件。
-            新插件请用 ``module_dir``：宿主无法校验这种 URL 的可用性
     """
-    if module_dir and module_url:
-        raise ValueError("module_dir 与 module_url 只能给一个")
     _register_page(
-        path, page_name, category, icon, hidden, external_url, module_dir, module_url
+        path, page_name, category, icon, hidden, external_url, module_url, module_dir
     )
 
 
@@ -115,8 +116,9 @@ def on_page(
     icon: str | None = None,
     hidden: bool = False,
     external_url: str | None = None,
-    module_dir: str | None = None,
     module_url: str | None = None,
+    *,
+    module_dir: str | None = None,
 ):
     """页面路由注册装饰器（:func:`register_page` 的装饰器版）。
 
@@ -131,8 +133,8 @@ def on_page(
         icon (str | None): 图标标识（前端映射为 lucide 图标名）
         hidden (bool): 是否为隐藏页面（不出现在侧边栏，但保留前端路由）
         external_url (str | None): iframe 页面地址，见 :func:`register_page`
-        module_dir (str | None): 插件前端产物名，见 :func:`register_page`
         module_url (str | None): 旧的完整 URL 形式，见 :func:`register_page`
+        module_dir (str | None): 插件前端产物名，见 :func:`register_page`
     """
 
     def decorator(func: Callable[..., Any]):
@@ -143,8 +145,8 @@ def on_page(
             icon,
             hidden,
             external_url,
-            module_dir,
             module_url,
+            module_dir,
         )
         return func
 

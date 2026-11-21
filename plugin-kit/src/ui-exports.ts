@@ -9,7 +9,6 @@
  */
 
 export const UI_EXPORTS = [
-  // ui 原子组件
   "Badge",
   "badgeVariants",
   "Button",
@@ -56,12 +55,10 @@ export const UI_EXPORTS = [
   "TabsTrigger",
   "TabsContent",
   "Textarea",
-  // 业务通用件
   "DataTable",
   "StatusBadge",
   "StatCard",
   "ConfirmDialog",
-  // 工具函数
   "cn",
 ] as const;
 

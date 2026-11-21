@@ -7,8 +7,21 @@
 
 import { getHost } from "./host";
 
+/** 按内容算稳定 id：不同插件的样式互不覆盖，同一份样式的重复注入仍只留一份 */
+function stableId(prefix: string, seed: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash ^= seed.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `${prefix}-${(hash >>> 0).toString(36)}`;
+}
+
 /** 注入插件样式表；同一 id 只注入一次，重复挂载不会塞进多份 */
-export function injectCss(href: string, id = "amrita-plugin-css"): void {
+export function injectCss(
+  href: string,
+  id = stableId("amrita-plugin-css", href),
+): void {
   if (typeof document === "undefined") return;
   if (document.getElementById(id)) return;
   const link = document.createElement("link");
@@ -21,7 +34,7 @@ export function injectCss(href: string, id = "amrita-plugin-css"): void {
 /** 注入一段内联样式（比外链省一次请求，适合几十行的插件样式） */
 export function injectStyleText(
   css: string,
-  id = "amrita-plugin-style",
+  id = stableId("amrita-plugin-style", css),
 ): void {
   if (typeof document === "undefined") return;
   if (document.getElementById(id)) return;
@@ -60,6 +73,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     },
     ...options,
   });
+
+  if (res.status === 401) {
+    // 交给宿主清登录态并退回登录页，否则插件页会一直 401
+    window.__AMRITA_HOST__?.notifyUnauthorized?.();
+  }
 
   let body: ApiResponse<T>;
   try {

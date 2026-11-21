@@ -31,6 +31,11 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
   onUnauthorized = handler;
 }
 
+/** 供插件运行时复用宿主登录态处理（远程模块拿不到 api 模块本身） */
+export function triggerUnauthorized(): void {
+  onUnauthorized?.();
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},

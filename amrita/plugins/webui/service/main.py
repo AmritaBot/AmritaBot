@@ -44,11 +44,19 @@ async def handle_http_exc(request: Request, exc: HTTPException):
     return fail(exc.status_code, str(exc.detail))
 
 
+def _is_public_asset_path(path: str) -> bool:
+    """宿主产物与插件产物只放行命名空间内部。"""
+    return any(
+        path == prefix or path.startswith(prefix + "/")
+        for prefix in ("/static", "/plugin-assets")
+    )
+
+
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     """认证中间件（白名单机制）。
 
-    - 静态资源 / 公开端点 / 登录 API：放行
+    - 静态资源命名空间 / 公开端点 / 登录 API：放行
     - /api 端点：未认证返回 401 JSON（前端状态驱动显示登录页）
     - 页面路径：未认证 302 重定向到 /（即使前端被 patch，未登录也拿不到页面内容）
     - 已认证：续期 cookie（剩余 <10 分钟时刷新）
@@ -63,14 +71,8 @@ async def auth_middleware(request: Request, call_next):
         "/robots.txt",
         "/sitemap.xml",
     }
-    # 静态资源放行：/static 是宿主构建产物，/plugin-assets 是插件自带的 UI 产物。
-    # 两者都只含前端代码，不带数据；插件的真实数据必须走 /api 前缀，
-    # 那里仍然受下面的登录校验保护。
-    if (
-        path.startswith("/static")
-        or path.startswith("/plugin-assets")
-        or path in public_paths
-    ):
+    # 静态产物只含前端代码，插件数据必须走 /api（仍受下面校验保护）
+    if path in public_paths or _is_public_asset_path(path):
         return await call_next(request)
 
     # 安全锁：登录失败次数过多，UI 永久锁定（重启解除），所有访问拒绝

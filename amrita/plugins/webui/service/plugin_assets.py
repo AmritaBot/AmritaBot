@@ -17,7 +17,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from fastapi import HTTPException
 from fastapi.staticfiles import StaticFiles
+from starlette.types import Receive, Scope, Send
 
 from .main import STATIC_PATH, app
 
@@ -36,6 +38,26 @@ ENTRY_FILE = "index.js"
 
 # 已挂载的插件自带产物：name -> 目录。挂载顺序即覆盖顺序
 _MOUNTED: dict[str, Path] = {}
+
+
+class _AssetsMount:
+    """按当前注册目录提供静态文件。
+
+    StaticFiles 无法卸载，同名重新挂载时改由这里转发到新目录，
+    避免“解析用新目录、请求仍读旧目录”。
+    """
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+        self._serving: tuple[Path, StaticFiles] | None = None
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        root = _MOUNTED.get(self._name)
+        if root is None:
+            raise HTTPException(status_code=404)
+        if self._serving is None or self._serving[0] != root:
+            self._serving = (root, StaticFiles(directory=root))
+        await self._serving[1](scope, receive, send)
 
 
 def _safe_name(name: str) -> str | None:
@@ -73,17 +95,14 @@ def mount_plugin_assets(name: str, directory: str | Path) -> str:
     if not (root / ENTRY_FILE).is_file():
         raise FileNotFoundError(f"插件产物目录缺少入口文件 {ENTRY_FILE}：{root}")
 
-    if safe in _MOUNTED:
-        # 重复注册视为热重载后的覆盖，不重复 mount（StaticFiles 无法卸载）
-        _MOUNTED[safe] = root
-        return safe
-
-    app.mount(
-        f"/plugin-assets/{safe}",
-        StaticFiles(directory=root),
-        name=f"plugin-assets-{safe}",
-    )
+    first_mount = safe not in _MOUNTED
     _MOUNTED[safe] = root
+    if first_mount:
+        app.mount(
+            f"/plugin-assets/{safe}",
+            _AssetsMount(safe),
+            name=f"plugin-assets-{safe}",
+        )
     return safe
 
 
@@ -141,8 +160,16 @@ def resolve_plugin_assets(module_dir: str) -> dict[str, object]:
             "reason": f"插件产物目录缺少入口文件 {ENTRY_FILE}：{prefix}/{ENTRY_FILE}",
         }
 
-    # mtime 做版本参数：import() 按 URL 缓存模块，插件改完重建后必须换 URL 才会生效
-    mtime = int(entry.stat().st_mtime)
+    # 版本参数用纳秒：同一秒内重建也要换 URL，否则浏览器复用缓存的旧模块
+    try:
+        mtime = entry.stat().st_mtime_ns
+    except OSError:
+        return {
+            "module_dir": name,
+            "module_url": None,
+            "available": False,
+            "reason": f"插件产物在解析时被移除：{prefix}/{ENTRY_FILE}",
+        }
     return {
         "module_dir": name,
         "module_url": f"{prefix}/{ENTRY_FILE}?v={mtime}",

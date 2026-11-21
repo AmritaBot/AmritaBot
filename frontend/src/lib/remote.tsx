@@ -24,11 +24,13 @@ import * as ReactRouterDOM from "react-router-dom";
 import * as ReactQuery from "@tanstack/react-query";
 import * as LucideReact from "lucide-react";
 
+import { triggerUnauthorized } from "./api";
+
 /**
  * 宿主公共契约版本，与 @amrita/webui-plugin-kit 的 HOST_CONTRACT_VERSION 对齐。
  * 只做加法（加字段/加 UI 组件）时递增次版本位，语义不兼容时递增主版本位。
  */
-export const HOST_CONTRACT_VERSION = 2;
+export const HOST_CONTRACT_VERSION = 3;
 
 /** 宿主暴露给远程模块的运行时依赖 */
 export interface AmritaHostGlobals {
@@ -42,6 +44,8 @@ export interface AmritaHostGlobals {
   LucideReact: typeof LucideReact;
   /** 宿主 UI 组件包；未加载时为 undefined，见 ensureHostUi */
   UI?: Record<string, unknown>;
+  /** 插件请求收到 401 时调用，交由宿主统一退回登录页 */
+  notifyUnauthorized?: () => void;
 }
 
 declare global {
@@ -60,6 +64,7 @@ export function installHostGlobals(): void {
     ReactRouterDOM,
     ReactQuery,
     LucideReact,
+    notifyUnauthorized: triggerUnauthorized,
   };
 }
 
@@ -73,16 +78,22 @@ let uiPromise: Promise<void> | null = null;
  */
 export function ensureHostUi(): Promise<void> {
   if (uiPromise) return uiPromise;
-  uiPromise = import("./ui-kit").then((mod) => {
-    const host = window.__AMRITA_HOST__;
-    if (!host) {
-      throw new Error(
-        "installHostGlobals() 未调用：请确认前端入口在渲染前挂载了宿主全局",
-      );
-    }
-    // 组件名清单同时暴露：插件构建套件的导出列表靠它核对，避免漏名
-    host.UI = { ...mod, uiExports: Object.keys(mod) };
-  });
+  uiPromise = import("./ui-kit")
+    .then((mod) => {
+      const host = window.__AMRITA_HOST__;
+      if (!host) {
+        throw new Error(
+          "installHostGlobals() 未调用：请确认前端入口在渲染前挂载了宿主全局",
+        );
+      }
+      // 组件名清单同时暴露：插件构建套件的导出列表靠它核对，避免漏名
+      host.UI = { ...mod, uiExports: Object.keys(mod) };
+    })
+    .catch((err) => {
+      // 失败不能留在缓存里，否则后续插件页永远拿不到 UI
+      uiPromise = null;
+      throw err;
+    });
   return uiPromise;
 }
 

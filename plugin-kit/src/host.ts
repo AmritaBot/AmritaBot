@@ -8,7 +8,7 @@
  */
 
 /** 宿主公共契约版本，插件与宿主必须一致（次版本兼容，主版本不兼容） */
-export const HOST_CONTRACT_VERSION = 2;
+export const HOST_CONTRACT_VERSION = 3;
 
 /** 宿主注入的全局变量名 */
 export const HOST_GLOBAL = "__AMRITA_HOST__";
@@ -45,6 +45,8 @@ export interface AmritaHostGlobals {
   ReactRouterDOM: Record<string, unknown>;
   ReactQuery?: Record<string, unknown>;
   LucideReact?: Record<string, unknown>;
+  /** 请求收到 401 时调用，宿主据此退回登录页 */
+  notifyUnauthorized?: () => void;
 }
 
 declare global {

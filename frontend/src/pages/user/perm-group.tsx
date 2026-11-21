@@ -3,16 +3,16 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import type { PermissionsDetailData } from "@/lib/types";
-import { Button } from "@/components/ui/button";
+import { Button } from "@amrita-constant/ambot-ui";
 import { PermissionEditor } from "@/components/shared/PermissionEditor";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "@amrita-constant/ambot-ui";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@amrita-constant/ambot-ui";
 
 export function PermGroupDetailPage() {
   const { name } = useParams<{ name: string }>();

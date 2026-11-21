@@ -3,7 +3,7 @@
 # Amrita WebUI 构建产物清理脚本
 #
 # 清理内容：
-#   1. amrita/plugins/webui/service/static/    —— 前端构建产物（.js/.css/.html/.map）
+#   1. amrita/plugins/webui/service/static/    —— 前端构建产物（保留 images/ 与 plugins/）
 #   2. frontend/dist/                          —— build:local 本地构建输出
 #   3. dist/                                   —— uv build 后端包输出（wheel + sdist）
 #   4. build/ 与 *.egg-info                    —— Python 包构建中间产物与元数据
@@ -47,13 +47,14 @@ rm_target() {
   if [[ ! -e "$target" ]]; then
     return
   fi
-  # 保护 static/images（logo 资源，git 跟踪）
+  # 保护 static/images（logo 资源，git 跟踪）与 static/plugins（外部插件产物的开发期落点）
   if [[ "$target" == "$ROOT/amrita/plugins/webui/service/static" ]]; then
-    find "$target" -mindepth 1 -maxdepth 1 ! -name "images" -exec rm -rf {} +
+    find "$target" -mindepth 1 -maxdepth 1 \
+      ! -name "images" ! -name "plugins" -exec rm -rf {} +
     if [[ "$DRY_RUN" == true ]]; then
-      echo "  🗑️  将删除: amrita/plugins/webui/service/static/（保留 images/）"
+      echo "  🗑️  将删除: amrita/plugins/webui/service/static/（保留 images/、plugins/）"
     else
-      echo "  🗑️  已删除: amrita/plugins/webui/service/static/（保留 images/）"
+      echo "  🗑️  已删除: amrita/plugins/webui/service/static/（保留 images/、plugins/）"
     fi
     return
   fi
@@ -93,4 +94,5 @@ if [[ "$DRY_RUN" == false ]]; then
 fi
 # 确保 images 存在（logo 静态资源，git 跟踪）
 mkdir -p "$ROOT/amrita/plugins/webui/service/static/images"
+# plugins 留给外部插件产物，不预建子目录：空目录会让「未找到产物」的判断绕过 is_dir
 echo "✅ 完成"

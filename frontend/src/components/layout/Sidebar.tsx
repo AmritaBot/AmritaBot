@@ -21,7 +21,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useTheme } from "@/hooks/use-theme";
+import { useTheme } from "@amrita-constant/ambot-ui";
 import { useAuth } from "@/hooks/use-auth";
 import type { MenuCategory } from "@/lib/menu";
 

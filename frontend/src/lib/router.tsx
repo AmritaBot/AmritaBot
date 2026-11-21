@@ -8,7 +8,7 @@
  * 1. 前端内置 registry（Amrita 自带页面，需前端构建）
  * 2. route.module_url：运行期 ESM 模块（第三方插件，无需重建前端）
  * 3. route.external_url：iframe 页面（第三方插件，无需重建前端）
- * 4. 都没有时渲染占位页
+ * 4. 都没有时渲染占位页，有 module_reason 时把后端给的原因显示出来
  */
 import { lazy, type ComponentType } from "react";
 import type { MenuRoute } from "./types";
@@ -36,14 +36,14 @@ export interface GeneratedRoute {
 
 /** 第三方插件页面：优先运行期 ESM 模块，其次 iframe，最后占位页 */
 function resolveExtensionComponent(route: MenuRoute): ComponentType {
-  const { name, module_url, external_url } = route;
+  const { name, module_url, external_url, module_reason } = route;
   if (module_url) {
     return () => <RemoteModulePage name={name} url={module_url} />;
   }
   if (external_url) {
     return () => <ExternalPage name={name} url={external_url} />;
   }
-  return () => <PagePlaceholder name={name} />;
+  return () => <PagePlaceholder name={name} reason={module_reason} />;
 }
 
 /** 生成菜单路由列表（含未注册占位） */

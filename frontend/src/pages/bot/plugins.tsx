@@ -2,14 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { DataTable, type Column } from "@/components/shared/DataTable";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ConfirmDialog } from "@amrita-constant/ambot-ui";
+import { DataTable, type Column } from "@amrita-constant/ambot-ui";
+import { Badge } from "@amrita-constant/ambot-ui";
+import { Button } from "@amrita-constant/ambot-ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@amrita-constant/ambot-ui";
+import { Input } from "@amrita-constant/ambot-ui";
+import { Switch } from "@amrita-constant/ambot-ui";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@amrita-constant/ambot-ui";
 import { useWs } from "@/hooks/use-ws";
 import { ApiError, api } from "@/lib/api";
 import type {

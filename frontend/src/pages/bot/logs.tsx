@@ -1,24 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { useWs, LOG_REPLAY_LIMIT, type LogEvent } from "@/hooks/use-ws";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Badge } from "@amrita-constant/ambot-ui";
+import { Button } from "@amrita-constant/ambot-ui";
+import { Input } from "@amrita-constant/ambot-ui";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@amrita-constant/ambot-ui";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
+} from "@amrita-constant/ambot-ui";
+import { Switch } from "@amrita-constant/ambot-ui";
 
 type Level = "ALL" | "INFO" | "DEBUG" | "WARNING" | "ERROR" | "FATAL";
 

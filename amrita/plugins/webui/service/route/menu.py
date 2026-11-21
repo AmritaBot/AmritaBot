@@ -154,11 +154,15 @@ _CORE_ROUTES = [
 async def get_menu():
     """获取全部页面路由注册表（含隐藏页），前端据此生成菜单与路由。
 
-    核心页面未声明 ``external_url`` / ``module_url``，这里统一补 ``None``，
+    核心页面未声明 ``external_url`` / ``module_dir``，这里统一补 ``None``，
     保证每条路由的字段集合一致（前端按可选字段解析）。
+
+    插件页面的 ``module_url`` 由 :class:`RouteRegistry` 在导出时按产物目录解析，
+    带 mtime 版本参数；产物缺失时为 ``None``，前端据此渲染占位页。
     """
+    # 核心页面没有插件产物来源，统一补 None，保证每条路由字段集合一致
     routes = [
-        {"external_url": None, "module_url": None, **route}
+        {"external_url": None, "module_dir": None, "module_url": None, **route}
         for route in (*_CORE_ROUTES, *RouteRegistry().get_routes())
     ]
     return ok(

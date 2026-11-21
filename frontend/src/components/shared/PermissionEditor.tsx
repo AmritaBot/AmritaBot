@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { AlertTriangle, Plus, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { cn } from "@/lib/utils";
+import { Button } from "@amrita-constant/ambot-ui";
+import { Input } from "@amrita-constant/ambot-ui";
+import { Switch } from "@amrita-constant/ambot-ui";
+import { cn } from "@amrita-constant/ambot-ui";
 
 /**
  * 权限编辑器：结构化行编辑（替代直接编辑权限字符串）

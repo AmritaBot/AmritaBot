@@ -3,16 +3,16 @@ import { Link, useNavigate } from "react-router-dom";
 import { Github, HelpCircle } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { ApiError } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@amrita-constant/ambot-ui";
+import { Input } from "@amrita-constant/ambot-ui";
+import { Label } from "@amrita-constant/ambot-ui";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@amrita-constant/ambot-ui";
 
 export function LoginPage() {
   const { login } = useAuth();

@@ -121,7 +121,9 @@ if (existsSync(outdir)) {
   console.log(`🗑️ Cleaning previous build artifacts at ${outdir}`);
   const entries = await readdir(outdir);
   for (const entry of entries) {
-    if (entry === "images") continue;
+    // images 是随包分发的静态资源；plugins 是外部插件自带的前端产物，
+    // 都不由本次构建产生，清掉会让插件页面变成 404
+    if (entry === "images" || entry === "plugins") continue;
     await rm(path.join(outdir, entry), { recursive: true, force: true });
   }
 }

@@ -226,3 +226,5 @@ __marimo__/
 
 # ZSSM
 .github/prompts
+# 插件构建套件的本地依赖
+plugin-kit/node_modules/

@@ -1,5 +1,5 @@
 import { Lock } from "lucide-react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@amrita-constant/ambot-ui";
 
 /**
  * 安全锁定页：登录失败次数过多（后端 UI_SEC_LOCKED），所有 API 返回 401 + 锁定标记。

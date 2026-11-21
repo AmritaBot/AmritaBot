@@ -42,6 +42,7 @@ from .plugin_discovery import (
     discover_plugins,
     is_builtin,
     is_indirect_dependency,
+    local_dir_alias,
     local_plugin_dirs,
     protect_reason,
 )
@@ -156,9 +157,15 @@ class PluginSnapshot:
         Raises:
             PyprojectNotFoundError: 找不到 ``pyproject.toml``。
         """
+        configured = collect_configured(path)
+        # 目录插件的加载名带目录前缀，先归一成短名，否则会与目录嗅探结果分成两条
+        loaded = {
+            name if name in configured else (local_dir_alias(name) or name)
+            for name in collect_loaded()
+        }
         return cls(
-            configured=collect_configured(path),
-            loaded=collect_loaded(),
+            configured=configured,
+            loaded=loaded,
             present=collect_present(root),
             failures=get_load_failures(),
         )
@@ -169,12 +176,17 @@ class PluginSnapshot:
         只认 :data:`~amrita.utils.plugins.LOADED_PLUGIN_DIRS`：``src/plugins/``
         下的插件即便放在那里也不会被加载，不能承诺「重启后启用」。
         """
-        return local_plugin_dirs().get(module_name) in LOADED_PLUGIN_DIRS
+        alias = local_dir_alias(module_name)
+        return (
+            alias is not None and local_plugin_dirs().get(alias) in LOADED_PLUGIN_DIRS
+        )
 
     def state_of(self, module_name: str) -> PluginState:
         """判定单个模块的状态。"""
         if is_builtin(module_name):
             return PluginState.RUNNING
+        # 传进来的可能是带目录前缀的加载名，先归一，后面三集合才对得上
+        module_name = local_dir_alias(module_name) or module_name
         configured = module_name in self.configured
         loaded = module_name in self.loaded
         if configured:

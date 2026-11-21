@@ -147,6 +147,41 @@ class AsyncDatabasePerformanceCollector:
         self.db_type: DatabaseType = db_type
         self.engine: AsyncEngine | AsyncConnection = session.bind
 
+    async def _scalar(self, sql: str, default: Any = None) -> Any:
+        """执行一条只取单值的查询，失败返回默认值。
+
+        逐值查询而不是拼一条大 SELECT：MySQL 与 MariaDB 对别名的保留字判定
+        不一致（``USER() AS current_user`` 在 MariaDB 上直接语法错误），
+        一条挂掉就会让整个「数据库信息」变成空白。
+        """
+        try:
+            result = await self.session.execute(text(sql))
+            value = result.scalar()
+        except Exception as e:
+            logger.debug(f"查询失败 {sql!r}: {e}")
+            return default
+        return default if value is None else value
+
+    async def _mysql_status(self, name: str) -> int | None:
+        """取 ``SHOW GLOBAL STATUS`` 里的整数值。
+
+        ``name`` 只允许来自本模块内的常量，不进用户输入。
+        """
+        try:
+            result = await self.session.execute(
+                text(f"SHOW GLOBAL STATUS LIKE '{name}'")
+            )
+            row = result.fetchone()
+        except Exception as e:
+            logger.debug(f"获取状态 {name} 失败: {e}")
+            return None
+        if row is None:
+            return None
+        try:
+            return int(row[1])
+        except (TypeError, ValueError):
+            return None
+
     async def collect_performance_stats(self) -> PerformanceMetrics:
         """
         收集完整的性能统计信息
@@ -180,26 +215,21 @@ class AsyncDatabasePerformanceCollector:
             raise
 
     async def _get_database_info(self) -> dict[str, Any]:
-        """获取数据库基本信息"""
+        """获取数据库基本信息；MySQL 的键名沿用 db_name，已对接的客户端依赖它。"""
         try:
             if self.db_type in ("mysql", "mariadb"):
-                # 使用已验证的通用查询
-                result = await self.session.execute(
-                    text(
-                        "SELECT VERSION() as version, DATABASE() as db_name, "
-                        "USER() as current_user, @@hostname as server_host, "
-                        "@@version_comment as version_comment"
-                    )
-                )
-                row = result.fetchone()
-                if row:
-                    # 使用 _mapping 以兼容不同 SQLAlchemy 版本
-                    return (
-                        dict(row._mapping)
-                        if hasattr(row, "_mapping")
-                        else dict(zip(row.keys(), row))
-                    )
-                return {}
+                #  逐条查：两个方言对保留字与函数别名的容忍度不一样，
+                #  合并成一条 SELECT 时 MariaDB 会因为 current_user 这个别名整条失败
+                info = {
+                    "version": await self._scalar("SELECT VERSION()"),
+                    "db_name": await self._scalar("SELECT DATABASE()"),
+                    "current_user": await self._scalar("SELECT USER()"),
+                    "server_host": await self._scalar("SELECT @@hostname"),
+                    "version_comment": await self._scalar("SELECT @@version_comment"),
+                    "uptime_seconds": await self._mysql_status("Uptime"),
+                    "data_dir": await self._scalar("SELECT @@datadir"),
+                }
+                return {key: value for key, value in info.items() if value is not None}
 
             elif self.db_type == "postgresql":
                 result = await self.session.execute(
@@ -273,13 +303,33 @@ class AsyncDatabasePerformanceCollector:
 
                 utilization = (threads_connected / max_conn * 100) if max_conn else None
 
+                #  最长执行时间：PROCESSLIST 里非 Sleep 的会话，两个方言都支持
+                longest = await self._scalar(
+                    "SELECT MAX(TIME) FROM information_schema.PROCESSLIST "
+                    "WHERE COMMAND NOT IN ('Sleep', 'Daemon') AND INFO IS NOT NULL"
+                )
+                #  等待中的连接：8.0 用 data_lock_waits，5.7 与 MariaDB 用 INNODB_LOCK_WAITS
+                #  锁等待表一行是一个关系/请求，同一个事务可能占多行，按事务去重
+                waiting = await self._scalar(
+                    "SELECT COUNT(DISTINCT REQUESTING_ENGINE_TRANSACTION_ID) "
+                    "FROM performance_schema.data_lock_waits"
+                )
+                if waiting is None:
+                    waiting = await self._scalar(
+                        "SELECT COUNT(DISTINCT requesting_trx_id) "
+                        "FROM information_schema.INNODB_LOCK_WAITS"
+                    )
+
                 return ConnectionStats(
                     total_connections=threads_connected,
                     active_connections=threads_running,
-                    idle_connections=threads_connected - threads_running,
+                    idle_connections=max(0, threads_connected - threads_running),
                     max_allowed_connections=max_conn,
                     connection_utilization_percent=utilization,
-                    waiting_connections=None,  # MySQL/MariaDB 无直接等待连接数
+                    longest_query_seconds=float(longest)
+                    if longest is not None
+                    else None,
+                    waiting_connections=int(waiting) if waiting is not None else None,
                 )
 
             elif self.db_type == "postgresql":
@@ -421,8 +471,26 @@ class AsyncDatabasePerformanceCollector:
                 except Exception as e:
                     logger.debug(f"获取 innodb_buffer_pool_size 失败: {e}")
 
+                #  计数器可能被 stats 重置：reads > requests 时比值会变成负数，
+                #  夹到 [0, 100] 才是个能看的命中率
+                #  计数器可能被 stats 重置：reads > requests 时比值没有意义，
+                #  返回 None 由前端隐藏，而不是显示成 0% 吓人
                 hit_ratio = (
-                    (1 - reads / read_requests) * 100 if read_requests > 0 else None
+                    max(0.0, min(100.0, (1 - reads / read_requests) * 100))
+                    if read_requests > 0 and reads <= read_requests
+                    else None
+                )
+                #  MyISAM 的 key buffer 命中率是 MySQL 侧唯一现成的「索引缓存」指标；
+                #  InnoDB 没有这个概念，此时保持 None 而不是编一个值出来
+                key_requests = await self._mysql_status("Key_read_requests")
+                key_reads = await self._mysql_status("Key_reads")
+                #  两个计数器缺一个都算不出来：缺 reads 会算出 100%，缺 requests 会除零
+                key_hit_ratio = (
+                    max(0.0, min(100.0, (1 - key_reads / key_requests) * 100))
+                    if key_requests
+                    and key_reads is not None
+                    and key_reads <= key_requests
+                    else None
                 )
                 cache_used = (
                     (1 - pages_free / pages_total) * 100 if pages_total > 0 else None
@@ -430,6 +498,7 @@ class AsyncDatabasePerformanceCollector:
 
                 return CacheEfficiency(
                     buffer_pool_hit_ratio=hit_ratio,
+                    index_hit_ratio=key_hit_ratio,
                     logical_reads=read_requests,
                     physical_reads=reads,
                     cache_size_mb=pool_size_bytes / (1024 * 1024)
@@ -666,6 +735,10 @@ class AsyncDatabasePerformanceCollector:
                 """
                 result = await self.session.execute(text(query), params)
 
+                #  索引使用计数不折腾：performance_schema 的 COUNT_STAR / COUNT_READ
+                #  是 I/O 事件数，不是扫描次数或返回行数，填进 scan_count / rows_fetched
+                #  只会给出看起来精确的错误数据，这里保持不可用。
+
                 # 按索引名分组，获取每个索引的信息（去重，同一索引可能有多行对应多列）
                 seen = set()
                 for row in result:
@@ -680,7 +753,6 @@ class AsyncDatabasePerformanceCollector:
                             schema_name=row.TABLE_SCHEMA,
                             cardinality=row.CARDINALITY,
                             unique=(row.NON_UNIQUE == 0),
-                            # 使用统计字段无法获取，留空
                         )
                     )
 
@@ -858,8 +930,9 @@ class AsyncDatabasePerformanceCollector:
                         SELECT
                             DIGEST_TEXT,
                             COUNT_STAR,
-                            SUM_TIMER_WAIT / 1000000000 as total_time_seconds,
-                            AVG_TIMER_WAIT / 1000000000 as avg_time_seconds,
+                            -- performance_schema 的计时单位是皮秒，/1e9 直接得到毫秒
+                            SUM_TIMER_WAIT / 1000000000 as total_time_ms,
+                            AVG_TIMER_WAIT / 1000000000 as avg_time_ms,
                             SUM_ROWS_SENT
                         FROM performance_schema.events_statements_summary_by_digest
                         WHERE DIGEST_TEXT IS NOT NULL
@@ -876,11 +949,11 @@ class AsyncDatabasePerformanceCollector:
                                     if row.DIGEST_TEXT
                                     else None,
                                     total_executions=row.COUNT_STAR,
-                                    total_time_ms=row.total_time_seconds * 1000
-                                    if row.total_time_seconds
+                                    total_time_ms=float(row.total_time_ms)
+                                    if row.total_time_ms is not None
                                     else None,
-                                    avg_time_ms=row.avg_time_seconds * 1000
-                                    if row.avg_time_seconds
+                                    avg_time_ms=float(row.avg_time_ms)
+                                    if row.avg_time_ms is not None
                                     else None,
                                     rows_returned=row.SUM_ROWS_SENT,
                                 )

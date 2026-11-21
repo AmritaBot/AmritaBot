@@ -42,6 +42,7 @@ __all__ = [
     "is_indirect_dependency",
     "iter_dir_plugins",
     "iter_dist_plugins",
+    "local_dir_alias",
     "local_plugin_dirs",
     "module_distributions",
     "normalize_dist_name",
@@ -57,6 +58,8 @@ AMRITA_DIST_PREFIX = "amrita_plugin_"
 NONEBOT_DIST_PREFIX = "nonebot_plugin_"
 
 AMRITA_LOCAL_DIR = "plugins"
+#: ``nonebot.load_plugins`` 会扫描的目录；与 utils/plugins.LOADED_PLUGIN_DIRS 保持一致
+LOADED_PLUGIN_DIRS: tuple[str, ...] = (AMRITA_LOCAL_DIR,)
 """本地 Amrita 插件目录（相对项目根）；``load_plugins()`` 会扫描它。"""
 
 NONEBOT_LOCAL_DIR = "src/plugins"
@@ -317,6 +320,30 @@ def module_distributions(*, refresh: bool = False) -> dict[str, str]:
 
     _MODULE_DIST_CACHE = mapping
     return _MODULE_DIST_CACHE
+
+
+def local_dir_alias(module_name: str) -> str | None:
+    """目录插件的加载名归一：``plugins.foo`` → ``foo``。
+
+    ``nonebot.load_plugins("plugins")`` 把 ``plugins/foo`` 导入成 ``plugins.foo``，
+    而目录扫描、失败记录、``pyproject.toml`` 里用的都是短名 ``foo``。不归一，
+    同一个插件会以两个身份出现：判状态时对不上配置，登记失败时对不上已加载集合。
+
+    Args:
+        module_name: 任意模块名。
+
+    Returns:
+        短名；非目录插件返回 ``None``。
+    """
+    dirs = local_plugin_dirs()
+    if module_name in dirs:
+        return module_name
+    parts = module_name.split(".")
+    for index in range(1, len(parts)):
+        prefix = "/".join(parts[:index])
+        if prefix in LOADED_PLUGIN_DIRS and parts[index] in dirs:
+            return parts[index]
+    return None
 
 
 def local_plugin_dirs(*, refresh: bool = False) -> dict[str, str]:

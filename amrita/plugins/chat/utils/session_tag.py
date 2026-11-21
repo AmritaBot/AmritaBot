@@ -75,12 +75,7 @@ def _digest(data: AwaredMemory) -> str:
 
 
 def _clean(raw: str) -> str | None:
-    """只做格式归一：取首行、去引号与多余空白。
-
-    不按关键词或 Markdown 语法做定向清洗——模型每次的措辞都不一样，
-    正则补丁只会追着上一版输出跑。输出形态由提示词约束，这里只负责
-    把「模型给了一段」收成「一行」，以及挡掉会拼出 CQ 码的字符。
-    """
+    """只做格式归一（首行、引号、空白、CQ 码转义），内容形态交给提示词约束。"""
     text = (raw or "").strip()
     if not text:
         return None
@@ -128,8 +123,7 @@ async def generate_session_tag(
         preset = preset.model_copy(
             update={
                 "max_output": budget,
-                #  原生思考模型的 CoT 与正文共用输出预算，这里显式关掉：
-                #  关掉才能让那一句标签真的落在 max_output 之内
+                # 原生思考的 CoT 与正文共用输出预算，必须显式关掉
                 "thinking_config": ThinkingConfig(
                     thinking_type="disabled",
                     enable_thinking=False,

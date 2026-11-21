@@ -1,20 +1,10 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { readdir, rm } from "node:fs/promises";
+import { cp, readFile, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { defineConfig } from "vite";
 
-/**
- * WebUI 的构建与开发服务器配置。
- *
- * 生产产物输出到插件的 static/ 目录，随 pip 包分发，所以 build 的 base 是 /static/；
- * 开发服务器仍然挂在根路径，避免打开 localhost:3000/static/ 这种别扭地址。
- *
- * 用 Rollup（Vite 内置）而不是 Bun.build：后者在 HTML 入口 + 代码分块下会生成
- * 指不到实际绑定的重导出（浏览器报 “Export 'xxx' is not defined in module”），
- * 之前靠事后改写 index.html 的 script 地址绕开，是补丁；换工具链才是解法。
- */
-
+// 生产产物随 pip 包分发，build 与 preview 的 base 是 /static/，dev 用根路径
 const FRONTEND_DIR = import.meta.dirname;
 const SRC_DIR = path.resolve(FRONTEND_DIR, "src");
 const OUTDIR = path.resolve(
@@ -22,55 +12,120 @@ const OUTDIR = path.resolve(
   "../amrita/plugins/webui/service/static",
 );
 const API_TARGET = process.env.AMRITA_API_TARGET ?? "http://127.0.0.1:11451";
-// images 是 git 跟踪的静态资源，plugins 是外部插件产物的落点，都不归本次构建管
+// images 是 git 跟踪资源，plugins 是外部插件落点，都不归构建管
 const KEEP = new Set(["images", "plugins"]);
+// 只清理本工具产出的东西，别的一概不碰
+const ARTIFACT = /^(assets$|index\.html$)|\.(js|css|map)$/;
+const MIME: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
+  ".webp": "image/webp",
+};
 
-let cleanTarget = OUTDIR;
+export default defineConfig(({ command, isPreview }) => {
+  const buildMode = command === "build" || isPreview;
+  let finalOut = OUTDIR;
+  let staging = path.join(OUTDIR, ".build-staging");
 
-export default defineConfig(({ command }) => ({
-  base: command === "build" ? "/static/" : "/",
-  // 以 src 为 root：index.html 就在这一层，入口天然是 /index.html
-  root: SRC_DIR,
-  plugins: [
-    react(),
-    tailwindcss(),
-    {
-      name: "amrita-clean-output",
-      // 清理跟着实际 outDir 走：build:local 用 --outDir dist 时不能再清 static/
-      configResolved(config) {
-        cleanTarget = path.resolve(config.root, config.build.outDir);
+  return {
+    base: buildMode ? "/static/" : "/",
+    root: SRC_DIR,
+    resolve: { alias: { "@": SRC_DIR } },
+    plugins: [
+      react(),
+      tailwindcss(),
+      {
+        name: "amrita-stage-build",
+        apply: "build",
+        // 先把产物写进 staging，构建成功后再替换正式目录
+        config(userConfig) {
+          const raw = userConfig.build?.outDir ?? OUTDIR;
+          finalOut = path.resolve(SRC_DIR, raw);
+          if (
+            !finalOut.startsWith(FRONTEND_DIR) &&
+            !finalOut.startsWith(path.dirname(OUTDIR))
+          ) {
+            throw new Error(`拒绝写入预期之外的输出目录：${finalOut}`);
+          }
+          staging = path.join(finalOut, ".build-staging");
+          return { build: { outDir: staging, emptyOutDir: true } };
+        },
+        async closeBundle() {
+          const built = await readdir(staging).catch(() => [] as string[]);
+          if (built.length === 0) return;
+          for (const entry of await readdir(finalOut).catch(
+            () => [] as string[],
+          )) {
+            if (KEEP.has(entry) || entry === ".build-staging") continue;
+            if (!ARTIFACT.test(entry)) continue;
+            await rm(path.join(finalOut, entry), {
+              recursive: true,
+              force: true,
+            });
+          }
+          for (const entry of built) {
+            await cp(path.join(staging, entry), path.join(finalOut, entry), {
+              recursive: true,
+            });
+          }
+          await rm(staging, { recursive: true, force: true });
+        },
       },
-      async buildStart() {
-        const entries = await readdir(cleanTarget).catch(() => [] as string[]);
-        for (const entry of entries) {
-          if (KEEP.has(entry)) continue;
-          await rm(path.join(cleanTarget, entry), {
-            recursive: true,
-            force: true,
+      {
+        name: "amrita-dev-static",
+        apply: "serve",
+        // dev 只服务源码，/static/images 这类随包资源得手动挂出来
+        configureServer(server) {
+          server.middlewares.use(async (req, res, next) => {
+            const url = req.url?.split("?")[0] ?? "";
+            if (!url.startsWith("/static/images/")) return next();
+            const file = path.resolve(OUTDIR, url.slice(1));
+            if (!file.startsWith(OUTDIR + path.sep)) return next();
+            try {
+              res.setHeader(
+                "Content-Type",
+                MIME[path.extname(file)] ?? "application/octet-stream",
+              );
+              res.end(await readFile(file));
+            } catch {
+              next();
+            }
           });
-        }
+        },
+      },
+    ],
+    server: {
+      port: 3000,
+      proxy: {
+        "/api": { target: API_TARGET, changeOrigin: true },
+        "/amrita": {
+          target: API_TARGET,
+          changeOrigin: true,
+          ws: true,
+          // 后端校验 Origin 与 Host 同源；代理改写了 Host，Origin 也得跟着改
+          configure(proxy) {
+            proxy.on("proxyReqWs", (req) =>
+              req.setHeader("origin", API_TARGET),
+            );
+          },
+        },
       },
     },
-  ],
-  resolve: {
-    alias: { "@": SRC_DIR },
-  },
-  server: {
-    port: 3000,
-    proxy: {
-      // 同源代理：浏览器侧不需要 CORS，cookie 原样透传；WS 直接升级
-      "/api": { target: API_TARGET, changeOrigin: true },
-      "/amrita": { target: API_TARGET, changeOrigin: true, ws: true },
+    preview: {
+      port: 3000,
+      proxy: {
+        "/api": { target: API_TARGET, changeOrigin: true },
+        "/amrita": { target: API_TARGET, changeOrigin: true, ws: true },
+      },
     },
-  },
-  build: {
-    outDir: OUTDIR,
-    // 输出目录里还有别人的文件（见 KEEP），不能让 Vite 整个清空
-    emptyOutDir: false,
-    sourcemap: true,
-    target: "es2020",
-    rollupOptions: {
-      input: path.resolve(SRC_DIR, "index.html"),
+    build: {
+      outDir: OUTDIR,
+      sourcemap: true,
+      target: "es2020",
+      rollupOptions: { input: path.resolve(SRC_DIR, "index.html") },
     },
-  },
-}));
+  };
+});

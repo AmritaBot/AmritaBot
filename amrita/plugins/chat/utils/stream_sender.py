@@ -144,7 +144,9 @@ class ChatStreamSender:
             return
         if self._config.meta.reasoning_summary:
             usage = getattr(getattr(self._chat, "_di_resp", None), "usage", None)
-            if summary := await summarize_reasoning(text, usage):
+            if summary := await summarize_reasoning(
+                text, usage, self._config.meta.reasoning_summary_max_chars
+            ):
                 text = summary
         await self._send_reasoning(text)
 

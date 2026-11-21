@@ -91,6 +91,12 @@ class MetaInfoConfig(BaseModel):
             "（原始思考超过合并转发阈值时分段发送）"
         ),
     )
+    reasoning_summary_max_chars: int = Field(
+        default=120,
+        ge=40,
+        le=400,
+        description="思考摘要的字数上限，提示词与超长截断共用",
+    )
     reasoning: bool = Field(
         default=True, description="整段思考块（reasoning / structured_reasoning_step）"
     )

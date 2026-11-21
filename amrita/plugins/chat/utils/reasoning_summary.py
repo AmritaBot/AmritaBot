@@ -19,24 +19,26 @@ if TYPE_CHECKING:
 
 #  送进模型的原始思考上限：摘要只需要知道想了什么，不需要逐字复读
 _DIGEST_LIMIT = 6000
-#  摘要正文上限，超出按分句截断
-SUMMARY_MAX_CHARS = 160
-#  思考短于这个长度就没有摘要价值，直接原样返回
-_SHORT_CIRCUIT = 120
+#  摘要默认字数上限，实际以 meta.reasoning_summary_max_chars 为准
+DEFAULT_SUMMARY_MAX_CHARS = 120
 #  思考 token 与正文共用预算，显式关思考并给输出兜下限，避免正文为空
 _SUMMARY_MAX_OUTPUT = 1024
 _SUMMARY_TIMEOUT = 20.0
 
-_PROMPT = (
-    "你是思考过程的摘要器。用户会给你一段模型的原始思考（可能中英混杂、反复试探、自我纠正），"
-    "请把它压成一段简洁的中文摘要。硬性要求：\n"
-    "1. 只输出摘要正文，不要标题、不要 Markdown 标记、不要「摘要：」之类的前缀；\n"
-    "2. 保留三样东西：最终结论、做过的关键判断及理由、仍未解决或存疑的点；\n"
-    "3. 删掉重复的试错、语气词、对指令本身的复述；\n"
-    "4. 不超过 120 个汉字，写成 2 到 4 句连贯的话，不要分点；\n"
-    "5. 不要评价这段思考好不好，只转述内容。\n"
-    "参考下面的示例，注意它们都只保留结论与关键判断。"
-)
+
+def _build_prompt(max_chars: int) -> str:
+    """按配置的字数上限拼提示词，避免改了配置而提示词还写死旧数字。"""
+    return (
+        "你是思考过程的摘要器。用户会给你一段模型的原始思考（可能中英混杂、反复试探、自我纠正），"
+        "请把它压成一段简洁的中文摘要。硬性要求：\n"
+        "1. 只输出摘要正文，不要标题、不要 Markdown 标记、不要「摘要：」之类的前缀；\n"
+        "2. 保留三样东西：最终结论、做过的关键判断及理由、仍未解决或存疑的点；\n"
+        "3. 删掉重复的试错、语气词、对指令本身的复述；\n"
+        f"4. 不超过 {max_chars} 个汉字，写成 2 到 4 句连贯的话，不要分点；\n"
+        "5. 不要评价这段思考好不好，只转述内容。\n"
+        "参考下面的示例，注意它们都只保留结论与关键判断。"
+    )
+
 
 #  原始思考 -> 摘要，示例刻意保留「乱」与「收」的对比
 _FEWSHOTS: list[tuple[str, str]] = [
@@ -72,16 +74,16 @@ _PREFIX_RE = re.compile(r"^(摘要|思考摘要|总结)\s*[:：]\s*")
 _BLANK_RE = re.compile(r"\n{2,}")
 
 
-def _clean(raw: str) -> str | None:
-    """收成一段可发送的摘要，去掉前缀与多余空行。"""
+def _clean(raw: str, max_chars: int) -> str | None:
+    """收成一段可发送的摘要，去掉前缀与多余空行，并按上限截断。"""
     text = raw.strip()
     if not text:
         return None
     text = _PREFIX_RE.sub("", text)
     text = _BLANK_RE.sub("\n", text).strip()
-    if len(text) > SUMMARY_MAX_CHARS:
+    if len(text) > max_chars:
         #  模型偶尔会写超，优先保留前几句，再兜底硬截断
-        cut = text[:SUMMARY_MAX_CHARS]
+        cut = text[:max_chars]
         for sep in ("。", "；", "\n"):
             if sep in cut:
                 cut = cut[: cut.rindex(sep) + 1]
@@ -93,21 +95,24 @@ def _clean(raw: str) -> str | None:
 async def summarize_reasoning(
     raw: str,
     usage: "SessionUsageProxy | None" = None,
+    max_chars: int = DEFAULT_SUMMARY_MAX_CHARS,
 ) -> str | None:
     """把一段原始思考压成摘要，失败或超时返回 ``None``。
 
     Args:
         raw: 收集到的完整思考文本
         usage: 传入时把这次调用的用量记进去
+        max_chars: 摘要字数上限，提示词与截断共用
     """
     digest = raw.strip()
     if not digest:
         return None
-    if len(digest) <= _SHORT_CIRCUIT:
+    #  已经比摘要上限还短，再压只会丢信息
+    if len(digest) <= max_chars:
         return digest
 
     messages: list[Message] = [
-        Message(role="system", content=_PROMPT),
+        Message(role="system", content=_build_prompt(max_chars)),
     ]
     for src, dst in _FEWSHOTS:
         messages.append(Message(role="user", content=src))
@@ -143,4 +148,4 @@ async def summarize_reasoning(
     if not isinstance(resp.content, str) or not resp.content.strip():
         logger.warning("思考摘要为空：可能未产出正文，本次回退原始思考。")
         return None
-    return _clean(resp.content)
+    return _clean(resp.content, max_chars)

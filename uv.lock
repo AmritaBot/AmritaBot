@@ -315,7 +315,7 @@ requires-dist = [
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "nb-cli", specifier = ">=1.6.0" },
     { name = "nonebot-adapter-onebot", specifier = ">=2.4.6" },
-    { name = "nonebot-plugin-amrita", specifier = ">=0.5.0" },
+    { name = "nonebot-plugin-amrita", specifier = ">=0.5.1" },
     { name = "nonebot-plugin-orm", specifier = ">=0.8.3" },
     { name = "nonebot-plugin-uniconf", specifier = ">=0.1.3" },
     { name = "nonebot2", extras = ["fastapi"], specifier = ">=2.4.3" },
@@ -1871,7 +1871,7 @@ wheels = [
 
 [[package]]
 name = "nonebot-plugin-amrita"
-version = "0.5.0"
+version = "0.5.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiologic" },
@@ -1880,9 +1880,9 @@ dependencies = [
     { name = "nonebot-plugin-orm" },
     { name = "nonebot2" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7e/5c/8c304c3ea8a32f59cf2de8fc476640c16473639845a4f68a5b9de3f0fdf1/nonebot_plugin_amrita-0.5.0.tar.gz", hash = "sha256:49aab70eb94cccf21073e700b7d8f0bcf4b53f0cc15621d020141ab3a865841d", size = 38333, upload-time = "2026-10-30T02:40:15.075Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/eb/4a/630cf0f3d44c7a4c7c1d4fd305c352e4683ec98e32edfe7a9c29557afa23/nonebot_plugin_amrita-0.5.1.tar.gz", hash = "sha256:1f6aea4333abfb25c144f05c520c3c0b76ffc0794cf6aa6bbb8ba2aa5491c0a3", size = 38767, upload-time = "2026-11-21T12:40:57.306Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b5/5e/9058cc353b3bfb168051729644f23ce965cc4b288e235698b8e9e453e78a/nonebot_plugin_amrita-0.5.0-py3-none-any.whl", hash = "sha256:9b8f8c1117e159037c94c95cbb69581f7cdddc78256984bc2ab0b43a9da1e21c", size = 36690, upload-time = "2026-10-30T02:40:13.624Z" },
+    { url = "https://files.pythonhosted.org/packages/b1/b5/76e68b35b72bcc3f12d5497e9fee9309bf372c4a56bac26b5f0621b9528f/nonebot_plugin_amrita-0.5.1-py3-none-any.whl", hash = "sha256:a554133942ed92cff80028cedcc042a58a13e55144e11bc0a6765ece51d18ab7", size = 37568, upload-time = "2026-11-21T12:40:56.549Z" },
 ]
 
 [[package]]

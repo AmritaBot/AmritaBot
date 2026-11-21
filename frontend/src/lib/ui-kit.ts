@@ -10,7 +10,7 @@
  *
  * 增删导出等于改变宿主与插件的契约，需同步 bump
  * ``remote.tsx`` 的 ``HOST_CONTRACT_VERSION``，并更新
- * ``@amrita/webui-plugin-kit`` 的 ``ui-exports.ts``。
+ * ``@amrita-constant/webui-plugin-kit`` 的 ``ui-exports.ts``。
  */
 
 export * from "@amrita-constant/ambot-ui";

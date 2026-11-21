@@ -32,7 +32,7 @@
 
 - 增删组件导出时同步改 AmritaBot-UI 的 `src/exports.ts`
 - 宿主 `HOST_CONTRACT_VERSION` 跟着 bump：只加字段递增次版本位，语义不兼容递增主版本位
-- 插件套件 `@amrita/webui-plugin-kit` 的 UI 类型直接取自本包，不要再维护副本
+- 插件套件 `@amrita-constant/webui-plugin-kit` 已独立发布到 npm（仓库 AmritaBot-PluginKit），其 UI 类型直接取自本包，不要再维护副本
 
 分发形态：
 

@@ -23,7 +23,11 @@ from .utils.context_store import append_context_record
 from .utils.data_access import get_group_config, get_memory, update_memory
 from .utils.debounce import has_active_batch
 from .utils.format import format_msg_xml
-from .utils.functions import format_current_datetime, synthesize_message
+from .utils.functions import (
+    format_current_datetime,
+    is_card_only_message,
+    synthesize_message,
+)
 from .utils.preset import is_multimodal_enabled
 
 nb_config = get_driver().config
@@ -109,6 +113,9 @@ async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
     )
     async with lock:
         message = event.get_message()
+        #  纯 xml/json 卡片没有可读正文，不进模型也不落上下文
+        if is_card_only_message(message):
+            return False
         message_text = message.extract_plain_text().strip()
         if not isinstance(event, GroupMessageEvent):
             return True

@@ -30,6 +30,16 @@ async def is_member(event: GroupMessageEvent, bot: Bot) -> bool:
     return user_role == "member"
 
 
+def is_card_only_message(message: Message) -> bool:
+    """消息只含 xml/json 卡片（纯空白 text 不计）"""
+    kinds = {
+        seg.type
+        for seg in message
+        if not (seg.type == "text" and not str(seg.data.get("text", "")).strip())
+    }
+    return bool(kinds) and kinds <= {"xml", "json"}
+
+
 def format_datetime_timestamp(time: int) -> str:
     """将时间戳格式化为日期、星期和时间字符串"""
     now = datetime.fromtimestamp(time)

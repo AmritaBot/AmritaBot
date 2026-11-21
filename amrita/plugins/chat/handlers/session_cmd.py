@@ -258,8 +258,8 @@ async def _session_rename(
         new_tag = new_tag[:TAG_MAX_LEN]
         await matcher.send(f"名称超过 {TAG_MAX_LEN} 字，已截断。")
     try:
-        #  带上 created_at：id 会被回收，只按 id 改可能落到新行上
-        ok = await repo.rename_session(uni_id, target.id, new_tag, target.created_at)
+        #  不传 created_at：MySQL 的 FLOAT 精度不足以等值比较，会稳定返回 0 行
+        ok = await repo.rename_session(uni_id, target.id, new_tag)
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).exception("重命名会话失败。")
         await matcher.finish("重命名失败。")

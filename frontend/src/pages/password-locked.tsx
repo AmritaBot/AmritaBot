@@ -1,6 +1,6 @@
 import { Github, ShieldAlert } from "lucide-react";
-import { Button } from "@amrita-constant/ui";
-import { Card, CardContent, CardHeader } from "@amrita-constant/ui";
+import { Button } from "@amrita-constant/ambot-ui";
+import { Card, CardContent, CardHeader } from "@amrita-constant/ambot-ui";
 
 /**
  * 密码锁定页：检测到 WebUI 仍在使用出厂默认密码（admin123）时显示。

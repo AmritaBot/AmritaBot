@@ -4,11 +4,11 @@ import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import type { ChatPrompt, ChatPromptsData } from "@/lib/types";
-import { DataTable, type Column } from "@amrita-constant/ui";
-import { Button } from "@amrita-constant/ui";
-import { Input } from "@amrita-constant/ui";
-import { Label } from "@amrita-constant/ui";
-import { Textarea } from "@amrita-constant/ui";
+import { DataTable, type Column } from "@amrita-constant/ambot-ui";
+import { Button } from "@amrita-constant/ambot-ui";
+import { Input } from "@amrita-constant/ambot-ui";
+import { Label } from "@amrita-constant/ambot-ui";
+import { Textarea } from "@amrita-constant/ambot-ui";
 import {
   Dialog,
   DialogContent,
@@ -16,10 +16,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@amrita-constant/ui";
-import { Card, CardContent, CardHeader, CardTitle } from "@amrita-constant/ui";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@amrita-constant/ui";
-import { ConfirmDialog } from "@amrita-constant/ui";
+} from "@amrita-constant/ambot-ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@amrita-constant/ambot-ui";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@amrita-constant/ambot-ui";
+import { ConfirmDialog } from "@amrita-constant/ambot-ui";
 
 type PromptType = "group" | "private";
 

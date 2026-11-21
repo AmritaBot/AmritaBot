@@ -42,7 +42,7 @@
 ## WebUI 布局
 
 - 页面在 `frontend/src/pages`，按域分目录：`dashboard.tsx`、`events.tsx` 等顶层页，`bot/`、`user/`、`manage/`、`system/` 分组。
-- UI 组件在子模块 `frontend/packages/ui`（仓库 AmritaBot-UI），以 `@amrita-constant/ui` 引入：原子组件与业务通用件都在那里。
+- UI 组件在子模块 `frontend/packages/ui`（仓库 AmritaBot-UI），以 `@amrita-constant/ambot-ui` 引入：原子组件与业务通用件都在那里。
 - 宿主前端只保留三层里的编排：`components/layout` 是框架布局，页面级组合件留在 `components/shared`。
 - 路由唯一注册点是 `frontend/src/pages/registry.tsx`，key 与后端页面路径一致；未注册的路径渲染占位页。
 - 后端侧边栏与页面元数据在 `amrita/plugins/webui/service/sidebar.py` 的 `SideBar` / `RouteRegistry`，插件通过 `register_page` 一类接口注册。

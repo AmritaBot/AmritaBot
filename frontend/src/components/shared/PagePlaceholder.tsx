@@ -4,7 +4,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@amrita-constant/ui";
+} from "@amrita-constant/ambot-ui";
 
 /**
  * 菜单中有、但前端无法渲染的页面。

@@ -1,13 +1,13 @@
 import { useWs } from "@/hooks/use-ws";
-import { StatusBadge } from "@amrita-constant/ui";
-import { Skeleton } from "@amrita-constant/ui";
+import { StatusBadge } from "@amrita-constant/ambot-ui";
+import { Skeleton } from "@amrita-constant/ambot-ui";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@amrita-constant/ui";
+} from "@amrita-constant/ambot-ui";
 
 function Meter({ label, value }: { label: string; value?: number }) {
   const v = value ?? 0;

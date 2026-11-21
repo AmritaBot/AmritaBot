@@ -87,8 +87,8 @@ mtime 是必需的：`import()` 按 URL 缓存模块，插件重建后不换 URL
 | `@tanstack/react-query` | `ReactQuery` |
 | `lucide-react` | `LucideReact` |
 
-宿主 UI 组件（Button、Card、DataTable 等）走 `@amrita-constant/ui`：插件里 `import { Button } from "@amrita/webui-plugin-kit/ui"`，构建时被换成从 `window.__AMRITA_HOST__.UI` 取值的再导出，类型来自同一个包。
-因此插件项目需要 `bun add -d @amrita-constant/ui`，构建器要读它的组件清单。
+宿主 UI 组件（Button、Card、DataTable 等）走 `@amrita-constant/ambot-ui`：插件里 `import { Button } from "@amrita/webui-plugin-kit/ui"`，构建时被换成从 `window.__AMRITA_HOST__.UI` 取值的再导出，类型来自同一个包。
+因此插件项目需要 `bun add -d @amrita-constant/ambot-ui`，构建器要读它的组件清单。
 
 产物末尾会追加 `export const amritaHostContract = N`，宿主加载时比对契约版本，不匹配在控制台点名。
 

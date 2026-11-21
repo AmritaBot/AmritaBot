@@ -3,24 +3,24 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, SearchX, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import type { EventsData } from "@/lib/types";
-import { Badge } from "@amrita-constant/ui";
-import { Button } from "@amrita-constant/ui";
-import { Input } from "@amrita-constant/ui";
+import { Badge } from "@amrita-constant/ambot-ui";
+import { Button } from "@amrita-constant/ambot-ui";
+import { Input } from "@amrita-constant/ambot-ui";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@amrita-constant/ui";
+} from "@amrita-constant/ambot-ui";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@amrita-constant/ui";
-import { Skeleton } from "@amrita-constant/ui";
+} from "@amrita-constant/ambot-ui";
+import { Skeleton } from "@amrita-constant/ambot-ui";
 
 type Level = "ALL" | "INFO" | "DEBUG" | "WARNING" | "ERROR" | "FATAL";
 

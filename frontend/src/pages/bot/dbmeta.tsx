@@ -1,14 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { DbMetaData } from "@/lib/types";
-import { Skeleton } from "@amrita-constant/ui";
+import { Skeleton } from "@amrita-constant/ambot-ui";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@amrita-constant/ui";
+} from "@amrita-constant/ambot-ui";
 
 function InfoGrid({ data }: { data: Record<string, unknown> }) {
   const entries = Object.entries(data);

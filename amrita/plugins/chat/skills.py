@@ -109,13 +109,14 @@ async def get_skill_context() -> SkillContext:
 def _skill_enabled(name: str, skills_cfg: SkillConfig) -> bool:
     """按 ``[skills]`` 配置判断技能是否启用。
 
-    ``selected`` 非空时仅列表内的技能启用（空列表 = 全部启用）。
+    ``all_skills=True`` 表示全部启用；否则只看 ``selected``，
+    此时空列表意味着一个都不启用——不再拿「空」兼作「全部」的哨兵。
     """
     if not skills_cfg.enable:
         return False
-    if skills_cfg.selected and name not in skills_cfg.selected:
-        return False
-    return True
+    if skills_cfg.all_skills:
+        return True
+    return name in skills_cfg.selected
 
 
 def _strip_base_directory(content: str) -> str:

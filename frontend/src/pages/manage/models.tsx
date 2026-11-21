@@ -3,7 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { api } from "@/lib/api";
-import type { ChatModel, ChatModelsData } from "@/lib/types";
+import type {
+  ChatModel,
+  ChatModelAdaptersData,
+  ChatModelsData,
+} from "@/lib/types";
 import { DataTable, type Column } from "@amrita-constant/ambot-ui";
 import { Button } from "@amrita-constant/ambot-ui";
 import { Input } from "@amrita-constant/ambot-ui";
@@ -72,10 +76,12 @@ function ModelForm({
   initial,
   onSubmit,
   submitting,
+  adapters,
 }: {
   initial?: ChatModel | null;
   onSubmit: (data: Record<string, unknown>) => void;
   submitting: boolean;
+  adapters: { protocol: string; adapter: string }[];
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [model, setModel] = useState(initial?.model ?? "");
@@ -85,6 +91,12 @@ function ModelForm({
   const [apiKey, setApiKey] = useState("");
   const [apiKeyTouched, setApiKeyTouched] = useState(false);
   const [protocol, setProtocol] = useState(initial?.protocol ?? "__main__");
+  // 已注册适配器 + 当前值：预设里可能留着手写的旧协议名，下拉不能因此把它吞掉
+  const protocolOptions = Array.from(
+    new Set([...adapters.map((a) => a.protocol), protocol].filter(Boolean)),
+  );
+  const protocolHint =
+    adapters.find((a) => a.protocol === protocol)?.adapter ?? null;
 
   // 上下文预算（ModelPreset.max_context / max_output，1.0 起窗口由预设声明）
   const [maxContext, setMaxContext] = useState(
@@ -230,10 +242,23 @@ function ModelForm({
           </div>
           <div className="space-y-2 sm:col-span-2">
             <Label>协议</Label>
-            <Input
-              value={protocol}
-              onChange={(e) => setProtocol(e.target.value)}
-            />
+            <Select value={protocol} onValueChange={setProtocol}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="选择协议" />
+              </SelectTrigger>
+              <SelectContent>
+                {protocolOptions.map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {item === "__main__" ? "__main__（主协议）" : item}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {protocolHint
+                ? `由已注册适配器 ${protocolHint} 处理；填一个没注册的名字只会在发消息时报错。`
+                : "该协议当前没有注册适配器，发消息时会报 Undefined protocol adapter。"}
+            </p>
           </div>
         </div>
 
@@ -433,6 +458,13 @@ export function ModelsPage() {
     queryFn: () => api.get<ChatModelsData>("/api/chat/models"),
   });
 
+  // 协议下拉的候选来自后端注册表；取不到就只剩当前值，不影响保存
+  const { data: adapterData } = useQuery({
+    queryKey: ["chat-model-adapters"],
+    queryFn: () => api.get<ChatModelAdaptersData>("/api/chat/models/adapters"),
+  });
+  const adapterOptions = adapterData?.data.adapters ?? [];
+
   const createMutation = useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
       api.post("/api/chat/models", payload),
@@ -573,6 +605,7 @@ export function ModelsPage() {
               <DialogTitle>新建模型预设</DialogTitle>
             </DialogHeader>
             <ModelForm
+              adapters={adapterOptions}
               onSubmit={(payload) => createMutation.mutate(payload)}
               submitting={createMutation.isPending}
             />
@@ -592,6 +625,7 @@ export function ModelsPage() {
             <ModelForm
               key={editing.name}
               initial={editing}
+              adapters={adapterOptions}
               onSubmit={(payload) =>
                 updateMutation.mutate({ name: editing.name, payload })
               }

@@ -115,10 +115,31 @@ class SkillConfig(BaseModel):
             return {**data, "mode": "invoke"}
         return data
 
+    all_skills: bool = Field(
+        default=True,
+        description=(
+            "是否全部启用。True 时 selected 不生效；False 时仅 selected 内的技能启用，"
+            "此时 selected 为空即「一个都不启用」"
+        ),
+    )
     selected: list[str] = Field(
         default=[],
-        description=("启用的技能名称列表（空列表=全部启用；非空则仅列表内的技能启用）"),
+        description=("启用的技能名称列表；仅在 all_skills=False 时有意义"),
     )
+
+    @model_validator(mode="after")
+    def _sync_all_skills(self) -> "SkillConfig":
+        """``selected`` 非空说明用户在挑技能，隐含「并非全部启用」。
+
+        旧配置只有 ``selected`` 而没有 ``all_skills``：空列表沿用「全部启用」，
+        非空列表按「仅这些启用」解释，升级后行为不变。
+        """
+        #  只在「显式给了 selected、没给 all_skills」的旧配置上推断，
+        #  否则会把用户刚点的「全部启用」又推回按名单启用
+        if "all_skills" not in self.model_fields_set and self.selected:
+            self.all_skills = False
+        return self
+
     echo_skill_directory: bool = Field(
         default=True,
         description=(

@@ -3,6 +3,7 @@ from typing import Any
 
 import aiofiles
 from amrita_core import ModelPreset
+from amrita_core.base.adapter import AdapterManager
 from amrita_core.tools.mcp import ClientManager
 from amrita_core.types import ModelConfig, ThinkingConfig
 from amrita_core.types.preset import resolve_max_context, resolve_max_output
@@ -222,6 +223,35 @@ async def get_models():
         logger.opt(exception=e, colors=True, raw=True).error("获取模型预设列表失败")
         return JSONResponse(
             {"success": False, "message": "获取模型预设列表失败"},
+            status_code=500,
+        )
+
+
+@router.get("/api/chat/models/adapters")
+async def list_model_adapters():
+    """已注册的模型协议适配器，供预设表单做下拉选择。
+
+    协议名取自 ``AdapterManager`` 的注册表，而非文档或配置——只有真正注册过
+    的名字才可能被 ``safe_get_adapter`` 命中，让用户手打一个猜的名字没有意义。
+    """
+    try:
+        adapters = AdapterManager().get_adapters()
+        return JSONResponse(
+            {
+                "success": True,
+                "data": {
+                    "adapters": [
+                        {"protocol": protocol, "adapter": adapter_cls.__name__}
+                        for protocol, adapter_cls in sorted(adapters.items())
+                    ]
+                },
+            },
+            status_code=200,
+        )
+    except Exception as e:
+        logger.opt(exception=e, colors=True, raw=True).error("获取模型协议适配器失败")
+        return JSONResponse(
+            {"success": False, "message": "获取模型协议适配器失败"},
             status_code=500,
         )
 
@@ -836,6 +866,7 @@ async def get_skills():
                     "config": {
                         "enable": config.enable,
                         "mode": config.mode,
+                        "all_skills": config.all_skills,
                         "selected": config.selected,
                         "echo_skill_directory": config.echo_skill_directory,
                         "allow_script_execution": config.allow_script_execution,
@@ -865,6 +896,7 @@ async def update_skills(request: Request):
                 if str(data.get("mode", current.mode)) == "invoke"
                 else "progressive"
             ),
+            all_skills=bool(data.get("all_skills", current.all_skills)),
             selected=(
                 [str(x) for x in data["selected"]]
                 if "selected" in data

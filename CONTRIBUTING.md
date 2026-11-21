@@ -33,8 +33,10 @@ Amrita 是一个基于 [NoneBot2](https://nonebot.dev/) 的强大聊天机器人
 ### 1. 克隆项目
 
 ```bash
-git clone https://github.com/AmritaBot/AmritaBot.git
+git clone --recurse-submodules https://github.com/AmritaBot/AmritaBot.git
 cd Amrita
+# 已克隆的仓库补拉子模块（website 与 frontend/packages/ui）
+# git submodule update --init --recursive
 ```
 
 ### 2. 安装依赖

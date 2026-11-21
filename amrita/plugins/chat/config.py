@@ -84,6 +84,13 @@ class MetaInfoConfig(BaseModel):
     stream_reasoning: bool = Field(
         default=False, description="思考块（收集完整段思考后一次性发送，默认关闭）"
     )
+    reasoning_summary: bool = Field(
+        default=False,
+        description=(
+            "思考摘要：开启后发送摘要，关闭则发送原始思考"
+            "（原始思考超过合并转发阈值时分段发送）"
+        ),
+    )
     reasoning: bool = Field(
         default=True, description="整段思考块（reasoning / structured_reasoning_step）"
     )

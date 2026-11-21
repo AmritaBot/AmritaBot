@@ -29,6 +29,7 @@ from amrita.utils.send import send_forward_msg
 
 from ..config import Config
 from .functions import split_message_into_chats
+from .reasoning_summary import summarize_reasoning
 
 if TYPE_CHECKING:
     from amrita_core.base.adapter import COMPLETION_RETURNING
@@ -143,8 +144,35 @@ class ChatStreamSender:
         self._blocked = False  # cookie 熔断后置位，send_final 静默跳过
 
     async def _flush_reasoning(self) -> None:
-        if text := self._reasoning.flush():
-            await self._matcher.send(f"💭 {text}")
+        """把累积的思考整段发出；开启摘要时先压缩，失败回退原文。"""
+        text = self._reasoning.flush()
+        if not text:
+            return
+        if self._config.meta.reasoning_summary:
+            usage = getattr(getattr(self._chat, "_di_resp", None), "usage", None)
+            if summary := await summarize_reasoning(text, usage):
+                text = summary
+        await self._send_reasoning(text)
+
+    async def _send_reasoning(self, text: str) -> None:
+        """发送思考块：过长时改走合并转发，避免单条消息超限。"""
+        threshold = self._config.function.forward_threshold
+        if threshold > 0 and len(text) > threshold:
+            parts = [
+                MessageSegment.text(part)
+                for part in _split_forward_chunks(
+                    text, self._config.function.forward_min_chunk
+                )
+            ]
+            await send_forward_msg(
+                self._bot,
+                self._event,
+                name="Amrita",
+                uin=str(self._event.self_id),
+                msgs=parts,
+            )
+            return
+        await self._matcher.send(f"💭 {text}")
 
     async def handle(self, message: "COMPLETION_RETURNING") -> None:
         """流式消息回调：处理元信息消息、收集思考块、转发文本/图片"""

@@ -240,6 +240,7 @@ class ChatStreamSender:
                 if meta.enable and meta.tool_call:
                     await self._matcher.send("⏩ 优化了工具选择")
             case "middle_message":
+                await self._flush_pending_text(middle=True)
                 await self._matcher.send(f"💬 {message.content}")
             case "function_call":
                 # AmritaCore 只会在这里发 Calling/Called/Error 生命周期文案，没有模型正文

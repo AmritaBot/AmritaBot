@@ -82,7 +82,38 @@ class MetaInfoConfig(BaseModel):
         default=True, description="错误报告：loop_reasoning / Agent 运行失败"
     )
     stream_reasoning: bool = Field(
-        default=False, description="流式思考块（单token粒度，默认关闭避免刷屏）"
+        default=False, description="思考块（收集完整段思考后一次性发送，默认关闭）"
+    )
+    reasoning_summary: bool = Field(
+        default=False,
+        description=(
+            "思考摘要：开启后发送摘要，关闭则发送原始思考"
+            "（原始思考超过合并转发阈值时分段发送）"
+        ),
+    )
+    reasoning_summary_max_chars: int = Field(
+        default=120,
+        ge=40,
+        le=400,
+        description="思考摘要的字数上限，提示词与超长截断共用",
+    )
+    reasoning_summary_input_chars: int = Field(
+        default=6000,
+        ge=500,
+        le=50000,
+        description="送进摘要模型的原始思考长度上限，超出只取尾部",
+    )
+    reasoning_summary_max_output: int = Field(
+        default=1024,
+        ge=64,
+        le=8192,
+        description="摘要调用的输出预算下限，思考与正文共用该预算",
+    )
+    reasoning_summary_timeout_seconds: float = Field(
+        default=20.0,
+        ge=1,
+        le=180,
+        description="单次摘要调用超时（秒），provider 较慢时可放宽",
     )
     reasoning: bool = Field(
         default=True, description="整段思考块（reasoning / structured_reasoning_step）"

@@ -29,6 +29,7 @@ from amrita.utils.send import send_forward_msg
 
 from ..config import Config
 from .functions import split_message_into_chats
+from .reasoning_summary import SummaryLimits, summarize_reasoning
 
 if TYPE_CHECKING:
     from amrita_core.base.adapter import COMPLETION_RETURNING
@@ -95,28 +96,19 @@ def _split_forward_chunks(text: str, min_chunk: int) -> list[str]:
 
 
 class _ReasoningCollector:
-    """流式思考块收集器：单 token CoT chunk 累积到 StringIO，flush 时合并返回"""
+    """只按"是否还在思考"切段，避免同一段思考被 extra_type 变化拆成多条消息。"""
 
     def __init__(self) -> None:
         self.buffer = StringIO()
-        self.type: str | None = None
 
     def flush(self) -> str | None:
         text = self.buffer.getvalue()
         self.buffer = StringIO()
-        self.type = None
         return text or None
 
-    def write(self, content: str, extra_type: str | None) -> str | None:
-        """写入一个 chunk；若 extra_type 切换，返回需发送的旧段文本（已清除）"""
-        if self.type is not None and self.type != extra_type:
-            old = self.flush()
-            self.buffer.write(content)
-            self.type = extra_type
-            return old
+    def write(self, content: str) -> None:
+        """追加一个思考片段，不在片段之间切分"""
         self.buffer.write(content)
-        self.type = extra_type
-        return None
 
 
 class ChatStreamSender:
@@ -146,8 +138,43 @@ class ChatStreamSender:
         self._blocked = False  # cookie 熔断后置位，send_final 静默跳过
 
     async def _flush_reasoning(self) -> None:
-        if text := self._reasoning.flush():
-            await self._matcher.send(f"💭 {text}")
+        """把累积的思考整段发出；开启摘要时先压缩，失败回退原文。"""
+        text = self._reasoning.flush()
+        if not text:
+            return
+        if self._config.meta.reasoning_summary:
+            usage = getattr(getattr(self._chat, "_di_resp", None), "usage", None)
+            meta = self._config.meta
+            limits = SummaryLimits(
+                max_chars=meta.reasoning_summary_max_chars,
+                input_chars=meta.reasoning_summary_input_chars,
+                max_output=meta.reasoning_summary_max_output,
+                timeout=meta.reasoning_summary_timeout_seconds,
+            )
+            if summary := await summarize_reasoning(text, usage, limits):
+                text = summary
+        await self._send_reasoning(text)
+
+    async def _send_reasoning(self, text: str) -> None:
+        """发送思考块：过长时改走合并转发，避免单条消息超限。"""
+        threshold = self._config.function.forward_threshold
+        if threshold > 0 and len(text) > threshold:
+            parts = [
+                MessageSegment.text(part)
+                for part in _split_forward_chunks(
+                    text, self._config.function.forward_min_chunk
+                )
+            ]
+            await send_forward_msg(
+                self._bot,
+                self._event,
+                name="Amrita",
+                uin=str(self._event.self_id),
+                msgs=parts,
+            )
+            return
+        #  模型输出可能带 CQ 码，按文本段发送，避免被解析成提及或图片
+        await self._matcher.send(MessageSegment.text(f"💭 {text}"))
 
     async def handle(self, message: "COMPLETION_RETURNING") -> None:
         """流式消息回调：处理元信息消息、收集思考块、转发文本/图片"""
@@ -172,13 +199,14 @@ class ChatStreamSender:
         metadata: dict[str, Any] = dict(message.metadata)
         mtype = metadata.get("type", "")
         extra_type = metadata.get("extra_type")
+        #  原生 cot_chunk 与框架包装的 reasoning chunk 都要算思考，
+        #  否则原生思考会被当成正文 flush 掉，框架片段则被切成半句
         is_reasoning_chunk = mtype == "reasoning_chunk" or (
-            mtype == "text" and extra_type == "reasoning_chunk"
+            mtype == "text" and extra_type in ("reasoning_chunk", "cot_chunk")
         )
         if is_reasoning_chunk and meta.enable and meta.stream_reasoning:
-            # 收集思考块：混入不同的 extra_type 时先发送上一段
-            if old := self._reasoning.write(message.content, extra_type):
-                await self._matcher.send(f"💭 {old}")
+            # 只做累积，等这一轮思考结束（下一条非思考消息或本轮结束）再整段发送
+            self._reasoning.write(message.content)
             return
         # 非思考块消息：先 flush 累积的思考块再处理
         await self._flush_reasoning()
@@ -200,6 +228,15 @@ class ChatStreamSender:
             case "middle_message":
                 await self._matcher.send(f"💬 {message.content}")
             case "function_call":
+                # 工具调用消息也可能带正文（模型在决定调用前说的话），按中间消息展示
+                if (
+                    meta.enable
+                    and metadata.get("err") is None
+                    and message.content.strip()
+                ):
+                    await self._matcher.send(
+                        MessageSegment.text(f"💬 {message.content}")
+                    )
                 if metadata.get("is_done") and meta.enable and meta.tool_call:
                     function_name = metadata.get("function_name")
                     if (err := metadata.get("err")) is not None:

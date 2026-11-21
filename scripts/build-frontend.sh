@@ -46,11 +46,8 @@ if [ "${SKIP_TYPECHECK}" -eq 0 ]; then
 fi
 
 echo "==> 2/2 Building WebUI -> ${OUTDIR}"
-(cd "${FRONTEND_DIR}" && bun run build.ts \
-  --outdir="${OUTDIR}" \
-  --splitting \
-  --minify \
-  --public-path=/static/)
+# 输出目录由 vite.config.ts 的 build.outDir 决定；显式再传一次，方便 --outdir 覆盖
+(cd "${FRONTEND_DIR}" && bun x vite build --outDir "${OUTDIR}")
 
 echo ""
 echo "✅ WebUI 构建完成: ${OUTDIR}/index.html"

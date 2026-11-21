@@ -215,16 +215,14 @@ class AsyncDatabasePerformanceCollector:
             raise
 
     async def _get_database_info(self) -> dict[str, Any]:
-        """获取数据库基本信息"""
+        """获取数据库基本信息；MySQL 的键名沿用 db_name，已对接的客户端依赖它。"""
         try:
             if self.db_type in ("mysql", "mariadb"):
                 #  逐条查：两个方言对保留字与函数别名的容忍度不一样，
                 #  合并成一条 SELECT 时 MariaDB 会因为 current_user 这个别名整条失败
                 info = {
                     "version": await self._scalar("SELECT VERSION()"),
-                    #  键名沿用旧版的 db_name，避免已对接 /api/dbmeta 的客户端取不到值
                     "db_name": await self._scalar("SELECT DATABASE()"),
-                    #  USER() 是客户端声明身份，CURRENT_USER() 是实际认证账号，语义不同
                     "current_user": await self._scalar("SELECT USER()"),
                     "server_host": await self._scalar("SELECT @@hostname"),
                     "version_comment": await self._scalar("SELECT @@version_comment"),

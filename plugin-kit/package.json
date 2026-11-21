@@ -26,8 +26,5 @@
     "react": "^19",
     "react-dom": "^19",
     "react-router-dom": "^7.18.2"
-  },
-  "devDependencies": {
-    "@amrita-constant/ambot-ui": "file:../frontend/packages/ui"
   }
 }

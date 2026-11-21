@@ -29,7 +29,7 @@ from amrita.utils.send import send_forward_msg
 
 from ..config import Config
 from .functions import split_message_into_chats
-from .reasoning_summary import summarize_reasoning
+from .reasoning_summary import SummaryLimits, summarize_reasoning
 
 if TYPE_CHECKING:
     from amrita_core.base.adapter import COMPLETION_RETURNING
@@ -144,9 +144,14 @@ class ChatStreamSender:
             return
         if self._config.meta.reasoning_summary:
             usage = getattr(getattr(self._chat, "_di_resp", None), "usage", None)
-            if summary := await summarize_reasoning(
-                text, usage, self._config.meta.reasoning_summary_max_chars
-            ):
+            meta = self._config.meta
+            limits = SummaryLimits(
+                max_chars=meta.reasoning_summary_max_chars,
+                input_chars=meta.reasoning_summary_input_chars,
+                max_output=meta.reasoning_summary_max_output,
+                timeout=meta.reasoning_summary_timeout_seconds,
+            )
+            if summary := await summarize_reasoning(text, usage, limits):
                 text = summary
         await self._send_reasoning(text)
 

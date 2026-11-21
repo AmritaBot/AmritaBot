@@ -97,6 +97,24 @@ class MetaInfoConfig(BaseModel):
         le=400,
         description="思考摘要的字数上限，提示词与超长截断共用",
     )
+    reasoning_summary_input_chars: int = Field(
+        default=6000,
+        ge=500,
+        le=50000,
+        description="送进摘要模型的原始思考长度上限，超出只取尾部",
+    )
+    reasoning_summary_max_output: int = Field(
+        default=1024,
+        ge=64,
+        le=8192,
+        description="摘要调用的输出预算下限，思考与正文共用该预算",
+    )
+    reasoning_summary_timeout_seconds: float = Field(
+        default=20.0,
+        ge=1,
+        le=180,
+        description="单次摘要调用超时（秒），provider 较慢时可放宽",
+    )
     reasoning: bool = Field(
         default=True, description="整段思考块（reasoning / structured_reasoning_step）"
     )

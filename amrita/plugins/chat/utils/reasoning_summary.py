@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
 from amrita_core.config import get_config
@@ -17,13 +18,22 @@ from .preset import resolve_preset
 if TYPE_CHECKING:
     from amrita_core.usage import SessionUsageProxy
 
-#  送进模型的原始思考上限：摘要只需要知道想了什么，不需要逐字复读
-_DIGEST_LIMIT = 6000
 #  摘要默认字数上限，实际以 meta.reasoning_summary_max_chars 为准
 DEFAULT_SUMMARY_MAX_CHARS = 120
-#  思考 token 与正文共用预算，显式关思考并给输出兜下限，避免正文为空
-_SUMMARY_MAX_OUTPUT = 1024
-_SUMMARY_TIMEOUT = 20.0
+
+
+@dataclass(frozen=True)
+class SummaryLimits:
+    """一次摘要调用的可调上限，按使用的模型自行拉高或收紧。"""
+
+    #  摘要正文上限，提示词与截断共用
+    max_chars: int = DEFAULT_SUMMARY_MAX_CHARS
+    #  喂进模型的原始思考长度，长思考只取尾部
+    input_chars: int = 6000
+    #  输出预算下限，思考 token 与正文共用预算
+    max_output: int = 1024
+    #  单次调用超时，provider 慢时可放宽
+    timeout: float = 20.0
 
 
 def _build_prompt(max_chars: int) -> str:
@@ -95,29 +105,30 @@ def _clean(raw: str, max_chars: int) -> str | None:
 async def summarize_reasoning(
     raw: str,
     usage: "SessionUsageProxy | None" = None,
-    max_chars: int = DEFAULT_SUMMARY_MAX_CHARS,
+    limits: SummaryLimits | None = None,
 ) -> str | None:
     """把一段原始思考压成摘要，失败或超时返回 ``None``。
 
     Args:
         raw: 收集到的完整思考文本
         usage: 传入时把这次调用的用量记进去
-        max_chars: 摘要字数上限，提示词与截断共用
+        limits: 字数、喂入长度、输出预算与超时，默认取内置值
     """
+    limits = limits or SummaryLimits()
     digest = raw.strip()
     if not digest:
         return None
     #  已经比摘要上限还短，再压只会丢信息
-    if len(digest) <= max_chars:
+    if len(digest) <= limits.max_chars:
         return digest
 
     messages: list[Message] = [
-        Message(role="system", content=_build_prompt(max_chars)),
+        Message(role="system", content=_build_prompt(limits.max_chars)),
     ]
     for src, dst in _FEWSHOTS:
         messages.append(Message(role="user", content=src))
         messages.append(Message(role="assistant", content=dst))
-    messages.append(Message(role="user", content=digest[-_DIGEST_LIMIT:]))
+    messages.append(Message(role="user", content=digest[-limits.input_chars :]))
 
     try:
         preset = await resolve_preset()
@@ -131,7 +142,7 @@ async def summarize_reasoning(
                 )
             }
         )
-        budget = max(resolve_max_output(preset, get_config()), _SUMMARY_MAX_OUTPUT)
+        budget = max(resolve_max_output(preset, get_config()), limits.max_output)
         preset = preset.model_copy(update={"max_output": budget})
         resp = await asyncio.wait_for(
             get_last_response(
@@ -139,7 +150,7 @@ async def summarize_reasoning(
                     cast(CONTENT_LIST_TYPE, messages), preset=preset, usage=usage
                 )
             ),
-            timeout=_SUMMARY_TIMEOUT,
+            timeout=limits.timeout,
         )
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).warning("生成思考摘要失败。")
@@ -148,4 +159,4 @@ async def summarize_reasoning(
     if not isinstance(resp.content, str) or not resp.content.strip():
         logger.warning("思考摘要为空：可能未产出正文，本次回退原始思考。")
         return None
-    return _clean(resp.content, max_chars)
+    return _clean(resp.content, limits.max_chars)

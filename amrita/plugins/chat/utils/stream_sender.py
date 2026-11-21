@@ -228,21 +228,15 @@ class ChatStreamSender:
             case "middle_message":
                 await self._matcher.send(f"💬 {message.content}")
             case "function_call":
-                # 工具调用消息也可能带正文（模型在决定调用前说的话），按中间消息展示
-                if (
-                    meta.enable
-                    and metadata.get("err") is None
-                    and message.content.strip()
-                ):
-                    await self._matcher.send(
-                        MessageSegment.text(f"💬 {message.content}")
+                # content 是工具生命周期的机器文案，不能当 💬 消息发出。
+                function_name = metadata.get("function_name")
+                err = metadata.get("err")
+                if err is not None:
+                    logger.opt(exception=err, colors=True, raw=True).exception(
+                        f"Tool {function_name} execution failed: {err}"
                     )
                 if metadata.get("is_done") and meta.enable and meta.tool_call:
-                    function_name = metadata.get("function_name")
-                    if (err := metadata.get("err")) is not None:
-                        logger.opt(exception=err, colors=True, raw=True).exception(
-                            f"Tool {function_name} execution failed: {err}"
-                        )
+                    if err is not None:
                         await self._matcher.send(f"ERR: {function_name} 执行失败")
                     else:
                         await self._matcher.send(f"调用了工具：{function_name}")

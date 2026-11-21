@@ -321,6 +321,7 @@ class ChatStreamSender:
         """
         if self._blocked:
             return
+        content = content or ""
         # 发送前 flush 残留思考块
         await self._flush_reasoning()
         # 最终响应会由本次 send_final 发出；缓冲里是同一段文本时直接丢弃，避免重复

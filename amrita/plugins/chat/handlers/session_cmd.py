@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Sequence
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -78,6 +79,33 @@ def _live_usage(chat: CoreChatObject) -> UniResponseUsage[int] | None:
 # 会话管理
 
 
+def _resolve_session(
+    sessions: Sequence[MemorySessionsSchema], raw: str
+) -> MemorySessionsSchema | None:
+    """定位一条归档会话：``#ID`` / 列表编号 / 纯数字会话 ID。
+
+    纯数字先按列表编号解释，保持原有习惯；编号越界时再当作会话 ID。
+    这样列表里显示的 ``ID 353`` 可以直接 ``/session del 353``，
+    不必再记 ``#`` 前缀；而 ``del 2`` 仍然删第 3 条。
+    """
+    token = raw.strip()
+    if not token:
+        return None
+    if token.startswith("#"):
+        try:
+            target_id = int(token[1:])
+        except ValueError:
+            return None
+        return next((item for item in sessions if item.id == target_id), None)
+    try:
+        value = int(token)
+    except ValueError:
+        return None
+    if 0 <= value < len(sessions):
+        return sessions[value]
+    return next((item for item in sessions if item.id == value), None)
+
+
 async def _session_list(event: MessageEvent, matcher: Matcher) -> None:
     """显示历史会话列表"""
     repo = CachedUserDataRepository()
@@ -101,16 +129,13 @@ async def _session_use(event: MessageEvent, matcher: Matcher, index: str) -> Non
     """将当前会话覆盖为指定编号的会话"""
     repo = CachedUserDataRepository()
     try:
-        session_index = int(index)
         user_sessions = await repo.get_sesssions(get_uni_user_id(event))
-    except ValueError:
-        await matcher.finish("请输入正确的编号")
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).exception("覆盖记忆文件失败。")
         await matcher.finish("覆盖记忆文件失败，这个对话可能损坏了。")
-    if not 0 <= session_index < len(user_sessions):
-        await matcher.finish("请输入正确的编号")
-    target = user_sessions[session_index]
+    target = _resolve_session(user_sessions, index)
+    if target is None:
+        await matcher.finish("请输入正确的编号或 #ID")
     try:
         memory_data = await repo.get_memory(get_uni_user_id(event))
         #  恢复的是完整快照：消息、摘要、用量一起换回来
@@ -136,24 +161,9 @@ async def _session_del(event: MessageEvent, matcher: Matcher, index: str) -> Non
     if not user_sessions:
         await matcher.finish("没有历史会话")
 
-    removed: MemorySessionsSchema | None = None
-    if index.startswith("#"):
-        #  #ID 是稳定寻址：回执丢失后重试仍指向同一条，不会顺位删掉下一条
-        try:
-            target_id = int(index[1:])
-        except ValueError:
-            await matcher.finish("请输入正确的编号或 #ID")
-        removed = next((s for s in user_sessions if s.id == target_id), None)
-        if removed is None:
-            await matcher.finish("该会话已不存在（可能已被删除）。")
-    else:
-        try:
-            session_index = int(index)
-        except ValueError:
-            await matcher.finish("请输入正确的编号")
-        if not 0 <= session_index < len(user_sessions):
-            await matcher.finish("请输入正确的编号")
-        removed = user_sessions[session_index]
+    removed = _resolve_session(user_sessions, index)
+    if removed is None:
+        await matcher.finish("请输入正确的编号或 #ID")
 
     try:
         async with get_session() as session:
@@ -234,22 +244,19 @@ async def _session_rename(
     repo = CachedUserDataRepository()
     uni_id = get_uni_user_id(event)
     try:
-        session_index = int(index)
         user_sessions = await repo.get_sesssions(uni_id)
-    except ValueError:
-        await matcher.finish("请输入正确的编号")
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).exception("重命名会话失败。")
         await matcher.finish("重命名会话失败。")
-    if not 0 <= session_index < len(user_sessions):
-        await matcher.finish("请输入正确的编号")
+    target = _resolve_session(user_sessions, index)
+    if target is None:
+        await matcher.finish("请输入正确的编号或 #ID")
     new_tag = tag.strip()
     if not new_tag:
-        await matcher.finish("用法：/session rename <编号> <新名称>")
+        await matcher.finish("用法：/session rename <编号|ID|#ID> <新名称>")
     if len(new_tag) > TAG_MAX_LEN:
         new_tag = new_tag[:TAG_MAX_LEN]
         await matcher.send(f"名称超过 {TAG_MAX_LEN} 字，已截断。")
-    target = user_sessions[session_index]
     try:
         #  带上 created_at：id 会被回收，只按 id 改可能落到新行上
         ok = await repo.rename_session(uni_id, target.id, new_tag, target.created_at)
@@ -484,9 +491,6 @@ _DESTRUCTIVE_SUBS = frozenset(
         "压缩",
         "clear",
         "清空",
-        "rename",
-        "重命名",
-        "改名",
     }
 )
 
@@ -500,10 +504,10 @@ _HELP_TEXT = (
     "用法：\n"
     "/session info — 会话元信息（模型/思考/上下文占用）\n"
     "/session list — 历史会话\n"
-    "/session use <编号> — 恢复指定会话\n"
-    "/session del <编号|#ID> — 删除指定会话（#ID 为重试安全的稳定寻址）\n"
+    "/session use <编号|ID|#ID> — 恢复指定会话\n"
+    "/session del <编号|ID|#ID> — 删除指定会话（数字优先按列表编号，越界按会话 ID）\n"
     "/session archive — 归档当前会话\n"
-    "/session rename <编号> <新名称> — 重命名归档会话\n"
+    "/session rename <编号|ID|#ID> <新名称> — 重命名归档会话\n"
     "/session clear — 删除全部历史会话（需二次确认）\n"
     "/session clear confirm — 确认删除全部历史会话\n"
     "/session compact [force] — 压缩上下文\n"

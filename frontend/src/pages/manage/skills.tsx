@@ -64,27 +64,25 @@ export function SkillsPage() {
   /** 保存：只提交变更字段，其余由后端沿用当前配置（避免并发与未加载时覆盖） */
   const save = (patch: Partial<SkillConfig>) => saveMutation.mutate(patch);
 
-  /** 行内启停切换：维护 selected 列表（空=全部启用；非空=仅列表内启用） */
+  /**
+   * 行内启停切换：维护 selected 列表。
+   *
+   * 「全部启用」由 all_skills 显式表示，selected 不再兼任哨兵——
+   * 否则关掉最后一个技能会把空列表重新解释成「全部启用」，恰好反了。
+   * 从「全部启用」切到单选时，先把当前全部技能铺开，再移除目标，
+   * 这样关掉最后一个就是真的一个都不启用。
+   */
   const toggleSkill = (skill: SkillInfo) => {
     if (!data) return;
     const cfg = data.data.config;
     const allNames = data.data.skills.map((s) => s.name);
-    let selected = cfg.selected;
+    let selected = cfg.all_skills ? [...allNames] : [...cfg.selected];
     if (skill.enabled) {
-      // 禁用：selected 为空时需显式列出其余全部技能；非空时从中移除
-      const others = allNames.filter((n) => n !== skill.name);
-      selected =
-        selected.length === 0
-          ? others
-          : selected.filter((n) => n !== skill.name);
-    } else if (selected.length === 0) {
-      // 全启用状态下无需修改（所有技能均已启用）
-      return;
-    } else {
-      // 启用：非空 selected 中加入该技能
+      selected = selected.filter((n) => n !== skill.name);
+    } else if (!selected.includes(skill.name)) {
       selected = [...selected, skill.name];
     }
-    save({ enable: cfg.enable, selected });
+    save({ enable: cfg.enable, all_skills: false, selected });
   };
 
   const columns: Column<SkillInfo>[] = [
@@ -272,15 +270,19 @@ export function SkillsPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => save({ enable, selected: [] })}
+              onClick={() =>
+                save({ enable, all_skills: true, selected: [] })
+              }
               disabled={saveMutation.isPending}
-              title="清空 selected 列表，恢复全部技能启用"
+              title="开启 all_skills，全部技能启用"
             >
               全部启用
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            勾选开关 = 启用对应技能；清空启用名单（点击“全部启用”）即全部启用。
+            勾选开关 = 启用对应技能；关掉最后一个即一个都不启用。点「全部启用」
+            会打开 all_skills 开关，此时单个勾选不再生效（重新勾选任一技能
+            即回到按名单启用）。
           </p>
           <p className="text-xs text-muted-foreground/80">
             （您也可以在配置文件处修改）

@@ -272,6 +272,10 @@ export interface ChatModel {
 export interface ChatModelsData {
   models: ChatModel[];
 }
+export interface ChatModelAdaptersData {
+  /** 协议名（写入 ModelPreset.protocol）→ 处理它的适配器类名 */
+  adapters: { protocol: string; adapter: string }[];
+}
 export interface ChatPrompt {
   name: string;
   text: string;
@@ -303,7 +307,9 @@ export interface SkillConfig {
   enable: boolean;
   /** 工具注册模式：progressive=统一两个工具；invoke=每个技能一个工具 */
   mode: "progressive" | "invoke";
-  /** 启用的技能名称列表（空列表=全部启用；非空则仅列表内的技能启用） */
+  /** 是否全部启用；true 时 selected 不生效 */
+  all_skills: boolean;
+  /** 启用的技能名称列表；仅在 all_skills=false 时有意义，空列表即一个都不启用 */
   selected: string[];
   /** 是否在技能返回内容中回显技能目录（远程沙箱场景可关闭） */
   echo_skill_directory: boolean;

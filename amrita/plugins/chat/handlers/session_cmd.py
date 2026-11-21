@@ -253,7 +253,7 @@ async def _session_rename(
         await matcher.finish("请输入正确的编号或 #ID")
     new_tag = tag.strip()
     if not new_tag:
-        await matcher.finish("用法：/session rename <编号> <新名称>")
+        await matcher.finish("用法：/session rename <编号|ID|#ID> <新名称>")
     if len(new_tag) > TAG_MAX_LEN:
         new_tag = new_tag[:TAG_MAX_LEN]
         await matcher.send(f"名称超过 {TAG_MAX_LEN} 字，已截断。")
@@ -504,7 +504,7 @@ _HELP_TEXT = (
     "用法：\n"
     "/session info — 会话元信息（模型/思考/上下文占用）\n"
     "/session list — 历史会话\n"
-    "/session use <编号> — 恢复指定会话\n"
+    "/session use <编号|ID|#ID> — 恢复指定会话\n"
     "/session del <编号|ID|#ID> — 删除指定会话（数字优先按列表编号，越界按会话 ID）\n"
     "/session archive — 归档当前会话\n"
     "/session rename <编号|ID|#ID> <新名称> — 重命名归档会话\n"

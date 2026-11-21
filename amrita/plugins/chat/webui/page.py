@@ -1,3 +1,4 @@
+import asyncio
 import copy
 from typing import Any
 
@@ -26,6 +27,7 @@ from amrita.plugins.chat.utils.mcp_boot import (
 )
 from amrita.plugins.webui.API import JSONResponse
 from amrita.plugins.webui.API import app as router
+from amrita.plugins.webui.service.response import ok
 
 
 def _optional_int(value: Any) -> int | None:
@@ -236,17 +238,14 @@ async def list_model_adapters():
     """
     try:
         adapters = AdapterManager().get_adapters()
-        return JSONResponse(
-            {
-                "success": True,
-                "data": {
-                    "adapters": [
-                        {"protocol": protocol, "adapter": adapter_cls.__name__}
-                        for protocol, adapter_cls in sorted(adapters.items())
-                    ]
-                },
+        return ok(
+            "success",
+            data={
+                "adapters": [
+                    {"protocol": protocol, "adapter": adapter_cls.__name__}
+                    for protocol, adapter_cls in sorted(adapters.items())
+                ]
             },
-            status_code=200,
         )
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).error("获取模型协议适配器失败")
@@ -841,6 +840,25 @@ async def get_chat_insights():
         )
 
 
+def _as_bool(value: Any, default: bool) -> bool:
+    """把前端的布尔值收成真正的 bool。
+
+    ``bool("false")`` 是 True——老前端如果把开关序列化成字符串，
+    直接 bool() 会让「关闭」变成「开启」。
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() not in ("false", "0", "no", "off", "")
+    if value is None:
+        return default
+    return bool(value)
+
+
+#  技能配置是读-改-写：并发请求各自拿着旧快照覆盖，后到的会把先到的改动抹掉
+_skills_config_lock = asyncio.Lock()
+
+
 @router.get("/api/chat/skills")
 async def get_skills():
     """技能管理：已发现技能（含启停/校验状态）与启停配置。"""
@@ -888,25 +906,46 @@ async def update_skills(request: Request):
     """技能启停配置保存（全量覆盖 enable/selected）。"""
     try:
         data: dict[str, Any] = await request.json()
+        async with _skills_config_lock:
+            return await _save_skills_config(data)
+    except Exception as e:
+        logger.opt(exception=e, colors=True, raw=True).error("保存技能配置失败")
+        return JSONResponse(
+            {"success": False, "message": "保存技能配置失败"},
+            status_code=500,
+        )
+
+
+async def _save_skills_config(data: dict[str, Any]) -> JSONResponse:
+    """在锁内完成技能配置的读-改-写。"""
+    try:
         current = config_manager.ins_config.skills
+        #  老客户端只发 selected：没给 all_skills 时按「按名单启用」解释，
+        #  否则 selected 会因为在 all_skills=True 下不生效而被静默忽略
+        if "all_skills" in data:
+            all_skills = _as_bool(data["all_skills"], current.all_skills)
+        elif "selected" in data:
+            all_skills = False
+        else:
+            all_skills = current.all_skills
         skills_cfg = SkillConfig(
-            enable=bool(data.get("enable", current.enable)),
+            enable=_as_bool(data.get("enable"), current.enable),
             mode=(
                 "invoke"
                 if str(data.get("mode", current.mode)) == "invoke"
                 else "progressive"
             ),
-            all_skills=bool(data.get("all_skills", current.all_skills)),
+            all_skills=all_skills,
             selected=(
                 [str(x) for x in data["selected"]]
                 if "selected" in data
                 else current.selected
             ),
-            echo_skill_directory=bool(
-                data.get("echo_skill_directory", current.echo_skill_directory)
+            echo_skill_directory=_as_bool(
+                data.get("echo_skill_directory"), current.echo_skill_directory
             ),
-            allow_script_execution=bool(
-                data.get("allow_script_execution", current.allow_script_execution)
+            allow_script_execution=_as_bool(
+                data.get("allow_script_execution"), current.allow_script_execution
             ),
         )
         previous = config_manager.ins_config.skills

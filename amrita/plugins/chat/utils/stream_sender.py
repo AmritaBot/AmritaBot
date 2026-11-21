@@ -135,7 +135,17 @@ class ChatStreamSender:
         self._config = config
         self._chat = chat
         self._reasoning = _ReasoningCollector()
+        self._pending_text = ""  # 普通文本先攒着，等 tool 事件或本轮结束再定性
         self._blocked = False  # cookie 熔断后置位，send_final 静默跳过
+
+    async def _flush_pending_text(self, *, middle: bool) -> None:
+        """把攒下的普通文本发出：tool 调用前的算中间消息，其余算正文。"""
+        text = self._pending_text.strip()
+        self._pending_text = ""
+        if not text:
+            return
+        prefix = "💬 " if middle else ""
+        await self._matcher.send(MessageSegment.text(f"{prefix}{text}"))
 
     async def _flush_reasoning(self) -> None:
         """把累积的思考整段发出；开启摘要时先压缩，失败回退原文。"""
@@ -185,10 +195,11 @@ class ChatStreamSender:
             return
         if isinstance(message, StringMessageContent):
             await self._flush_reasoning()
-            await self._matcher.send(message.get_content())
+            self._pending_text += message.get_content()
             return
         if isinstance(message, ImageMessage):
             await self._flush_reasoning()
+            await self._flush_pending_text(middle=False)
             await self._matcher.send(MessageSegment.image(await message.get_image()))
             return
         # 未知类型：保持原有直接转发行为
@@ -208,6 +219,9 @@ class ChatStreamSender:
             # 只做累积，等这一轮思考结束（下一条非思考消息或本轮结束）再整段发送
             self._reasoning.write(message.content)
             return
+        #  Calling 出现说明前面攒的普通文本是工具调用前的中间内容
+        if mtype == "function_call" and not metadata.get("is_done"):
+            await self._flush_pending_text(middle=True)
         # 非思考块消息：先 flush 累积的思考块再处理
         await self._flush_reasoning()
         match mtype:
@@ -308,6 +322,11 @@ class ChatStreamSender:
             return
         # 发送前 flush 残留思考块
         await self._flush_reasoning()
+        # 最终响应会由本次 send_final 发出；缓冲里是同一段文本时直接丢弃，避免重复
+        buffered = self._pending_text
+        self._pending_text = ""
+        if not content.strip():
+            content = buffered
 
         # 构建 MessageSegment（引用回复）
         message: Message = MessageSegment.reply(

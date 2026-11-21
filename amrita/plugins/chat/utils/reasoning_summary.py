@@ -1,11 +1,4 @@
-"""/思考块摘要
-
-``meta.stream_reasoning`` 打开后，思考块默认原样展示；再打开
-``meta.reasoning_summary`` 时改发摘要，避免长思考刷屏。
-
-一次摘要调用独立于主对话，思考模型的 reasoning token 与正文共用预算，
-因此这里显式关掉思考，并给输出预算兜下限。
-"""
+"""/思考块摘要：独立于主对话的一次调用，把长思考压成可直接展示的一段话。"""
 
 from __future__ import annotations
 
@@ -30,6 +23,7 @@ _DIGEST_LIMIT = 6000
 SUMMARY_MAX_CHARS = 160
 #  思考短于这个长度就没有摘要价值，直接原样返回
 _SHORT_CIRCUIT = 120
+#  思考 token 与正文共用预算，显式关思考并给输出兜下限，避免正文为空
 _SUMMARY_MAX_OUTPUT = 1024
 _SUMMARY_TIMEOUT = 20.0
 

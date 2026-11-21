@@ -96,13 +96,7 @@ def _split_forward_chunks(text: str, min_chunk: int) -> list[str]:
 
 
 class _ReasoningCollector:
-    """思考块收集器：把一次思考过程里的所有 chunk 攒起来，结束时整段发送
-
-    供应商的 reasoning 流可能同时来自原生 reasoning_content 与框架包装的
-    reasoning chunk，两者的 ``extra_type`` 不同。按类型切段会让同一段思考
-    被拆成许多条消息，所以这里只按「是否仍在思考」切分：非思考消息到达
-    （正文、工具调用、step、反思等）或本轮结束时才 flush。
-    """
+    """只按"是否还在思考"切段，避免同一段思考被 extra_type 变化拆成多条消息。"""
 
     def __init__(self) -> None:
         self.buffer = StringIO()
@@ -172,7 +166,8 @@ class ChatStreamSender:
                 msgs=parts,
             )
             return
-        await self._matcher.send(f"💭 {text}")
+        #  模型输出可能带 CQ 码，按文本段发送，避免被解析成提及或图片
+        await self._matcher.send(MessageSegment.text(f"💭 {text}"))
 
     async def handle(self, message: "COMPLETION_RETURNING") -> None:
         """流式消息回调：处理元信息消息、收集思考块、转发文本/图片"""
@@ -197,8 +192,10 @@ class ChatStreamSender:
         metadata: dict[str, Any] = dict(message.metadata)
         mtype = metadata.get("type", "")
         extra_type = metadata.get("extra_type")
+        #  原生 cot_chunk 与框架包装的 reasoning chunk 都要算思考，
+        #  否则原生思考会被当成正文 flush 掉，框架片段则被切成半句
         is_reasoning_chunk = mtype == "reasoning_chunk" or (
-            mtype == "text" and extra_type == "reasoning_chunk"
+            mtype == "text" and extra_type in ("reasoning_chunk", "cot_chunk")
         )
         if is_reasoning_chunk and meta.enable and meta.stream_reasoning:
             # 只做累积，等这一轮思考结束（下一条非思考消息或本轮结束）再整段发送
@@ -230,7 +227,9 @@ class ChatStreamSender:
                     and metadata.get("err") is None
                     and message.content.strip()
                 ):
-                    await self._matcher.send(f"💬 {message.content}")
+                    await self._matcher.send(
+                        MessageSegment.text(f"💬 {message.content}")
+                    )
                 if metadata.get("is_done") and meta.enable and meta.tool_call:
                     function_name = metadata.get("function_name")
                     if (err := metadata.get("err")) is not None:

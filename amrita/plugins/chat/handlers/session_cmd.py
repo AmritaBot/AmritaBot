@@ -82,28 +82,18 @@ def _live_usage(chat: CoreChatObject) -> UniResponseUsage[int] | None:
 def _resolve_session(
     sessions: Sequence[MemorySessionsSchema], raw: str
 ) -> MemorySessionsSchema | None:
-    """定位一条归档会话：``#ID`` / 列表编号 / 纯数字会话 ID。
+    """定位一条归档会话：``ID`` 或 ``#ID``，只按会话 ID 精确匹配。
 
-    纯数字先按列表编号解释，保持原有习惯；编号越界时再当作会话 ID。
-    这样列表里显示的 ``ID 353`` 可以直接 ``/session del 353``，
-    不必再记 ``#`` 前缀；而 ``del 2`` 仍然删第 3 条。
+    列表已经按当前用户过滤，ID 不存在与不属于该用户都返回 None，
+    调用方统一回同一句提示，避免用不同回执探测他人会话。
     """
     token = raw.strip()
-    if not token:
-        return None
     if token.startswith("#"):
-        try:
-            target_id = int(token[1:])
-        except ValueError:
-            return None
-        return next((item for item in sessions if item.id == target_id), None)
-    try:
-        value = int(token)
-    except ValueError:
+        token = token[1:]
+    if not token.isdigit():
         return None
-    if 0 <= value < len(sessions):
-        return sessions[value]
-    return next((item for item in sessions if item.id == value), None)
+    target_id = int(token)
+    return next((item for item in sessions if item.id == target_id), None)
 
 
 async def _session_list(event: MessageEvent, matcher: Matcher) -> None:
@@ -113,20 +103,17 @@ async def _session_list(event: MessageEvent, matcher: Matcher) -> None:
     if not sessions:
         await matcher.finish("没有历史会话")
     msg = Message("历史会话\n")
-    for index, s in enumerate(sessions):
+    for s in sessions:
         if s.data.messages:
             label = (s.tag or s.data.abstract or "（无描述）")[:15]
             t = datetime.fromtimestamp(s.created_at).strftime("%Y-%m-%d %I:%M:%S %p")
             #  标签来自模型，按文本段发，避免被解析成 CQ 码或提及
-            msg += MessageSegment.text(
-                f"编号：{index}）{label}... 时间：{t}（ID {s.id}）\n"
-            )
+            msg += MessageSegment.text(f"ID {s.id}｜{label}｜{t}\n")
     await matcher.finish(msg)
 
 
-#  TODO: 编号寻址（use/del/rename）对重试不幂等，后续统一改成 #ID 稳定寻址
 async def _session_use(event: MessageEvent, matcher: Matcher, index: str) -> None:
-    """将当前会话覆盖为指定编号的会话"""
+    """将当前会话覆盖为指定 ID 的会话"""
     repo = CachedUserDataRepository()
     try:
         user_sessions = await repo.get_sesssions(get_uni_user_id(event))
@@ -135,7 +122,7 @@ async def _session_use(event: MessageEvent, matcher: Matcher, index: str) -> Non
         await matcher.finish("覆盖记忆文件失败，这个对话可能损坏了。")
     target = _resolve_session(user_sessions, index)
     if target is None:
-        await matcher.finish("请输入正确的编号或 #ID")
+        await matcher.finish("请输入正确的会话 ID。")
     try:
         memory_data = await repo.get_memory(get_uni_user_id(event))
         #  恢复的是完整快照：消息、摘要、用量一起换回来
@@ -148,22 +135,22 @@ async def _session_use(event: MessageEvent, matcher: Matcher, index: str) -> Non
 
 
 async def _session_del(event: MessageEvent, matcher: Matcher, index: str) -> None:
-    """删除指定编号或 ``#ID`` 的会话"""
+    """删除指定 ID 的会话"""
     repo = CachedUserDataRepository()
     uni_id = get_uni_user_id(event)
     try:
         user_sessions = await repo.get_sesssions(uni_id)
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).exception(
-            "删除指定编号会话失败。"
+            "删除指定会话失败。"
         )
-        await matcher.finish("删除指定编号会话失败。")
+        await matcher.finish("删除指定会话失败。")
     if not user_sessions:
         await matcher.finish("没有历史会话")
 
     removed = _resolve_session(user_sessions, index)
     if removed is None:
-        await matcher.finish("请输入正确的编号或 #ID")
+        await matcher.finish("请输入正确的会话 ID。")
 
     try:
         async with get_session() as session:
@@ -173,9 +160,9 @@ async def _session_del(event: MessageEvent, matcher: Matcher, index: str) -> Non
             await session.commit()
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).exception(
-            "删除指定编号会话失败。"
+            "删除指定会话失败。"
         )
-        await matcher.finish("删除指定编号会话失败。")
+        await matcher.finish("删除指定会话失败。")
     await matcher.send("✅ 已删除对应的会话。")
 
 
@@ -240,7 +227,7 @@ async def _session_clear(event: MessageEvent, matcher: Matcher) -> None:
 async def _session_rename(
     event: MessageEvent, matcher: Matcher, index: str, tag: str
 ) -> None:
-    """按列表编号改名，写入时带上 created_at 防 id 回收。"""
+    """按会话 ID 改名。"""
     repo = CachedUserDataRepository()
     uni_id = get_uni_user_id(event)
     try:
@@ -250,10 +237,10 @@ async def _session_rename(
         await matcher.finish("重命名会话失败。")
     target = _resolve_session(user_sessions, index)
     if target is None:
-        await matcher.finish("请输入正确的编号或 #ID")
+        await matcher.finish("请输入正确的会话 ID。")
     new_tag = tag.strip()
     if not new_tag:
-        await matcher.finish("用法：/session rename <编号|ID|#ID> <新名称>")
+        await matcher.finish("用法：/session rename <ID> <新名称>")
     if len(new_tag) > TAG_MAX_LEN:
         new_tag = new_tag[:TAG_MAX_LEN]
         await matcher.send(f"名称超过 {TAG_MAX_LEN} 字，已截断。")
@@ -504,10 +491,10 @@ _HELP_TEXT = (
     "用法：\n"
     "/session info — 会话元信息（模型/思考/上下文占用）\n"
     "/session list — 历史会话\n"
-    "/session use <编号|ID|#ID> — 恢复指定会话\n"
-    "/session del <编号|ID|#ID> — 删除指定会话（数字优先按列表编号，越界按会话 ID）\n"
+    "/session use <ID> — 恢复指定会话\n"
+    "/session del <ID> — 删除指定会话\n"
     "/session archive — 归档当前会话\n"
-    "/session rename <编号|ID|#ID> <新名称> — 重命名归档会话\n"
+    "/session rename <ID> <新名称> — 重命名归档会话\n"
     "/session clear — 删除全部历史会话（需二次确认）\n"
     "/session clear confirm — 确认删除全部历史会话\n"
     "/session compact [force] — 压缩上下文\n"
@@ -558,7 +545,7 @@ async def _dispatch_subcommand(
         case "rename" | "重命名" | "改名":
             parts = [a for a in arg_list[1:] if a not in _FORCE_FLAGS]
             if len(parts) < 2:
-                await matcher.finish("用法：/session rename <编号> <新名称>")
+                await matcher.finish("用法：/session rename <ID> <新名称>")
             await _session_rename(event, matcher, parts[0], " ".join(parts[1:]))
         case "clear" | "清空":
             if rest not in ("confirm", "确认"):

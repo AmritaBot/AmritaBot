@@ -145,8 +145,8 @@ MATCHERS: list[MatcherSpec] = [
             usage=[
                 "/session info — 元信息",
                 "/session list — 历史",
-                "/session use <编号> — 恢复",
-                "/session del <编号|#ID> — 删除",
+                "/session use <ID> — 恢复",
+                "/session del <ID> — 删除",
                 "/session archive — 归档",
                 "/session clear — 清空",
                 "/session compact [force] — 压缩",

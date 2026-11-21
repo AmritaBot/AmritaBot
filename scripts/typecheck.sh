@@ -15,6 +15,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FRONTEND_DIR="$ROOT/frontend"
 
+if [[ ! -f "$FRONTEND_DIR/packages/ui/package.json" ]]; then
+  echo "==> 子模块未初始化，尝试 init..."
+  git -C "$ROOT" submodule update --init frontend/packages/ui
+fi
+
 if [[ ! -d "$FRONTEND_DIR/node_modules" ]]; then
   echo "==> 安装前端依赖（bun install）..."
   (cd "$FRONTEND_DIR" && bun install)

@@ -15,6 +15,7 @@ from nonebot_plugin_amrita import CachedUserDataRepository
 from nonebot_plugin_amrita.database import InsightsModel
 
 from amrita.plugins.chat.utils.sql import get_uni_user_id
+from amrita.plugins.manager.status_manager import StatusManager
 from amrita.utils.admin import send_to_admin
 
 from ..check_rule import FakeEvent
@@ -54,8 +55,10 @@ async def _trigger_poke_send(
 
 async def poke_event(event: PokeNotifyEvent, bot: Bot, matcher: Matcher):
     """处理戳一戳事件"""
+    #  /set_enable false 只置 StatusManager，不写 config.enable，必须单独检查
     if (
-        not config_manager.config.enable
+        not StatusManager().ready
+        or not config_manager.config.enable
         or not config_manager.config.function.poke_reply
     ):
         matcher.skip()  # 如果功能未启用或未配置戳一戳回复，跳过处理

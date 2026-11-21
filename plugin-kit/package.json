@@ -21,6 +21,7 @@
     "README.md"
   ],
   "peerDependencies": {
+    "@amrita-constant/ambot-ui": "^0.1.1",
     "@tanstack/react-query": "^5.101.4",
     "lucide-react": "^0.545.0",
     "react": "^19",

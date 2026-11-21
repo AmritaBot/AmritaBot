@@ -82,7 +82,7 @@ class MetaInfoConfig(BaseModel):
         default=True, description="错误报告：loop_reasoning / Agent 运行失败"
     )
     stream_reasoning: bool = Field(
-        default=False, description="流式思考块（单token粒度，默认关闭避免刷屏）"
+        default=False, description="思考块（收集完整段思考后一次性发送，默认关闭）"
     )
     reasoning: bool = Field(
         default=True, description="整段思考块（reasoning / structured_reasoning_step）"

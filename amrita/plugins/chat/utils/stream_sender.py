@@ -95,28 +95,25 @@ def _split_forward_chunks(text: str, min_chunk: int) -> list[str]:
 
 
 class _ReasoningCollector:
-    """流式思考块收集器：单 token CoT chunk 累积到 StringIO，flush 时合并返回"""
+    """思考块收集器：把一次思考过程里的所有 chunk 攒起来，结束时整段发送
+
+    供应商的 reasoning 流可能同时来自原生 reasoning_content 与框架包装的
+    reasoning chunk，两者的 ``extra_type`` 不同。按类型切段会让同一段思考
+    被拆成许多条消息，所以这里只按「是否仍在思考」切分：非思考消息到达
+    （正文、工具调用、step、反思等）或本轮结束时才 flush。
+    """
 
     def __init__(self) -> None:
         self.buffer = StringIO()
-        self.type: str | None = None
 
     def flush(self) -> str | None:
         text = self.buffer.getvalue()
         self.buffer = StringIO()
-        self.type = None
         return text or None
 
-    def write(self, content: str, extra_type: str | None) -> str | None:
-        """写入一个 chunk；若 extra_type 切换，返回需发送的旧段文本（已清除）"""
-        if self.type is not None and self.type != extra_type:
-            old = self.flush()
-            self.buffer.write(content)
-            self.type = extra_type
-            return old
+    def write(self, content: str) -> None:
+        """追加一个思考片段，不在片段之间切分"""
         self.buffer.write(content)
-        self.type = extra_type
-        return None
 
 
 class ChatStreamSender:
@@ -176,9 +173,8 @@ class ChatStreamSender:
             mtype == "text" and extra_type == "reasoning_chunk"
         )
         if is_reasoning_chunk and meta.enable and meta.stream_reasoning:
-            # 收集思考块：混入不同的 extra_type 时先发送上一段
-            if old := self._reasoning.write(message.content, extra_type):
-                await self._matcher.send(f"💭 {old}")
+            # 只做累积，等这一轮思考结束（下一条非思考消息或本轮结束）再整段发送
+            self._reasoning.write(message.content)
             return
         # 非思考块消息：先 flush 累积的思考块再处理
         await self._flush_reasoning()
@@ -200,6 +196,13 @@ class ChatStreamSender:
             case "middle_message":
                 await self._matcher.send(f"💬 {message.content}")
             case "function_call":
+                # 工具调用消息也可能带正文（模型在决定调用前说的话），按中间消息展示
+                if (
+                    meta.enable
+                    and metadata.get("err") is None
+                    and message.content.strip()
+                ):
+                    await self._matcher.send(f"💬 {message.content}")
                 if metadata.get("is_done") and meta.enable and meta.tool_call:
                     function_name = metadata.get("function_name")
                     if (err := metadata.get("err")) is not None:

@@ -42,6 +42,7 @@ from .plugin_discovery import (
     discover_plugins,
     is_builtin,
     is_indirect_dependency,
+    local_dir_alias,
     local_plugin_dirs,
     protect_reason,
 )
@@ -55,7 +56,6 @@ __all__ = [
     "collect_configured",
     "collect_loaded",
     "collect_present",
-    "local_dir_alias",
     "resolve_states",
 ]
 
@@ -115,30 +115,6 @@ class PluginEntry:
             "is_dependency": self.is_dependency,
             "protected_reason": self.protected_reason,
         }
-
-
-def local_dir_alias(module_name: str) -> str | None:
-    """``plugins.foo`` → ``foo``：目录插件加载后的模块名带目录前缀。
-
-    ``nonebot.load_plugins("plugins")`` 把 ``plugins/foo`` 导入成 ``plugins.foo``，
-    而目录扫描、失败记录、``pyproject.toml`` 里用的都是短名 ``foo``。不归一化，
-    同一个插件会同时以「已加载的 plugins.foo」和「存在的 foo」两条身份出现，
-    前者被误判成 ``PENDING_REMOVE``——目录插件根本没有配置项可移除。
-
-    Args:
-        module_name: 任意模块名。
-
-    Returns:
-        短名；非目录插件返回 ``None``。
-    """
-    dirs = local_plugin_dirs()
-    if module_name in dirs:
-        return module_name
-    parts = module_name.split(".")
-    for index in range(1, len(parts)):
-        if "/".join(parts[:index]) in LOADED_PLUGIN_DIRS and parts[index] in dirs:
-            return parts[index]
-    return None
 
 
 def collect_configured(path: Path | str | None = None) -> set[str]:

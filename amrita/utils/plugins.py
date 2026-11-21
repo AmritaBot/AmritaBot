@@ -5,7 +5,7 @@ from pathlib import Path
 import nonebot
 import tomli
 
-from .plugin_discovery import AMRITA_LOCAL_DIR, iter_dir_plugins
+from .plugin_discovery import AMRITA_LOCAL_DIR, iter_dir_plugins, local_dir_alias
 from .pyproject_io import PyprojectNotFoundError, find_pyproject
 
 LOADED_PLUGIN_DIRS: tuple[str, ...] = (AMRITA_LOCAL_DIR,)
@@ -64,7 +64,11 @@ def _record_local_load_failures() -> None:
     ``nonebot.load_plugins`` 对失败的插件只打日志、不抛错，于是「没加载」
     在 WebUI 里会被当成「重启后启用」。这里按目录清点一遍，把缺口记成失败。
     """
-    loaded = {plugin.module_name for plugin in nonebot.get_loaded_plugins()}
+    #  已加载集合里是 plugins.foo 这种带目录前缀的名字，先折回短名再比对
+    loaded = {
+        local_dir_alias(plugin.module_name) or plugin.module_name
+        for plugin in nonebot.get_loaded_plugins()
+    }
     for sub in LOADED_PLUGIN_DIRS:
         for name in iter_dir_plugins(sub):
             if name not in loaded:

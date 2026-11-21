@@ -222,8 +222,10 @@ class AsyncDatabasePerformanceCollector:
                 #  合并成一条 SELECT 时 MariaDB 会因为 current_user 这个别名整条失败
                 info = {
                     "version": await self._scalar("SELECT VERSION()"),
-                    "database_name": await self._scalar("SELECT DATABASE()"),
-                    "current_user": await self._scalar("SELECT CURRENT_USER()"),
+                    #  键名沿用旧版的 db_name，避免已对接 /api/dbmeta 的客户端取不到值
+                    "db_name": await self._scalar("SELECT DATABASE()"),
+                    #  USER() 是客户端声明身份，CURRENT_USER() 是实际认证账号，语义不同
+                    "current_user": await self._scalar("SELECT USER()"),
                     "server_host": await self._scalar("SELECT @@hostname"),
                     "version_comment": await self._scalar("SELECT @@version_comment"),
                     "uptime_seconds": await self._mysql_status("Uptime"),
@@ -306,15 +308,18 @@ class AsyncDatabasePerformanceCollector:
                 #  最长执行时间：PROCESSLIST 里非 Sleep 的会话，两个方言都支持
                 longest = await self._scalar(
                     "SELECT MAX(TIME) FROM information_schema.PROCESSLIST "
-                    "WHERE COMMAND <> 'Sleep'"
+                    "WHERE COMMAND NOT IN ('Sleep', 'Daemon') AND INFO IS NOT NULL"
                 )
                 #  等待中的连接：8.0 用 data_lock_waits，5.7 与 MariaDB 用 INNODB_LOCK_WAITS
+                #  锁等待表一行是一个关系/请求，同一个事务可能占多行，按事务去重
                 waiting = await self._scalar(
-                    "SELECT COUNT(*) FROM performance_schema.data_lock_waits"
+                    "SELECT COUNT(DISTINCT REQUESTING_ENGINE_TRANSACTION_ID) "
+                    "FROM performance_schema.data_lock_waits"
                 )
                 if waiting is None:
                     waiting = await self._scalar(
-                        "SELECT COUNT(*) FROM information_schema.INNODB_LOCK_WAITS"
+                        "SELECT COUNT(DISTINCT requesting_trx_id) "
+                        "FROM information_schema.INNODB_LOCK_WAITS"
                     )
 
                 return ConnectionStats(
@@ -479,10 +484,15 @@ class AsyncDatabasePerformanceCollector:
                 )
                 #  MyISAM 的 key buffer 命中率是 MySQL 侧唯一现成的「索引缓存」指标；
                 #  InnoDB 没有这个概念，此时保持 None 而不是编一个值出来
-                key_requests = await self._mysql_status("Key_read_requests") or 0
-                key_reads = await self._mysql_status("Key_reads") or 0
+                key_requests = await self._mysql_status("Key_read_requests")
+                key_reads = await self._mysql_status("Key_reads")
+                #  两个计数器缺一个都算不出来：缺 reads 会算出 100%，缺 requests 会除零
                 key_hit_ratio = (
-                    (1 - key_reads / key_requests) * 100 if key_requests > 0 else None
+                    max(0.0, min(100.0, (1 - key_reads / key_requests) * 100))
+                    if key_requests
+                    and key_reads is not None
+                    and key_reads <= key_requests
+                    else None
                 )
                 cache_used = (
                     (1 - pages_free / pages_total) * 100 if pages_total > 0 else None
@@ -727,22 +737,9 @@ class AsyncDatabasePerformanceCollector:
                 """
                 result = await self.session.execute(text(query), params)
 
-                #  performance_schema 有真实的使用计数，但不是每个实例都开着；
-                #  取不到就保持 None，别用一个 0 假装「没被用过」
-                usage: dict[tuple[str, str, str], tuple[int | None, int | None]] = {}
-                try:
-                    usage_result = await self.session.execute(
-                        text("""
-                        SELECT OBJECT_SCHEMA, OBJECT_NAME, INDEX_NAME,
-                               COUNT_STAR, COUNT_READ
-                        FROM performance_schema.table_io_waits_summary_by_index_usage
-                        WHERE OBJECT_SCHEMA = DATABASE()
-                        """)
-                    )
-                    for urow in usage_result:
-                        usage[(urow[0], urow[1], urow[2])] = (urow[3], urow[4])
-                except Exception as e:
-                    logger.debug(f"performance_schema 索引统计不可用: {e}")
+                #  索引使用计数不折腾：performance_schema 的 COUNT_STAR / COUNT_READ
+                #  是 I/O 事件数，不是扫描次数或返回行数，填进 scan_count / rows_fetched
+                #  只会给出看起来精确的错误数据，这里保持不可用。
 
                 # 按索引名分组，获取每个索引的信息（去重，同一索引可能有多行对应多列）
                 seen = set()
@@ -751,14 +748,11 @@ class AsyncDatabasePerformanceCollector:
                     if key in seen:
                         continue
                     seen.add(key)
-                    scans, reads_rows = usage.get(key, (None, None))
                     indexes.append(
                         IndexUsage(
                             index_name=row.INDEX_NAME,
                             table_name=row.TABLE_NAME,
                             schema_name=row.TABLE_SCHEMA,
-                            scan_count=scans,
-                            rows_fetched=reads_rows,
                             cardinality=row.CARDINALITY,
                             unique=(row.NON_UNIQUE == 0),
                         )

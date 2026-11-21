@@ -228,17 +228,9 @@ class ChatStreamSender:
             case "middle_message":
                 await self._matcher.send(f"💬 {message.content}")
             case "function_call":
-                # content 可能是工具生命周期的机器文案，也可能带模型正文
+                # AmritaCore 只会在这里发 Calling/Called/Error 生命周期文案，没有模型正文
                 function_name = metadata.get("function_name")
                 err = metadata.get("err")
-                text = message.content.strip()
-                lifecycle = (
-                    text.startswith("Calling function ")
-                    or text.startswith("Called tool ")
-                    or (bool(function_name) and text == f"Error: {function_name} failed.")
-                )
-                if meta.enable and text and not lifecycle:
-                    await self._matcher.send(MessageSegment.text(f"💬 {text}"))
                 if err is not None:
                     logger.opt(exception=err, colors=True, raw=True).exception(
                         f"Tool {function_name} execution failed: {err}"

@@ -11,7 +11,11 @@ import {
 } from "@amrita-constant/ambot-ui";
 
 function InfoGrid({ data }: { data: Record<string, unknown> }) {
-  const entries = Object.entries(data);
+  // 拿不到的指标直接不显示：一排 null 只会让人以为采集坏了，
+  // 而这些字段本来就不是每个方言都有（heap 命中率是 PostgreSQL 的概念）
+  const entries = Object.entries(data).filter(
+    ([, v]) => v !== null && v !== undefined && v !== "",
+  );
   if (entries.length === 0)
     return <p className="text-sm text-muted-foreground">无数据</p>;
   return (

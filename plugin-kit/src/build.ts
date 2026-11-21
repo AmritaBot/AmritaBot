@@ -16,7 +16,6 @@ import path from "path";
 import { existsSync } from "fs";
 import { mkdir, copyFile, appendFile } from "fs/promises";
 import { HOST_CONTRACT_VERSION } from "./host";
-import { UI_EXPORTS } from "./ui-exports";
 
 /** 包名 -> 宿主全局字段，与 runtime/host.ts 的 HOST_MODULES 保持一致 */
 const HOST_TABLE: Record<string, string> = {
@@ -68,10 +67,28 @@ function readExports(pkg: string, resolveFrom: string): string[] | null {
   }
 }
 
+/** 组件清单来自 @amrita/ui，构建时才加载，避免把组件实现拉进构建进程 */
+let uiExportsCache: readonly string[] | null = null;
+
+async function loadUiExports(): Promise<readonly string[]> {
+  if (uiExportsCache) return uiExportsCache;
+  try {
+    const mod = (await import("@amrita/ui/exports")) as {
+      UI_EXPORTS: readonly string[];
+    };
+    uiExportsCache = mod.UI_EXPORTS;
+    return uiExportsCache;
+  } catch {
+    throw new Error(
+      "插件构建需要 @amrita/ui 的组件清单：请在插件项目执行 bun add -d @amrita/ui",
+    );
+  }
+}
+
 /** 生成宿主 UI 组件包的虚拟模块：按清单逐个再导出 */
-function uiShim(): string {
-  const decls = UI_EXPORTS.map((n) => `export const ${n} = UI.${n};`).join("\n");
-  const required = JSON.stringify(UI_EXPORTS);
+function uiShim(names: readonly string[]): string {
+  const decls = names.map((n) => `export const ${n} = UI.${n};`).join("\n");
+  const required = JSON.stringify(names);
   return `const UI = window.__AMRITA_HOST__?.UI;
 if (!UI) {
   throw new Error(
@@ -90,7 +107,6 @@ export default UI;
 
 /** 生成顶替某个宿主包的虚拟模块源码 */
 function hostShim(pkg: string, field: string, resolveFrom: string): string {
-  if (pkg === UI_SPECIFIER) return uiShim();
   if (JSX_RUNTIMES.has(pkg)) return JSX_SHIM;
   const names = readExports(pkg, resolveFrom);
   if (names === null) {
@@ -125,18 +141,21 @@ function hostExternalsPlugin(resolveFrom: string) {
         if (!field) return;
         return { path: `host:${args.path}`, namespace: "amrita-host" };
       });
-      build.onLoad({ filter: /.*/, namespace: "amrita-host" }, (args: any) => {
-        const pkg = args.path.slice("host:".length);
-        // UI 包没有单一的全局字段，走专门的生成器
-        if (pkg === UI_SPECIFIER) {
-          return { contents: uiShim(), loader: "js" };
-        }
-        const field = HOST_TABLE[pkg]!;
-        return {
-          contents: hostShim(pkg, field, resolveFrom),
-          loader: "js",
-        };
-      });
+      build.onLoad(
+        { filter: /.*/, namespace: "amrita-host" },
+        async (args: any) => {
+          const pkg = args.path.slice("host:".length);
+          // UI 包没有单一的全局字段，走专门的生成器
+          if (pkg === UI_SPECIFIER) {
+            return { contents: uiShim(await loadUiExports()), loader: "js" };
+          }
+          const field = HOST_TABLE[pkg]!;
+          return {
+            contents: hostShim(pkg, field, resolveFrom),
+            loader: "js",
+          };
+        },
+      );
     },
   };
 }

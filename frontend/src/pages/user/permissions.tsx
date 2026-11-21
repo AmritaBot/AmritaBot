@@ -5,10 +5,10 @@ import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import type { PermGroupListData } from "@/lib/types";
-import { DataTable, type Column } from "@/components/shared/DataTable";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { DataTable, type Column } from "@amrita/ui";
+import { Button } from "@amrita/ui";
+import { Input } from "@amrita/ui";
+import { Label } from "@amrita/ui";
 import {
   Dialog,
   DialogContent,
@@ -16,8 +16,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+} from "@amrita/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@amrita/ui";
 
 export function PermissionsPage() {
   const qc = useQueryClient();

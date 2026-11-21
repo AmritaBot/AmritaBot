@@ -10,10 +10,10 @@ import {
 } from "recharts";
 import { api } from "@/lib/api";
 import type { ChatInsightsData } from "@/lib/types";
-import { StatCard } from "@/components/shared/StatCard";
-import { Skeleton } from "@/components/ui/skeleton";
+import { StatCard } from "@amrita/ui";
+import { Skeleton } from "@amrita/ui";
 import { Coins, Gauge, MessageSquare } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@amrita/ui";
 
 export function InsightsPage() {
   const { data, isLoading } = useQuery({

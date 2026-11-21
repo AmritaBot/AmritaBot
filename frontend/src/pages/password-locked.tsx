@@ -1,6 +1,6 @@
 import { Github, ShieldAlert } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Button } from "@amrita/ui";
+import { Card, CardContent, CardHeader } from "@amrita/ui";
 
 /**
  * 密码锁定页：检测到 WebUI 仍在使用出厂默认密码（admin123）时显示。

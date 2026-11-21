@@ -22,7 +22,8 @@
     "noImplicitOverride": true,
 
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@amrita/ui": ["./packages/ui/src/index.ts"]
     },
 
     // Some stricter flags (disabled by default)

@@ -4,10 +4,10 @@ import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import type { ChatModel, ChatModelsData } from "@/lib/types";
-import { DataTable, type Column } from "@/components/shared/DataTable";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { DataTable, type Column } from "@amrita/ui";
+import { Button } from "@amrita/ui";
+import { Input } from "@amrita/ui";
+import { Label } from "@amrita/ui";
 import {
   Dialog,
   DialogContent,
@@ -15,18 +15,18 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
+} from "@amrita/ui";
+import { Switch } from "@amrita/ui";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+} from "@amrita/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@amrita/ui";
+import { Badge } from "@amrita/ui";
+import { ConfirmDialog } from "@amrita/ui";
 
 interface ModelRow extends ChatModel {
   __editing?: boolean;

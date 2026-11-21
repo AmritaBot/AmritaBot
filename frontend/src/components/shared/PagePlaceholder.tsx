@@ -4,7 +4,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@amrita/ui";
 
 /**
  * 菜单中有、但前端无法渲染的页面。

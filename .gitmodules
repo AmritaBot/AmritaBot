@@ -1,3 +1,6 @@
 [submodule "website"]
 	path = website
 	url = https://github.com/AmritaBot/amrita-docs.git
+[submodule "frontend/packages/ui"]
+	path = frontend/packages/ui
+	url = https://github.com/AmritaBot/AmritaBot-UI.git

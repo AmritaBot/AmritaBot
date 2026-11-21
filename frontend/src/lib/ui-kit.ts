@@ -13,22 +13,4 @@
  * ``@amrita/webui-plugin-kit`` 的 ``ui-exports.ts``。
  */
 
-export * from "@/components/ui/badge";
-export * from "@/components/ui/button";
-export * from "@/components/ui/card";
-export * from "@/components/ui/dialog";
-export * from "@/components/ui/input";
-export * from "@/components/ui/label";
-export * from "@/components/ui/select";
-export * from "@/components/ui/separator";
-export * from "@/components/ui/skeleton";
-export * from "@/components/ui/sonner";
-export * from "@/components/ui/switch";
-export * from "@/components/ui/table";
-export * from "@/components/ui/tabs";
-export * from "@/components/ui/textarea";
-
-export { DataTable, StatusBadge } from "@/components/shared/DataTable";
-export { StatCard } from "@/components/shared/StatCard";
-export { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-export { cn } from "@/lib/utils";
+export * from "@amrita/ui";

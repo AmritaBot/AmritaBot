@@ -4,9 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { SearchX } from "lucide-react";
 import { api } from "@/lib/api";
 import type { ConfeditListData } from "@/lib/types";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Button } from "@amrita/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@amrita/ui";
+import { Input } from "@amrita/ui";
 
 export function ConfeditPage() {
   const navigate = useNavigate();

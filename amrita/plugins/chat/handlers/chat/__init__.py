@@ -47,6 +47,7 @@ from amrita.plugins.chat.utils.context_store import (
 )
 from amrita.plugins.chat.utils.context_vars import current_uni_id
 from amrita.plugins.chat.utils.debounce import collect_batch
+from amrita.plugins.chat.utils.functions import is_card_only_message
 from amrita.plugins.chat.utils.lock import get_group_lock, get_private_lock
 from amrita.plugins.chat.utils.preset import is_multimodal_enabled, resolve_preset
 from amrita.plugins.chat.utils.sql import get_uni_user_id
@@ -79,6 +80,8 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         for prefix in command_prefix
         if prefix.strip()
     ):
+        matcher.skip()
+    if is_card_only_message(event.get_message()):
         matcher.skip()
     session_id = get_uni_user_id(event)
     config = config_manager.config

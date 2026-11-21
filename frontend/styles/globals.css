@@ -120,3 +120,6 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* UI 组件包是子模块，Tailwind 自动扫描不到，需显式声明来源 */
+@source "../packages/ui/src";

@@ -51,7 +51,6 @@ export function LogsPage() {
   const [tracking, setTracking] = useState(true);
   const [frozenLogs, setFrozenLogs] = useState<LogEvent[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const autoScrollRef = useRef(true);
 
   // 关闭追踪时冻结当前快照
   useEffect(() => {
@@ -70,20 +69,18 @@ export function LogsPage() {
     });
   }, [visible, level, keyword]);
 
-  // 自动滚动到底部（追踪开启时跟随新日志）
+  /**
+   * 追踪开启时始终贴底。
+   *
+   * 依赖用 logs 而不是 filtered.length：ws 回放有上限，新日志进来时长度不变，
+   * 拿长度当触发条件会漏掉大多数新消息。追踪关掉才允许自由上滑看历史。
+   */
   useEffect(() => {
     const el = scrollRef.current;
-    if (el && autoScrollRef.current && tracking) {
+    if (el && tracking) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [filtered.length, tracking]);
-
-  function handleScroll() {
-    const el = scrollRef.current;
-    if (!el) return;
-    autoScrollRef.current =
-      el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-  }
+  }, [logs, filtered.length, tracking, level, keyword]);
 
   const count = filtered.length;
 
@@ -144,13 +141,12 @@ export function LogsPage() {
         <CardHeader className="pb-2">
           <CardTitle className="text-base">日志流</CardTitle>
           <CardDescription>
-            最近 {LOG_REPLAY_LIMIT} 条日志（本次启动）· 滚轮上滑暂停自动跟随
+            最近 {LOG_REPLAY_LIMIT} 条日志（本次启动）· 追踪开启时始终贴底，关掉追踪再上滑看历史
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div
             ref={scrollRef}
-            onScroll={handleScroll}
             className="h-[60vh] overflow-y-auto rounded-md border bg-muted/30 font-mono text-xs"
           >
             {filtered.length === 0 ? (

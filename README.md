@@ -34,11 +34,7 @@ Amrita 是一个基于[NoneBot2](https://nonebot.dev/)与[AmritaCore](https://co
 
 > 官方文档的源文件位于独立的 [amrita-docs](https://github.com/AmritaBot/amrita-docs) 仓库，
 > 通过 Git 子模块挂载在本仓库的 [`website/`](./website) 目录 —— 即此处是文档的唯一事实源，
-> 本仓库不再复制一份。
->
-> WebUI 的 UI 组件在 [AmritaBot-UI](https://github.com/AmritaBot/AmritaBot-UI)，
-> 以子模块挂在 `frontend/packages/ui`，前端构建与类型检查都需要它。
-> 克隆时请带上子模块：
+> 本仓库不再复制一份。克隆时请带上子模块：
 >
 > ```bash
 > git clone --recurse-submodules https://github.com/AmritaBot/AmritaBot.git

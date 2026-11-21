@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import asyncio
 import re
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from amrita_core.config import get_config
 from amrita_core.libchat import call_completion, get_last_response, text_generator
-from amrita_core.types import CONTENT_LIST_TYPE, Message
+from amrita_core.types import CONTENT_LIST_TYPE, Message, ThinkingConfig
 from amrita_core.types.preset import resolve_max_output
 from amrita_core.usage import SessionUsageProxy
 from nonebot import logger
@@ -33,14 +33,34 @@ TAG_TIMEOUT = 30.0
 #  送进模型的正文上限，标签只关心主题
 _DIGEST_LIMIT = 1200
 
-_PROMPT = (
-    "你是会话归档的标签生成器。读下面这段对话，用一句不超过 16 个汉字的中文短语概括主题。"
-    "只输出这一句：不要引号、不要句末标点、不要解释、不要分点、不要复述这段指令。"
-    "超过 16 个字视为错误。"
-    "如果是代码或调试内容，点出涉及的对象，而不是笼统地写「讨论代码」。"
-)
+_PROMPT = """你是会话归档的「命名员」，任务只有一个：给这段对话起一个短名字。
 
-_PREFIX_RE = re.compile(r"^(标签|标题|会话标签)\s*[:：]\s*")
+这不是摘要，也不是上下文压缩。不要保留信息、不要分点、不要标题、不要复述内容，
+读的人只看这一行字判断「这条会话是聊什么的」。写多了就是错。
+
+硬性要求：
+1. 输出一句中文短语，不超过 16 个汉字，不带标点结尾。
+2. 不要 Markdown：不要 #、*、-、`、代码块，不要「摘要」「总结」「会话」这类词。
+3. 不要以「用户」「对话」开头做转述，直接给主题。
+4. 不要引号、不要解释、不要输出多行。
+5. 输入里若出现「## 全量摘要」之类的小标题，那只是早先压缩留下的残留，无视它。
+
+示例：
+输入：讨论了把 WebUI 插件构建套件独立发到 npm，并处理 trusted publisher 与 OIDC
+输出：插件构建套件独立发布
+
+输入：排查图片下载被 fake-ip 网段校验误拒，顺带修了日用量重复插入
+输出：fake-ip 图片误拒修复
+
+输入：问 PR #362 的 CI 状态、版本号要不要 bump，最后合并
+输出：PR 合并与版本号
+
+输入：解释 AmritaCore 的 session 锁在运行中的行为
+输出：会话锁行为说明
+
+反例（出现即视为失败）：「## 全量摘要」「这是一段关于插件的对话，主要……」「摘要：插件开发」
+"""
+
 _SPACE_RE = re.compile(r"\s+")
 
 
@@ -55,19 +75,14 @@ def _digest(data: AwaredMemory) -> str:
 
 
 def _clean(raw: str) -> str | None:
-    """收成一行标签，并抹掉会破坏 OneBot 消息的字符。"""
-    text = raw.strip()
+    """只做格式归一（首行、引号、空白、CQ 码转义），内容形态交给提示词约束。"""
+    text = (raw or "").strip()
     if not text:
         return None
     #  模型偶尔会在标签后补一句解释，只取第一行
     text = text.splitlines()[0].strip()
     text = text.strip("\"'“”‘’`「」『』 ")
-    text = _PREFIX_RE.sub("", text)
-    text = text.rstrip("。.,，;；")
     text = _SPACE_RE.sub(" ", text).strip()
-    #  模型偶尔会把一句写成一段：优先保留第一个分句，再兜底截断
-    if len(text) > TAG_GENERATE_MAX_LEN:
-        text = re.split(r"[，,；;。]", text)[0].strip() or text
     #  方括号与 @ 会拼出 CQ 码，或被解析成提及；展示层还会再转一次文本段
     text = text.replace("[", "【").replace("]", "】").replace("@", "＠")
     if not text:
@@ -79,6 +94,7 @@ async def generate_session_tag(
     uni_id: str,
     data: AwaredMemory,
     ledger: SessionUsageProxy | None = None,
+    preset: Any | None = None,
 ) -> str | None:
     """生成短标签，失败或超时返回 ``None``。
 
@@ -86,6 +102,7 @@ async def generate_session_tag(
         uni_id: 统一用户 ID，用于记账流的标识
         data: 归档快照，读摘要或尾部对话
         ledger: 传入时把这次调用的用量记进去
+        preset: 指定预设；``None`` 时用当前会话预设（测试与离线重跑用）
     """
     digest = _digest(data)
     if not digest:
@@ -99,10 +116,21 @@ async def generate_session_tag(
         ],
     )
     try:
-        preset = await resolve_preset()
+        if preset is None:
+            preset = await resolve_preset()
         #  标签只要一句，但 reasoning 与正文共用预算，这里给解析后的预算兜个下限。
         budget = max(resolve_max_output(preset, get_config()), TAG_MAX_OUTPUT)
-        preset = preset.model_copy(update={"max_output": budget})
+        preset = preset.model_copy(
+            update={
+                "max_output": budget,
+                # 原生思考的 CoT 与正文共用输出预算，必须显式关掉
+                "thinking_config": ThinkingConfig(
+                    thinking_type="disabled",
+                    enable_thinking=False,
+                    thinking_effort=None,
+                ),
+            }
+        )
         resp = await asyncio.wait_for(
             get_last_response(call_completion(messages, preset=preset, usage=ledger)),
             timeout=TAG_TIMEOUT,

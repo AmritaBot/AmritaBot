@@ -4,7 +4,7 @@
 #
 # 流程：
 #   1. bun install（frontend/node_modules 缺失时自动安装）
-#   2. bun run typecheck（tsc --noEmit，覆盖全部源码含 build.ts / index.ts）
+#   2. bun run typecheck（tsc --noEmit，覆盖全部源码含 vite.config.ts）
 #
 # 用法：
 #   bash scripts/typecheck.sh

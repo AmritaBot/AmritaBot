@@ -5,28 +5,27 @@ AmritaBot 的 Web 管理界面（前端）。构建产物输出到 `amrita/plugi
 
 ## 技术栈
 
-| 领域                       | 选型                                                          |
-| -------------------------- | ------------------------------------------------------------- |
-| 运行时 / 构建 / 开发服务器 | [Bun](https://bun.com)（`Bun.build` + `bun-plugin-tailwind`） |
-| UI 框架                    | React 19（`react-jsx`）                                       |
-| 样式                       | Tailwind CSS v4 + `tw-animate-css`                            |
-| 组件                       | shadcn/ui（new-york）+ Radix UI + `lucide-react`              |
-| 路由                       | react-router v7（data router，支持 `useBlocker`）             |
-| 数据请求                   | TanStack Query v5 + 统一 `api` 客户端                         |
-| 表单 / 校验                | react-hook-form + zod                                         |
-| 图表 / 拖拽 / 提示         | recharts、@dnd-kit、sonner                                    |
+| 领域               | 选型                                                       |
+| ------------------ | ---------------------------------------------------------- |
+| 包管理 / 脚本      | [Bun](https://bun.com)                                     |
+| 构建 / 开发服务器  | [Vite](https://vitejs.dev)（Rollup + `@tailwindcss/vite`） |
+| UI 框架            | React 19（`react-jsx`）                                    |
+| 样式               | Tailwind CSS v4 + `tw-animate-css`                         |
+| 组件               | shadcn/ui（new-york）+ Radix UI + `lucide-react`           |
+| 路由               | react-router v7（data router，支持 `useBlocker`）          |
+| 数据请求           | TanStack Query v5 + 统一 `api` 客户端                      |
+| 表单 / 校验        | react-hook-form + zod                                      |
+| 图表 / 拖拽 / 提示 | recharts、@dnd-kit、sonner                                 |
 
 ## 目录结构
 
 ```
 frontend/
-├── build.ts              # 构建脚本（Bun.build 驱动，含产物修补逻辑）
-├── bunfig.toml           # Bun 静态服务插件（bun-plugin-tailwind）
+├── vite.config.ts        # 生产构建配置（Vite / Rollup，产物落 static/）
 ├── components.json       # shadcn/ui 配置（指向 styles/globals.css）
 ├── styles/globals.css    # Tailwind 主题变量与 @theme 映射
 └── src/
     ├── index.html        # HTML 入口
-    ├── index.ts          # 开发服务器（静态托管 + /api 代理 + WS 桥接）
     ├── index.css         # CSS 入口（import globals.css + @layer base）
     ├── frontend.tsx      # React 入口（QueryClient / Router / AuthProvider）
     ├── App.tsx           # 应用外壳、鉴权与安全锁分流、菜单路由生成
@@ -53,11 +52,11 @@ bun install
 bun run dev          # dev server: http://localhost:3000
 ```
 
-dev server 由 `src/index.ts` 提供：
+dev server 由 Vite 提供（配置见 `vite.config.ts` 的 `server` 段）：
 
-- 静态资源与 `.tsx` / `.css` 按需编译（走 `bun-plugin-tailwind` 管道）
+- TSX / CSS 由 Vite 即时编译，改代码热更新
 - `/api/*` 代理到后端（默认 `http://127.0.0.1:11451`，可用 `AMRITA_API_TARGET` 覆盖）
-- `/amrita/ui/ws` 浏览器 ⇄ 后端 WebSocket 双向桥接（透传 cookie 与关闭码）
+- `/amrita/*` 同样代理并开启 `ws`，浏览器直连后端的 WebSocket 鉴权链路不变
 
 ## 构建
 
@@ -68,9 +67,14 @@ bash ../scripts/build-frontend.sh        # 顶层入口，含 typecheck
 bash ../scripts/build-frontend.sh --skip-typecheck
 ```
 
-`bun run build` 通过 `build.ts` 调用 `Bun.build`，其中包含针对 Bun 版本差异的产物修补
-（`index.html` 的 script 指向、favicon 注入），以及保留 `static/images/` 静态资源。
-完整构建（前端 + `uv build`）请用 `bash ../scripts/full-build.sh`。
+`bun run build` 走 Vite 的 Rollup 流水线，产物为 `assets/` 下的分块文件，
+`index.html` 由 Rollup 直接生成，不再需要事后改写 script 地址或注入 favicon。
+输出目录里的 `images/`（git 跟踪）与 `plugins/`（外部插件落点）由构建前清理逻辑保留。
+
+> 为什么不用 `Bun.build`：HTML 入口 + 代码分块时它会产出指向不存在绑定的重导出
+> （浏览器报 `Export 'xxx' is not defined in module`），之前的做法是事后重写
+> `index.html` 绕开，属于补丁；换 Rollup 是从工具链上解决。
+> 完整构建（前端 + `uv build`）请用 `bash ../scripts/full-build.sh`。
 
 ## 代码检查
 
@@ -80,7 +84,7 @@ bun run lint               # 调用 ../scripts/lint.sh（ruff + prettier，会�
 bun run lint:check         # 只检查不修改
 ```
 
-CSS 不在 lint 里单独校验：它由构建链路的 `bun-plugin-tailwind` 编译，语法错误会在
+CSS 不在 lint 里单独校验：它由构建链路的 `@tailwindcss/vite` 编译，语法错误会在
 `bun run build` 时直接报错。
 
 ## 样式约定

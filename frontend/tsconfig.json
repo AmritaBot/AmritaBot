@@ -10,6 +10,7 @@
 
     // Bundler mode
     "moduleResolution": "bundler",
+    "types": ["bun", "vite/client"],
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,

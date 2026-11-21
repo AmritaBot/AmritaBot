@@ -7,7 +7,7 @@
 #   2. uv run ruff format .       —— Python 格式化（幂等，格式化后无 diff）
 #   3. prettier frontend/         —— 前端格式化（--check 验证，--write 修复）
 #
-# 前端 CSS 不在这里单独检查：它由 React 构建链路的 bun-plugin-tailwind 编译，
+# 前端 CSS 不在这里单独检查：它由构建链路的 @tailwindcss/vite 编译，
 # 语法错误会在 `bun run build`（scripts/build-frontend.sh）时直接报错。
 #
 # 用法：

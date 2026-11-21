@@ -12,10 +12,10 @@ import {
 } from "recharts";
 import { api } from "@/lib/api";
 import type { DashboardData } from "@/lib/types";
-import { StatCard } from "@amrita/ui";
-import { Skeleton } from "@amrita/ui";
-import { Button } from "@amrita/ui";
-import { Card, CardContent, CardHeader, CardTitle } from "@amrita/ui";
+import { StatCard } from "@amrita-constant/ui";
+import { Skeleton } from "@amrita-constant/ui";
+import { Button } from "@amrita-constant/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@amrita-constant/ui";
 
 export function DashboardPage() {
   const navigate = useNavigate();

@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, KeyRound } from "lucide-react";
-import { Button } from "@amrita/ui";
-import { Card, CardContent, CardHeader } from "@amrita/ui";
+import { Button } from "@amrita-constant/ui";
+import { Card, CardContent, CardHeader } from "@amrita-constant/ui";
 
 /**
  * 忘记密码页：WebUI 密码由环境变量配置，前端无法自助重置，

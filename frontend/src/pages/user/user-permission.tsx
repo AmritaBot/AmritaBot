@@ -3,16 +3,16 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import type { PermissionsDetailData } from "@/lib/types";
-import { Button } from "@amrita/ui";
+import { Button } from "@amrita-constant/ui";
 import { PermissionEditor } from "@/components/shared/PermissionEditor";
-import { Skeleton } from "@amrita/ui";
+import { Skeleton } from "@amrita-constant/ui";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@amrita/ui";
+} from "@amrita-constant/ui";
 
 /** 用户 / 群组权限编辑页（共用） */
 function PermissionScope({

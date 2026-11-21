@@ -4,10 +4,10 @@ import { toast } from "sonner";
 import { ShieldOff } from "lucide-react";
 import { api } from "@/lib/api";
 import type { BotConfigData, BotConfigListData } from "@/lib/types";
-import { Button } from "@amrita/ui";
-import { Textarea } from "@amrita/ui";
-import { Skeleton } from "@amrita/ui";
-import { Card, CardContent, CardHeader, CardTitle } from "@amrita/ui";
+import { Button } from "@amrita-constant/ui";
+import { Textarea } from "@amrita-constant/ui";
+import { Skeleton } from "@amrita-constant/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@amrita-constant/ui";
 
 export function BotConfigPage() {
   const qc = useQueryClient();

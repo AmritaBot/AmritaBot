@@ -4,18 +4,18 @@ import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
 import type { SkillConfig, SkillInfo, SkillsData } from "@/lib/types";
-import { DataTable, type Column } from "@amrita/ui";
-import { Badge } from "@amrita/ui";
-import { Button } from "@amrita/ui";
-import { Card, CardContent, CardHeader, CardTitle } from "@amrita/ui";
+import { DataTable, type Column } from "@amrita-constant/ui";
+import { Badge } from "@amrita-constant/ui";
+import { Button } from "@amrita-constant/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@amrita-constant/ui";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@amrita/ui";
-import { Switch } from "@amrita/ui";
+} from "@amrita-constant/ui";
+import { Switch } from "@amrita-constant/ui";
 
 export function SkillsPage() {
   const qc = useQueryClient();

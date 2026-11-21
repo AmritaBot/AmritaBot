@@ -28,6 +28,6 @@
     "react-router-dom": "^7.18.2"
   },
   "devDependencies": {
-    "@amrita/ui": "file:../frontend/packages/ui"
+    "@amrita-constant/ui": "file:../frontend/packages/ui"
   }
 }

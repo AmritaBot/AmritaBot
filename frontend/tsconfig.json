@@ -23,7 +23,7 @@
 
     "paths": {
       "@/*": ["./src/*"],
-      "@amrita/ui": ["./packages/ui/src/index.ts"]
+      "@amrita-constant/ui": ["./packages/ui/src/index.ts"]
     },
 
     // Some stricter flags (disabled by default)

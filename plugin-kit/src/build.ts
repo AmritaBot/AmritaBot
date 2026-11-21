@@ -67,20 +67,20 @@ function readExports(pkg: string, resolveFrom: string): string[] | null {
   }
 }
 
-/** 组件清单来自 @amrita/ui，构建时才加载，避免把组件实现拉进构建进程 */
+/** 组件清单来自 @amrita-constant/ui，构建时才加载，避免把组件实现拉进构建进程 */
 let uiExportsCache: readonly string[] | null = null;
 
 async function loadUiExports(): Promise<readonly string[]> {
   if (uiExportsCache) return uiExportsCache;
   try {
-    const mod = (await import("@amrita/ui/exports")) as {
+    const mod = (await import("@amrita-constant/ui/exports")) as {
       UI_EXPORTS: readonly string[];
     };
     uiExportsCache = mod.UI_EXPORTS;
     return uiExportsCache;
   } catch {
     throw new Error(
-      "插件构建需要 @amrita/ui 的组件清单：请在插件项目执行 bun add -d @amrita/ui",
+      "插件构建需要 @amrita-constant/ui 的组件清单：请在插件项目执行 bun add -d @amrita-constant/ui",
     );
   }
 }

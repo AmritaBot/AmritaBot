@@ -27,25 +27,25 @@ import {
 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import type { ConfeditField, ConfeditSchemaData } from "@/lib/types";
-import { Button } from "@amrita/ui";
-import { Input } from "@amrita/ui";
-import { Switch } from "@amrita/ui";
-import { Label } from "@amrita/ui";
-import { Skeleton } from "@amrita/ui";
+import { Button } from "@amrita-constant/ui";
+import { Input } from "@amrita-constant/ui";
+import { Switch } from "@amrita-constant/ui";
+import { Label } from "@amrita-constant/ui";
+import { Skeleton } from "@amrita-constant/ui";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@amrita/ui";
+} from "@amrita-constant/ui";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@amrita/ui";
+} from "@amrita-constant/ui";
 
 /** schema 驱动的动态配置编辑器 */
 

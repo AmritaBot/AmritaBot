@@ -2,14 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { ConfirmDialog } from "@amrita/ui";
-import { DataTable, type Column } from "@amrita/ui";
-import { Badge } from "@amrita/ui";
-import { Button } from "@amrita/ui";
-import { Card, CardContent, CardHeader, CardTitle } from "@amrita/ui";
-import { Input } from "@amrita/ui";
-import { Switch } from "@amrita/ui";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@amrita/ui";
+import { ConfirmDialog } from "@amrita-constant/ui";
+import { DataTable, type Column } from "@amrita-constant/ui";
+import { Badge } from "@amrita-constant/ui";
+import { Button } from "@amrita-constant/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@amrita-constant/ui";
+import { Input } from "@amrita-constant/ui";
+import { Switch } from "@amrita-constant/ui";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@amrita-constant/ui";
 import { useWs } from "@/hooks/use-ws";
 import { ApiError, api } from "@/lib/api";
 import type {

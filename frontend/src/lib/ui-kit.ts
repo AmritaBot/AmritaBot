@@ -13,4 +13,4 @@
  * ``@amrita/webui-plugin-kit`` 的 ``ui-exports.ts``。
  */
 
-export * from "@amrita/ui";
+export * from "@amrita-constant/ui";

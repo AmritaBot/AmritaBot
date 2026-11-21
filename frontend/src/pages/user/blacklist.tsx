@@ -4,10 +4,10 @@ import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import type { BlacklistData, BlacklistEntry } from "@/lib/types";
-import { DataTable, type Column } from "@amrita/ui";
-import { Button } from "@amrita/ui";
-import { Input } from "@amrita/ui";
-import { Label } from "@amrita/ui";
+import { DataTable, type Column } from "@amrita-constant/ui";
+import { Button } from "@amrita-constant/ui";
+import { Input } from "@amrita-constant/ui";
+import { Label } from "@amrita-constant/ui";
 import {
   Dialog,
   DialogContent,
@@ -15,8 +15,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@amrita/ui";
-import { Card, CardContent, CardHeader, CardTitle } from "@amrita/ui";
+} from "@amrita-constant/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@amrita-constant/ui";
 
 type Entry = BlacklistEntry & { kind: "group" | "user" };
 

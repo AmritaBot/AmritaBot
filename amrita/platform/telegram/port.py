@@ -12,6 +12,7 @@ from ..common import dedupe_key, normalize_role
 from ..dto import (
     ACTION,
     EDIT,
+    GROUP,
     MESSAGE,
     META,
     NOTICE,
@@ -119,12 +120,7 @@ def _media_part(seg_type: str, data: Mapping[str, MetaValue]) -> Part:
 
 
 def parts_of(message: object) -> tuple[Part, ...]:
-    """Telegram 把同一段文本按实体切成多个段，这里按 UTF-16 偏移重新拼回。
-
-    拼回的正文放在单个 ``text`` Part 里，格式信息进 ``meta["entities"]``——
-    否则 bold/italic 里的字会从 ``Envelope.text`` 里消失。
-    文本提及（@用户名）同样只留在 entities 里，没有 id 就不伪造 at 段。
-    """
+    """实体分段按 UTF-16 偏移重拼回单个 text Part，格式进 meta["entities"]，文本提及不伪造 at 段。"""
     if not isinstance(message, Sequence) or isinstance(message, str | bytes):
         return ()
     chunks: list[str] = []
@@ -180,8 +176,16 @@ def _kind(event: object) -> str:
             return UNKNOWN
 
 
-def _scope(event: object) -> Scope:
+def _chat_of(event: object) -> object | None:
+    """回调查询的会话可能只挂在 event.message.chat 上，顶层 chat 为空时回退过去。"""
     chat = getattr(event, "chat", None)
+    if chat is None:
+        chat = getattr(getattr(event, "message", None), "chat", None)
+    return chat
+
+
+def _scope(event: object) -> Scope:
+    chat = _chat_of(event)
     chat_type = _opt_str(chat, "type") if chat is not None else None
     if chat_type is not None and chat_type in CHAT_KINDS:
         thread = _opt_int(event, "message_thread_id")
@@ -211,6 +215,14 @@ def _display_name(user: object) -> str | None:
 
 
 def _actor(event: object) -> Actor:
+    # 频道帖与匿名管理员会同时带 from 与 sender_chat，from 只是代发的占位账号，主体应取 chat
+    sender_chat = getattr(event, "sender_chat", None)
+    if sender_chat is not None:
+        return Actor(
+            platform=TELEGRAM,
+            user_id=str(getattr(sender_chat, "id", "")),
+            nickname=_opt_str(sender_chat, "title"),
+        )
     user = getattr(event, "from_", None)
     if user is not None:
         return Actor(
@@ -218,14 +230,6 @@ def _actor(event: object) -> Actor:
             user_id=str(getattr(user, "id", "")),
             nickname=_display_name(user),
             is_bot=bool(getattr(user, "is_bot", False)),
-        )
-    # 频道帖与匿名管理员由 chat 代发言，主体是频道本身
-    sender_chat = getattr(event, "sender_chat", None)
-    if sender_chat is not None:
-        return Actor(
-            platform=TELEGRAM,
-            user_id=str(getattr(sender_chat, "id", "")),
-            nickname=_opt_str(sender_chat, "title"),
         )
     return Actor(platform=TELEGRAM, user_id="")
 
@@ -250,6 +254,34 @@ def _provenance(event: object) -> Actor | None:
     name = _opt_str(event, "forward_sender_name")
     if name:
         return Actor(platform=TELEGRAM, user_id="", nickname=name)
+    return _origin_provenance(event)
+
+
+def _origin_provenance(event: object) -> Actor | None:
+    """新协议只给 forward_origin，适配器没建字段，只能从原始 update 里取。"""
+    model = getattr(event, "telegram_model", None)
+    message = getattr(model, "message", None)
+    origin = getattr(message, "forward_origin", None)
+    if origin is None:
+        return None
+    sender = getattr(origin, "sender_user", None)
+    if sender is not None:
+        return Actor(
+            platform=TELEGRAM,
+            user_id=str(getattr(sender, "id", "")),
+            nickname=_display_name(sender),
+            is_bot=bool(getattr(sender, "is_bot", False)),
+        )
+    chat = getattr(origin, "sender_chat", None) or getattr(origin, "chat", None)
+    if chat is not None:
+        return Actor(
+            platform=TELEGRAM,
+            user_id=str(getattr(chat, "id", "")),
+            nickname=_opt_str(chat, "title") or _opt_str(chat, "username"),
+        )
+    hidden = _opt_str(origin, "sender_user_name")
+    if hidden:
+        return Actor(platform=TELEGRAM, user_id="", nickname=hidden)
     return None
 
 
@@ -282,9 +314,21 @@ def _permissions(member: object) -> frozenset[str]:
     if status == "restricted":
         if getattr(member, "can_send_messages", False):
             permissions.add(PERM_SEND_MESSAGES)
-        else:
-            permissions.add(PERM_RESTRICTED)
-        if not getattr(member, "is_member", True):
+        # 只放开文字但禁了媒体，同样算受限，逐项看而不是只看 can_send_messages
+        if any(
+            getattr(member, name, True) is False
+            for name in (
+                "can_send_messages",
+                "can_send_audios",
+                "can_send_documents",
+                "can_send_photos",
+                "can_send_videos",
+                "can_send_video_notes",
+                "can_send_voice_notes",
+                "can_send_polls",
+                "can_send_other_messages",
+            )
+        ) or not getattr(member, "is_member", True):
             permissions.add(PERM_RESTRICTED)
     if getattr(member, "can_delete_messages", False) or getattr(
         member, "can_restrict_members", False
@@ -297,6 +341,11 @@ def _permissions(member: object) -> frozenset[str]:
     ):
         permissions.add(PERM_MANAGE_CHAT)
     return frozenset(permissions)
+
+
+def _update_id(event: object) -> int | None:
+    model = getattr(event, "telegram_model", None)
+    return _opt_int(model, "update_id") if model is not None else None
 
 
 def _event_name(event: object) -> str:
@@ -367,7 +416,10 @@ class TelegramPort:
         return TelegramSender(bot, scope)
 
     async def resolve_role(self, bot: Bot, scope: Scope, actor: Actor) -> Actor:
-        if actor.role_known or scope.kind == PRIVATE or not actor.user_id:
+        if actor.role_known or scope.kind != GROUP or not actor.user_id:
+            return actor
+        if actor.user_id == scope.id:
+            # 频道帖 / 匿名管理员的 actor 就是会话本身，get_chat_member 查不了
             return actor
         try:
             user_id = int(actor.user_id)
@@ -402,10 +454,26 @@ class TelegramPort:
             return dedupe_key(TELEGRAM, "msg", scope.id, message_id)
         if kind == EDIT:
             return dedupe_key(
-                TELEGRAM, "edit", scope.id, message_id, _opt_int(event, "edit_date")
+                TELEGRAM,
+                "edit",
+                scope.id,
+                message_id,
+                _opt_int(event, "edit_date"),
+                _update_id(event),
+            )
+        # 回调/内联自带唯一 id；同一秒内的多条更新不能只靠秒级时间戳区分
+        event_id = _opt_str(event, "id")
+        if event_id:
+            return dedupe_key(
+                TELEGRAM, _event_name(event) or "event", scope.id, event_id
             )
         return dedupe_key(
-            TELEGRAM, _event_name(event) or "event", scope.id, ts, actor.user_id
+            TELEGRAM,
+            _event_name(event) or "event",
+            scope.id,
+            _update_id(event),
+            ts,
+            actor.user_id,
         )
 
 

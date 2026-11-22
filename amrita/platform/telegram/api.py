@@ -67,19 +67,22 @@ def load_api() -> TelegramAPI | None:
     global _api, _loaded
     if _loaded:
         return _api
-    _loaded = True
     try:
         module = import_module(f"{ADAPTER_MODULE}.message")
     except ImportError:
+        _loaded = True
         return None
-    _api = TelegramAPI(
+    # 先建好再一起发布，避免并发首调时有人看到"已加载但还没对象"
+    api = TelegramAPI(
         Message=cast(MessageFactory, getattr(module, "Message")),
         Entity=cast(EntityAPI, getattr(module, "Entity")),
         File=cast(FileAPI, getattr(module, "File")),
         UnCombinFile=cast(FileAPI, getattr(module, "UnCombinFile")),
         Reply=cast(ReplyAPI, getattr(module, "Reply")),
     )
-    return _api
+    _api = api
+    _loaded = True
+    return api
 
 
 def chat_id(scope: Scope) -> int | str:

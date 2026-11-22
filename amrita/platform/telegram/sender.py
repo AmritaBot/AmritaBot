@@ -18,7 +18,7 @@ from ..ports import (
     CAP_TYPING,
     BaseSender,
 )
-from .api import Outgoing, chat_id, load_api, thread_id
+from .api import Outgoing, TelegramAPI, chat_id, load_api, thread_id
 
 # 同义归一：photo 与 QQ 的 image 是同一件事；其余保留平台原始类型名
 _MEDIA_KINDS = {
@@ -33,6 +33,8 @@ _MEDIA_KINDS = {
 }
 # 这两类在适配器里必须单独发送，不能和别的段组合
 _UNCOMBINABLE = {"sticker", "video_note"}
+# Telegram 上限 4096 字符，留点余量给换行与实体
+_TEXT_LIMIT = 4000
 
 
 class TelegramBot(Protocol):
@@ -75,6 +77,23 @@ def _part_value(part: Part) -> str:
     return file_id if isinstance(file_id, str) else ""
 
 
+def _chunks(text: str) -> list[str]:
+    """超长正文按段落边界切分，Telegram 单条上限之外的内容不会被静默截断。"""
+    if len(text) <= _TEXT_LIMIT:
+        return [text]
+    chunks: list[str] = []
+    rest = text
+    while len(rest) > _TEXT_LIMIT:
+        cut = rest.rfind("\n", 0, _TEXT_LIMIT)
+        if cut < _TEXT_LIMIT // 2:
+            cut = _TEXT_LIMIT
+        chunks.append(rest[:cut])
+        rest = rest[cut:].lstrip("\n")
+    if rest:
+        chunks.append(rest)
+    return chunks
+
+
 class TelegramSender(BaseSender):
     def __init__(self, bot: Bot, scope: Scope) -> None:
         self._bot = cast(TelegramBot, bot)
@@ -100,12 +119,17 @@ class TelegramSender(BaseSender):
         if api is None:
             # 没装适配器时只可能是外部伪造的 Bot，退化为纯文本直发
             return await self._send_plain(text, thread=thread)
-        segments: list[Outgoing] = []
         reply_id = self._resolve_reply_id((), reply_to)
-        if reply_id is not None:
-            segments.append(api.Reply.reply(reply_id))
-        segments.append(api.Entity.text(text))
-        return await self._send(api.Message(segments), thread=thread)
+        first_id = ""
+        for index, chunk in enumerate(_chunks(text)):
+            segments: list[Outgoing] = []
+            if index == 0 and reply_id is not None:
+                segments.append(api.Reply.reply(reply_id))
+            segments.append(api.Entity.text(chunk))
+            message_id = await self._send(api.Message(segments), thread=thread)
+            if index == 0:
+                first_id = message_id
+        return first_id
 
     async def send_parts(
         self,
@@ -120,30 +144,25 @@ class TelegramSender(BaseSender):
             return await self._send_plain(
                 "".join(p.value for p in parts if p.kind == "text"), thread=thread
             )
-        if not any(part.kind != "reply" for part in parts):
-            return ""  # 只有引用段没有正文，发出去只会被 Telegram 拒
-        segments: list[Outgoing] = []
         reply_id = self._resolve_reply_id(parts, reply_to)
-        if reply_id is not None:
-            segments.append(api.Reply.reply(reply_id))
-        for part in parts:
-            match part.kind:
-                case "text":
-                    segments.append(api.Entity.text(part.value))
-                case "reply":
-                    continue  # 引用已在上面统一处理，避免重复 ReplyParameters
-                case "at":
-                    # Telegram 的 @ 只能按 username 文本发送，没有按 id 寻址的能力
-                    segments.append(api.Entity.text(f"@{part.value} "))
-                case _ if part.kind in _MEDIA_KINDS:
-                    seg_type = _MEDIA_KINDS[part.kind]
-                    factory = (
-                        api.UnCombinFile if part.kind in _UNCOMBINABLE else api.File
-                    )
-                    segments.append(factory(seg_type, {"file": _part_value(part)}))
-                case _:
-                    segments.append(api.Entity.text(part.value))
-        return await self._send(api.Message(segments), thread=thread)
+        groups = self._group_parts(parts)
+        if not groups:
+            return ""  # 只有引用段没有正文，发出去只会被 Telegram 拒
+        first_id = ""
+        for index, group in enumerate(groups):
+            segments: list[Outgoing] = []
+            if index == 0 and reply_id is not None:
+                segments.append(api.Reply.reply(reply_id))
+            for part in group:
+                segment = self._segment(part, api)
+                if segment is not None:
+                    segments.append(segment)
+            if not segments:
+                continue
+            message_id = await self._send(api.Message(segments), thread=thread)
+            if index == 0:
+                first_id = message_id
+        return first_id
 
     async def recall(self, message_id: str) -> bool:
         if not self.supports(CAP_RECALL):
@@ -162,11 +181,10 @@ class TelegramSender(BaseSender):
         if any(part.kind not in {"text", "reply", "at"} for part in parts):
             # 带媒体只能走 edit_message_caption，两个 API 的语义不同，不混着猜
             return False
-        text = "".join(
-            f"@{part.value} " if part.kind == "at" else part.value
-            for part in parts
-            if part.kind in {"text", "at"}
-        )
+        text = "".join(part.value for part in parts if part.kind == "text")
+        if len(text) > _TEXT_LIMIT:
+            # 编辑只能原地替换，拆条会变成新消息，不如如实失败让调用方改走发送
+            return False
         try:
             await self._bot.edit_message_text(
                 text=text, chat_id=chat_id(self.scope), message_id=int(message_id)
@@ -187,6 +205,54 @@ class TelegramSender(BaseSender):
         except Exception:  # 输入指示失败不值得打断主链路
             return
 
+    def _segment(self, part: Part, tg: TelegramAPI) -> Outgoing | None:
+        match part.kind:
+            case "text":
+                return tg.Entity.text(part.value)
+            case "reply":
+                return None  # 引用已统一处理，避免重复 ReplyParameters
+            case "at":
+                # Telegram 只能按 username 提及；裸数字 id 发出去就是假 @，直接不生成
+                return (
+                    None if part.value.isdigit() else tg.Entity.text(f"@{part.value} ")
+                )
+            case _ if part.kind in _MEDIA_KINDS:
+                seg_type = _MEDIA_KINDS[part.kind]
+                factory = tg.UnCombinFile if part.kind in _UNCOMBINABLE else tg.File
+                return factory(seg_type, {"file": _part_value(part)})
+            case _:
+                return tg.Entity.text(part.value)
+
+    def _group_parts(self, parts: Sequence[Part]) -> list[list[Part]]:
+        """把 parts 切成若干条可发送的消息，贴纸/视频留言与超长文本各自成条。"""
+        groups: list[list[Part]] = []
+        current: list[Part] = []
+        budget = _TEXT_LIMIT
+        for part in parts:
+            if part.kind == "reply":
+                continue
+            if part.kind in _UNCOMBINABLE:
+                if current:
+                    groups.append(current)
+                    current = []
+                    budget = _TEXT_LIMIT
+                groups.append([part])
+                continue
+            if part.kind != "text":
+                current.append(part)
+                continue
+            for chunk in _chunks(part.value):
+                if len(chunk) > budget:
+                    if current:
+                        groups.append(current)
+                    current = []
+                    budget = _TEXT_LIMIT
+                current.append(Part(kind="text", value=chunk))
+                budget -= len(chunk)
+        if current:
+            groups.append(current)
+        return groups
+
     def _resolve_reply_id(
         self, parts: Sequence[Part], reply_to: str | None
     ) -> int | None:
@@ -206,6 +272,7 @@ class TelegramSender(BaseSender):
             return None
 
     async def _send(self, message: Outgoing, *, thread: str | None) -> str:
+        """相册会返回多条消息 id，契约只带得回第一条，其余不跟踪。"""
         resp = await self._bot.send_to(
             chat_id(self.scope),
             message,
@@ -216,12 +283,16 @@ class TelegramSender(BaseSender):
         return str(getattr(resp, "message_id", "") or "")
 
     async def _send_plain(self, text: str, *, thread: str | None) -> str:
-        resp = await self._bot.send_message(
-            chat_id=chat_id(self.scope),
-            text=text,
-            message_thread_id=thread_id(self.scope, thread),
-        )
-        return str(getattr(resp, "message_id", "") or "")
+        first_id = ""
+        for index, chunk in enumerate(_chunks(text)):
+            resp = await self._bot.send_message(
+                chat_id=chat_id(self.scope),
+                text=chunk,
+                message_thread_id=thread_id(self.scope, thread),
+            )
+            if index == 0:
+                first_id = str(getattr(resp, "message_id", "") or "")
+        return first_id
 
 
 __all__ = ["TelegramBot", "TelegramSender"]

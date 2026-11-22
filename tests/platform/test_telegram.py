@@ -148,7 +148,8 @@ def test_edited_message_keeps_message_id_and_marks_edit_time():
     assert env.kind == EDIT
     assert env.message_id == "10"
     assert env.edited_ts == 1700000600.0
-    assert env.dedupe_key.endswith(":10:1700000600")
+    # 编辑时间只有秒级精度，再带上 update_id 才能区分同一秒内的两次编辑
+    assert env.dedupe_key == f"telegram:edit:{TELEGRAM_ROOT}:10:1700000600:103"
 
 
 def test_callback_query_is_action_not_message():
@@ -316,11 +317,13 @@ def test_registry_separates_platforms():
 class _FakeTgBot:
     def __init__(self) -> None:
         self.calls: list[tuple[str, dict]] = []
+        self.messages: list[object] = []
 
     async def send_to(self, chat_id, message, message_thread_id=None):
         self.calls.append(
             ("send_to", {"chat_id": chat_id, "thread": message_thread_id})
         )
+        self.messages.append(message)
         self.last_message = message
         return SimpleNamespace(message_id=4321)
 
@@ -563,3 +566,182 @@ def test_channel_uni_id_roundtrip():
     scope = identity.parse_uni_id("TelegramPlatform_Channel_-1007")
     assert scope is not None
     assert (scope.platform, scope.kind, scope.id) == ("telegram", CHANNEL, "-1007")
+
+
+def test_callback_scope_falls_back_to_message_chat():
+    env = TelegramPort().to_envelope(
+        _event(
+            {
+                "update_id": 107,
+                "callback_query": {
+                    "id": "cb2",
+                    "from": {"id": 9, "is_bot": False, "first_name": "C"},
+                    "chat_instance": "x",
+                    "data": "btn2",
+                    "message": {
+                        "message_id": 31,
+                        "date": 1700000700,
+                        "chat": {"id": -1008, "type": "supergroup", "title": "G"},
+                        "text": "带按钮的消息",
+                    },
+                },
+            }
+        )
+    )
+
+    # 顶层没有 chat，但按钮挂在群里，回复必须回到群里而不是发起人私聊
+    assert env.scope.kind == GROUP
+    assert env.scope.id == "-1008"
+
+
+def test_sender_chat_wins_over_placeholder_from_user():
+    env = TelegramPort().to_envelope(
+        _event(
+            {
+                "update_id": 108,
+                "message": {
+                    "message_id": 32,
+                    "date": 1700000800,
+                    "chat": {"id": -1008, "type": "supergroup", "title": "G"},
+                    "from": {"id": 1087968824, "is_bot": True, "first_name": "Group"},
+                    "sender_chat": {"id": -1008, "type": "supergroup", "title": "G"},
+                    "text": "匿名管理员发言",
+                },
+            }
+        )
+    )
+
+    # 匿名管理员会带一个代发账号，主体应该是群本身
+    assert env.actor.user_id == "-1008"
+    assert env.actor.nickname == "G"
+
+
+def test_forward_origin_is_read_from_raw_update():
+    env = TelegramPort().to_envelope(
+        _event(
+            {
+                "update_id": 109,
+                "message": {
+                    "message_id": 33,
+                    "date": 1700000900,
+                    "chat": {"id": int(TELEGRAM_ROOT), "type": "supergroup"},
+                    "from": {"id": 6, "is_bot": False, "first_name": "F"},
+                    "text": "转发的",
+                    "forward_origin": {
+                        "type": "user",
+                        "date": 1700000000,
+                        "sender_user": {
+                            "id": 4242,
+                            "is_bot": False,
+                            "first_name": "Orig",
+                        },
+                    },
+                },
+            }
+        )
+    )
+
+    assert env.provenance is not None
+    assert env.provenance.user_id == "4242"
+    assert env.provenance.nickname == "Orig"
+
+
+def test_callback_dedupe_keys_are_distinct():
+    port = TelegramPort()
+
+    def _cb(cb_id: str, update_id: int) -> object:
+        return _event(
+            {
+                "update_id": update_id,
+                "callback_query": {
+                    "id": cb_id,
+                    "from": {"id": 9, "is_bot": False, "first_name": "C"},
+                    "chat_instance": "x",
+                    "data": "btn",
+                },
+            }
+        )
+
+    first = port.to_envelope(_cb("cb-a", 110))
+    second = port.to_envelope(_cb("cb-b", 111))
+    # 同一个用户同一秒点了两次同样的按钮，仍然要算两条事件
+    assert first.dedupe_key != second.dedupe_key
+
+
+def test_restricted_media_permission_marks_restricted():
+    pytest.importorskip("nonebot.adapters.telegram")
+    bot = _FakeTgBot()
+    bot.member = SimpleNamespace(
+        status="restricted",
+        is_member=True,
+        can_send_messages=True,
+        can_send_photos=False,
+        can_send_audios=True,
+        can_send_documents=True,
+        can_send_videos=True,
+        can_send_video_notes=True,
+        can_send_voice_notes=True,
+        can_send_polls=True,
+        can_send_other_messages=True,
+        can_delete_messages=False,
+    )
+    scope = Scope(platform="telegram", kind=GROUP, id=TELEGRAM_ROOT)
+
+    actor = asyncio.run(
+        TelegramPort().resolve_role(cast(Bot, bot), scope, _role_actor())
+    )
+    assert "send_messages" in actor.permissions
+    # 能发文字但发不了图，同样算受限
+    assert "restricted" in actor.permissions
+
+
+def test_long_text_is_split_into_multiple_messages():
+    pytest.importorskip("nonebot.adapters.telegram")
+    scope = Scope(platform="telegram", kind=GROUP, id=TELEGRAM_ROOT)
+    _, bot, sender = _sender(scope)
+    long_text = "\n".join("行" * 120 for _ in range(60))
+
+    async def run() -> str:
+        return await sender.send_text(long_text, reply_to="54")
+
+    assert asyncio.run(run()) == "4321"
+    sends = [call for call in bot.calls if call[0] == "send_to"]
+    assert len(sends) > 1
+    # 引用只挂在第一条，后续分片不能重复回复同一条消息
+    first_segments = [(seg.type, seg.data) for seg in bot.messages[0]]
+    assert first_segments[0][0] == "reply"
+    rest_segments = [(seg.type, seg.data) for seg in bot.messages[1]]
+    assert rest_segments[0][0] == "text"
+
+
+def test_sticker_is_sent_in_its_own_message():
+    pytest.importorskip("nonebot.adapters.telegram")
+    scope = Scope(platform="telegram", kind=GROUP, id=TELEGRAM_ROOT)
+    _, bot, sender = _sender(scope)
+
+    async def run() -> str:
+        return await sender.send_parts(
+            [Part(kind="text", value="贴纸来了"), Part(kind="sticker", value="STK")]
+        )
+
+    asyncio.run(run())
+    sends = [call for call in bot.calls if call[0] == "send_to"]
+    assert len(sends) == 2
+    assert [seg.type for seg in bot.messages[0]] == ["text"]
+    assert [seg.type for seg in bot.messages[1]] == ["sticker"]
+
+
+def test_numeric_mention_is_not_faked():
+    pytest.importorskip("nonebot.adapters.telegram")
+    scope = Scope(platform="telegram", kind=GROUP, id=TELEGRAM_ROOT)
+    _, bot, sender = _sender(scope)
+
+    async def run() -> str:
+        return await sender.send_parts(
+            [Part(kind="text", value="hi "), Part(kind="at", value="888")]
+        )
+
+    asyncio.run(run())
+    segments = [(seg.type, seg.data) for seg in bot.messages[0]]
+    # 没有 username 就发不出真正的提及，宁可丢掉也不发假 @888
+    assert segments == [("text", {"text": "hi "})]

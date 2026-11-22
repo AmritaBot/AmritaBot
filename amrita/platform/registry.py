@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from nonebot.adapters import Bot
+from nonebot.log import logger
 from pydantic import BaseModel
 
 from .ports import PlatformPort
@@ -59,6 +60,13 @@ def _safe_match(port: PlatformPort, raw_event: BaseModel, bot: Bot | None) -> bo
         return port.match(raw_event, bot)
     except Exception:
         return False
+
+
+def log_import_failure(error: BaseException) -> None:
+    """平台实现导入失败只降级不致命，缺哪个平台从这里看。"""
+    logger.opt(exception=error).warning(
+        f"platform implementation import failed: {type(error).__name__}"
+    )
 
 
 def clear() -> None:

@@ -6,10 +6,10 @@ from datetime import datetime
 from io import BytesIO
 
 import psutil
-from nonebot import on_command
-from nonebot.adapters.onebot.v11 import Bot, MessageSegment
-from nonebot.matcher import Matcher
+from arclet.alconna import Alconna
+from nonebot.adapters import Bot
 from nonebot.permission import Permission
+from nonebot_plugin_alconna import UniMessage, on_alconna
 from PIL import Image, ImageDraw, ImageFont
 
 from amrita.config import get_amrita_config
@@ -156,19 +156,23 @@ def create_system_info_image(system_info: list[str]):
     return image
 
 
-@on_command(
-    "status",
-    state=MatcherData(
+status_cmd = on_alconna(
+    Alconna("status"),
+    default_state=MatcherData(
         description="查看系统状态",
         name="查看系统状态",
         usage="/status",
         show_if="amrita.status",
     ).model_dump(),
     permission=Permission(any_has_permission("amrita.status"), is_lp_admin),
-).handle()
-async def _(matcher: Matcher, bot: Bot):
+)
+
+
+@status_cmd.handle()
+async def _(bot: Bot):
     img = create_system_info_image(await generate_info(bot=bot))
     btio = BytesIO()
     btio.seek(0)
     img.save(btio, format="png")
-    await matcher.finish(MessageSegment.image(btio))
+    # UniMessage 由 alconna 按当前适配器转成平台消息，不再绑定 onebot 的消息段
+    await status_cmd.finish(UniMessage.image(raw=btio))

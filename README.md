@@ -65,10 +65,11 @@ uv add amrita
 
 ### 可选平台实现
 
-Milky 协议适配器是可选依赖，按需安装（未安装时仅 OneBot 可用）：
+Milky 与 Telegram 适配器是可选依赖，按需安装（未安装时对应平台只是不注册发送实现，不影响启动）：
 
 ```bash
 uv add "amrita[milky]"
+uv add "amrita[telegram]"
 ```
 
 ## ⚙️ 环境变量参考

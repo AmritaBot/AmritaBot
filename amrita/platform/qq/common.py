@@ -5,18 +5,18 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Protocol, runtime_checkable
 
-from ..dto import (
-    GROUP,
-    PRIVATE,
-    ROLE_ADMIN,
-    ROLE_MEMBER,
-    ROLE_OWNER,
-    ROLE_SYSTEM,
-    MetaScalar,
-    MetaValue,
-    Part,
-    Scope,
-)
+from ..common import dedupe_key, normalize_role
+from ..dto import GROUP, PRIVATE, MetaValue, Part, Scope
+
+__all__ = [
+    "QQ",
+    "SegmentLike",
+    "dedupe_key",
+    "normalize_role",
+    "scope_for",
+    "segment_to_part",
+    "segments_to_parts",
+]
 
 QQ = "qq"
 
@@ -57,21 +57,6 @@ _SEGMENT_VALUE_KEYS: dict[str, tuple[str, ...]] = {
 }
 
 
-def normalize_role(role: str | None) -> str:
-    """平台角色字面量 → 统一角色，未知一律降级为 member。"""
-    if not isinstance(role, str):
-        return ROLE_MEMBER
-    match role.lower():
-        case "owner" | "creator":
-            return ROLE_OWNER
-        case "admin" | "administrator":
-            return ROLE_ADMIN
-        case "system" | "bot":
-            return ROLE_SYSTEM
-        case _:
-            return ROLE_MEMBER
-
-
 def segment_to_part(segment: SegmentLike) -> Part:
     """适配器消息段 → Part。只读 ``.type`` 与 ``.data``，不 import 具体类。"""
     seg_type = str(segment.type)
@@ -101,11 +86,6 @@ def segments_to_parts(segments: Iterable[SegmentLike] | None) -> tuple[Part, ...
     if not segments:
         return ()
     return tuple(segment_to_part(segment) for segment in segments)
-
-
-def dedupe_key(platform: str, kind: str, *pieces: MetaScalar) -> str:
-    body = ":".join("" if piece is None else str(piece) for piece in pieces)
-    return f"{platform}:{kind}:{body}"
 
 
 def scope_for(

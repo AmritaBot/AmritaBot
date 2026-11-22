@@ -1,4 +1,4 @@
-"""平台抽象层：业务层只从这里取 DTO 与端口，具体实现留在 qq/ 内。"""
+"""平台抽象层：业务层只从这里取 DTO 与端口，具体实现留在各平台子包内。"""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ from . import (
     ingress,  # noqa: F401  导入即注册 event_preprocessor
     qq,  # noqa: F401  导入即注册 QQ 平台的适配器实现
     registry,
+    telegram,  # noqa: F401  导入即注册 Telegram 平台的适配器实现
 )
 from .di import EnvelopeNBDep
 from .dto import (

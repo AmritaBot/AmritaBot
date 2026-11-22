@@ -54,7 +54,6 @@ class TelegramAPI:
     Message: MessageFactory
     Entity: EntityAPI
     File: FileAPI
-    UnCombinFile: FileAPI
     Reply: ReplyAPI
 
 
@@ -77,7 +76,6 @@ def load_api() -> TelegramAPI | None:
         Message=cast(MessageFactory, getattr(module, "Message")),
         Entity=cast(EntityAPI, getattr(module, "Entity")),
         File=cast(FileAPI, getattr(module, "File")),
-        UnCombinFile=cast(FileAPI, getattr(module, "UnCombinFile")),
         Reply=cast(ReplyAPI, getattr(module, "Reply")),
     )
     _api = api

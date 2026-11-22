@@ -217,9 +217,9 @@ class TelegramSender(BaseSender):
                     None if part.value.isdigit() else tg.Entity.text(f"@{part.value} ")
                 )
             case _ if part.kind in _MEDIA_KINDS:
-                seg_type = _MEDIA_KINDS[part.kind]
-                factory = tg.UnCombinFile if part.kind in _UNCOMBINABLE else tg.File
-                return factory(seg_type, {"file": _part_value(part)})
+                # 一律用 File：UnCombinFile 走 adapter 的 others 分支会把参数名写成 file，
+                # Telegram 只认 sticker=/video_note=，单独成条由 _group_parts 保证
+                return tg.File(_MEDIA_KINDS[part.kind], {"file": _part_value(part)})
             case _:
                 return tg.Entity.text(part.value)
 

@@ -1,13 +1,8 @@
-"""平台抽象层：业务层只从这里取 DTO 与端口，具体实现留在 qq/ 内。"""
+"""平台抽象层：业务层只从这里取 DTO 与端口，实现放在 impl 命名空间里按需加载。"""
 
 from __future__ import annotations
 
-from . import (
-    identity,
-    ingress,  # noqa: F401  导入即注册 event_preprocessor
-    qq,  # noqa: F401  导入即注册 QQ 平台的适配器实现
-    registry,
-)
+from . import identity, ingress, registry
 from .di import EnvelopeNBDep
 from .dto import (
     GROUP,
@@ -26,6 +21,7 @@ from .dto import (
     Part,
     Scope,
 )
+from .loader import load_ports
 
 __all__ = [
     "GROUP",
@@ -45,5 +41,7 @@ __all__ = [
     "Part",
     "Scope",
     "identity",
+    "ingress",
+    "load_ports",
     "registry",
 ]

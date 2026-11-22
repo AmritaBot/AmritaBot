@@ -16,8 +16,8 @@ from nonebot.adapters.onebot.v11.message import Message, MessageSegment
 
 from amrita.platform import identity, registry
 from amrita.platform.dto import GROUP, MESSAGE, PRIVATE, UNKNOWN
-from amrita.platform.qq.milky import MilkyPort
-from amrita.platform.qq.onebot import OneBotPort
+from amrita.platform.impl.qq.milky import MilkyPort
+from amrita.platform.impl.qq.onebot import OneBotPort
 
 
 def make_onebot_group_event() -> GroupMessageEvent:
@@ -329,8 +329,8 @@ def test_envelope_from_non_strict_returns_none():
 
 def test_sender_of_picks_implementation_by_adapter():
     from amrita.platform import shim
-    from amrita.platform.qq.milky import MilkySender
-    from amrita.platform.qq.onebot import OneBotSender
+    from amrita.platform.impl.qq.milky import MilkySender
+    from amrita.platform.impl.qq.onebot import OneBotSender
 
     onebot_env = shim.envelope_from(make_onebot_group_event())
     milky_env = shim.envelope_from(MilkyGroupEvent())
@@ -410,9 +410,9 @@ def test_thread_uni_id_is_opt_in():
 
 
 def test_senders_satisfy_protocol():
+    from amrita.platform.impl.qq.milky import MilkyPort
+    from amrita.platform.impl.qq.onebot import OneBotPort
     from amrita.platform.ports import Sender
-    from amrita.platform.qq.milky import MilkyPort
-    from amrita.platform.qq.onebot import OneBotPort
 
     env = OneBotPort().to_envelope(make_onebot_group_event())
     onebot_sender = OneBotPort().sender(FakeOneBotBot(), env.scope)

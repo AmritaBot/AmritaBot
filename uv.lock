@@ -292,6 +292,9 @@ dependencies = [
 milky = [
     { name = "nonebot-adapter-milky" },
 ]
+telegram = [
+    { name = "nonebot-adapter-telegram" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -322,6 +325,7 @@ requires-dist = [
     { name = "nb-cli", specifier = ">=1.6.0" },
     { name = "nonebot-adapter-milky", marker = "extra == 'milky'", specifier = ">=1.3.0" },
     { name = "nonebot-adapter-onebot", specifier = ">=2.4.6" },
+    { name = "nonebot-adapter-telegram", marker = "extra == 'telegram'", specifier = ">=0.1.0b21" },
     { name = "nonebot-plugin-alconna", specifier = ">=0.62.1,<1.0.0" },
     { name = "nonebot-plugin-amrita", specifier = ">=0.5.1" },
     { name = "nonebot-plugin-orm", specifier = ">=0.8.3" },
@@ -340,7 +344,7 @@ requires-dist = [
     { name = "watchfiles", specifier = ">=1.1.1" },
     { name = "zipp", specifier = ">=3.23.0" },
 ]
-provides-extras = ["milky"]
+provides-extras = ["milky", "telegram"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1928,6 +1932,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/11/97/504e898471c2ba18a5c0f8db99ed81e755f6b3cbf647ce804485d8b8f77e/nonebot_adapter_onebot-2.4.6.tar.gz", hash = "sha256:e33c93649ad11b320d8e9ff213635f29b23b4d0413c9158bd031c513c2f8f701", size = 40107, upload-time = "2024-10-24T07:34:57.623Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/60/a8/219fb6327b3395b9b05d2e46383795825d079d1c024660304037d3dc0448/nonebot_adapter_onebot-2.4.6-py3-none-any.whl", hash = "sha256:b1ec7023fd83d731f63b513217327a57d12893a261944934b9195f79173791ad", size = 49626, upload-time = "2024-10-24T07:34:56.115Z" },
+]
+
+[[package]]
+name = "nonebot-adapter-telegram"
+version = "0.1.0b21"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "nonebot2" },
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4e/2b/203239e7eabe63bccc985cf3ebcbd4795dc74e566293bf761b6f7507bda2/nonebot_adapter_telegram-0.1.0b21.tar.gz", hash = "sha256:6ca5d6e3d55a07942a435f980316b8c7dd9720e44b090ab4a21c645e83b9950a", size = 30197, upload-time = "2026-11-03T17:44:19.879Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7c/5a/a12aa43f5f238e644b68ebc1d500b4bf19446b9c726fb1caf4802f13ccc0/nonebot_adapter_telegram-0.1.0b21-py3-none-any.whl", hash = "sha256:5737a64fdc31a61fb0723dd233fc00bfa45b3594845875d523d16ed302d49d41", size = 30555, upload-time = "2026-11-03T17:35:56.614Z" },
 ]
 
 [[package]]

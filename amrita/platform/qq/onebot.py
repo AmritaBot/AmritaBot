@@ -1,7 +1,4 @@
-"""OneBot v11 适配：把 nonebot.adapters.onebot.v11 的事件收敛成 Envelope。
-
-这是业务层之外唯一允许出现 onebot 具体类的地方（另一个是 milky.py）。
-"""
+"""OneBot v11 实现：把 onebot 事件收敛成 Envelope。"""
 
 from __future__ import annotations
 
@@ -176,6 +173,12 @@ class OneBotPort:
             message_id=(
                 str(event.message_id) if isinstance(event, OneBotMessageEvent) else ""
             ),
+            reply_to=(
+                str(event.reply.message_id)
+                if isinstance(event, OneBotMessageEvent) and event.reply
+                else None
+            ),
+            self_id=str(event.self_id),
             raw=event,
             adapter=self.adapter,
         )
@@ -224,12 +227,14 @@ class OneBotPort:
             elif isinstance(name, str):
                 nickname = name
             role = getattr(sender, "role", None)
+        user_id = event.get_user_id()
         return Actor(
             platform=QQ,
-            user_id=event.get_user_id(),
+            user_id=user_id,
             nickname=nickname,
             role=normalize_role(role if isinstance(role, str) else None),
             role_known=isinstance(role, str),
+            is_bot=user_id == str(event.self_id),
         )
 
     @staticmethod

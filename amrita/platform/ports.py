@@ -1,10 +1,4 @@
-"""平台能力与出站端口。
-
-业务层通过 :class:`Sender` 发送消息，通过 :class:`PlatformPort` 做入站归一化；
-两者都不暴露适配器私有对象。
-
-能力表存在的意义是把"有损"如实告知调用方：不在表里的能力，调用即编码错误。
-"""
+"""出站与入站端口：Sender / PlatformPort，能力表如实声明平台能做什么。"""
 
 from __future__ import annotations
 

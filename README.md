@@ -69,8 +69,6 @@ Milky 协议适配器是可选依赖，按需安装（未安装时仅 OneBot 可
 
 ```bash
 uv add "amrita[milky]"
-# 或
-pip install "amrita[milky]"
 ```
 
 ## ⚙️ 环境变量参考

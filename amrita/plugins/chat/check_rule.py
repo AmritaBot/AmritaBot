@@ -68,7 +68,7 @@ async def is_bot_globally_enabled(env: EnvelopeNBDep) -> bool:
 async def is_bot_enabled(env: EnvelopeNBDep) -> bool:
     if not await is_bot_globally_enabled(env):
         return False
-    if env.is_group:
+    if env.scope.kind == "group" and env.scope.id.isdigit():
         data = await get_group_config(int(env.scope.id))
         return data.enable
     return True

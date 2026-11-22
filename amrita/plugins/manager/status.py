@@ -7,7 +7,7 @@ from io import BytesIO
 
 import psutil
 from arclet.alconna import Alconna
-from nonebot.adapters.onebot.v11 import Bot
+from nonebot.adapters import Bot
 from nonebot.permission import Permission
 from nonebot_plugin_alconna import UniMessage, on_alconna
 from PIL import Image, ImageDraw, ImageFont

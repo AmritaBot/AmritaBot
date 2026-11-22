@@ -1,13 +1,10 @@
-"""platform 抽象层。
-
-业务层（plugins/*）只允许从这里取 :mod:`dto`、:mod:`ports`、:mod:`registry`、:mod:`identity`，
-具体适配器实现只在 ``amrita/platform/qq/`` 内部出现。
-"""
+"""平台抽象层：业务层只从这里取 DTO 与端口，具体实现留在 qq/ 内。"""
 
 from __future__ import annotations
 
 from . import (
     identity,
+    ingress,  # noqa: F401  导入即注册 event_preprocessor
     qq,  # noqa: F401  导入即注册 QQ 平台的适配器实现
     registry,
 )

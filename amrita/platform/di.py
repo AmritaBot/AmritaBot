@@ -1,15 +1,4 @@
-"""依赖注入入口：仅面向 agent 系统之外的 nonebot matcher。
-
-内部分工（见 REFACTOR.md 第 16 节）：
-
-* agent 系统外：``@on_command`` / ``@on_message`` 这类 nonebot matcher，
-  用 :data:`EnvelopeNBDep` 声明参数，或手动 ``envelope_from(event, bot)``；
-* agent 系统内：只有 :class:`Envelope` 这一种数据类型，**不走 DI**，
-  也不出现 nonebot 事件类型；需要时从上下文取 :func:`current_envelope`。
-
-刻意不提供 AmritaSense 版的 ``Depends``：Sense 属于 agent 内部管线，
-在内部再做一次"事件 → Envelope"的转换等于把边界向内挪，两套转换迟早不一致。
-"""
+"""依赖注入入口：仅面向 nonebot 原生 matcher。"""
 
 from __future__ import annotations
 

@@ -1,17 +1,4 @@
-"""入站事件的转换入口（迁移期 shim）。
-
-用法分两种，对应边界的两侧：
-
-1. **系统外**（nonebot matcher / 插件入口）：``envelope_from(event, bot)``
-   拿到归一化对象，再传给内部函数；
-2. **系统内**：只接收 :class:`Envelope`，需要当前事件时读 ``current_envelope()``。
-
-自动入口是 :mod:`amrita.platform.ingress`（``event_preprocessor``）；
-这里只保留手动调用与上下文读写。
-
-约定：转换失败（未注册的适配器）不抛异常打断消息流水线，
-``envelope_from(..., strict=False)`` 返回 ``None``，由调用方决定降级方式。
-"""
+"""手动转换入口与当前事件上下文。"""
 
 from __future__ import annotations
 

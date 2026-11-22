@@ -1,13 +1,4 @@
-"""Milky 适配：不 hard-import nonebot.adapters.milky。
-
-原因有两条：
-
-1. adapter-milky 只是可选依赖，没装的时候框架也要能起来；
-2. 事件形状是稳定的（``data.message_scene`` / ``data.peer_id`` / ``data.sender_id``），
-   按形状判断比按类名判断更抗版本变化。
-
-消息段构造是唯一需要具体类的地方，延迟到发送时才 import；类型用 Protocol 描述。
-"""
+"""Milky 实现：按形状识别事件，消息段构造延迟 import。"""
 
 from __future__ import annotations
 
@@ -44,9 +35,6 @@ _ADAPTER_MODULE = "nonebot.adapters.milky"
 _MESSAGE_SCENES = {"friend", "group", "temp"}
 
 
-# ------------------------------------------------------------------ 出站协议
-
-
 class _MilkyOutgoing(Protocol):
     def to_elements(self) -> list[dict[str, MetaValue]]: ...
 
@@ -57,6 +45,9 @@ class _MilkyFragments(Protocol):
 
     @staticmethod
     def mention(user_id: int) -> _MilkyOutgoing: ...
+
+    @staticmethod
+    def mention_all() -> _MilkyOutgoing: ...
 
     @staticmethod
     def reply(message_seq: int) -> _MilkyOutgoing: ...
@@ -107,9 +98,6 @@ def _load_factories() -> tuple[_MilkyMessageFactory, _MilkyFragments] | None:
     message = cast(_MilkyMessageFactory, getattr(module, "Message"))
     fragments = cast(_MilkyFragments, getattr(module, "MessageSegment"))
     return message, fragments
-
-
-# ------------------------------------------------------------------ 形状读取
 
 
 def _opt_str(obj: BaseModel, name: str) -> str | None:
@@ -222,6 +210,8 @@ class MilkySender(BaseSender):
                     segments.append(fragments.text(part.value))
                 case "image" if self.supports(CAP_IMAGE):
                     segments.append(fragments.image(part.value))
+                case "at" if self.supports(CAP_AT) and part.value == "all":
+                    segments.append(fragments.mention_all())
                 case "at" if self.supports(CAP_AT):
                     segments.append(fragments.mention(int(part.value)))
                 case "at":
@@ -284,6 +274,8 @@ class MilkyPort:
             ts=float(_opt_int(raw_event, "time") or 0),
             dedupe_key=self._dedupe(raw_event, kind, scope, actor),
             message_id=_message_id(raw_event) if kind == MESSAGE else "",
+            reply_to=_reply_to(raw_event) if kind == MESSAGE else None,
+            self_id=str(_opt_int(raw_event, "self_id") or ""),
             raw=raw_event,
             adapter=self.adapter,
         )
@@ -332,12 +324,14 @@ class MilkyPort:
     def _actor(raw_event: BaseModel, data: BaseModel | None) -> Actor:
         nickname = _opt_str(data, "sender_name") if data is not None else None
         role = _opt_str(data, "role") if data is not None else None
+        user_id = _user_id(raw_event, data)
         return Actor(
             platform=QQ,
-            user_id=_user_id(raw_event, data),
+            user_id=user_id,
             nickname=nickname,
             role=normalize_role(role),
             role_known=role is not None,
+            is_bot=user_id == str(_opt_int(raw_event, "self_id") or ""),
         )
 
     @staticmethod
@@ -379,6 +373,17 @@ class MilkyPort:
             actor.user_id,
             _opt_int(raw_event, "time"),
         )
+
+
+def _reply_to(raw_event: BaseModel) -> str | None:
+    reply = getattr(raw_event, "reply", None)
+    if reply is None:
+        return None
+    data = getattr(reply, "data", None)
+    if data is None:
+        return None
+    value = _opt_int(data, "message_seq")
+    return str(value) if value is not None else None
 
 
 def _message_id(raw_event: BaseModel) -> str:

@@ -1,15 +1,4 @@
-"""入站唯一转换点：在 nonebot 的事件预处理阶段把事件归一化并绑定。
-
-分工（见 REFACTOR.md 第 16 节）：
-
-* **agent 系统外**（nonebot matcher、插件入口）：拿到的是 nonebot 事件，
-  通过这个预处理钩子或手动调用 :func:`envelope_from` 换得归一化对象；
-* **agent 系统内**：只允许出现 :class:`Envelope`，不允许出现 nonebot 事件类型，
-  也不允许走 Sense 的事件管线做二次转换。
-
-放在 ``event_preprocessor`` 而不是各插件入口，是为了保证一次事件只转换一次，
-并且早于所有 matcher / Sense 管线执行。
-"""
+"""入站唯一转换点：event_preprocessor 阶段归一化并绑定上下文。"""
 
 from __future__ import annotations
 

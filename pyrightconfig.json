@@ -1,0 +1,6 @@
+{
+  "include": ["amrita"],
+  "exclude": ["**/__pycache__", "**/node_modules", "frontend", "tests"],
+  "venvPath": ".",
+  "venv": ".venv"
+}

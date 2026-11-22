@@ -1,16 +1,4 @@
-"""平台无关的数据传输对象（DTO）。
-
-业务层只允许依赖本模块与 :mod:`amrita.platform.ports`，不允许 import 任何具体适配器。
-所有对象 frozen + slots，可直接序列化进日志、推送或数据库。
-
-设计口径（见 REFACTOR.md 第 5、13 节）：
-
-* platform 层只保证**收发**与**鉴权**，其余语义下放给特化插件；
-* 转换必定有损，所以 ``raw`` 完整保留，作为逃生口；
-* 消息体不按用途合并，适配器下发什么就下发什么。
-
-字段全部带默认值，新增字段只增不改（加字段不算破坏）。
-"""
+"""平台无关的数据结构：Scope / Actor / Part / Envelope。"""
 
 from __future__ import annotations
 

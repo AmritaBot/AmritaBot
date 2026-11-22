@@ -1,9 +1,4 @@
-"""platform → 实现的注册表。
-
-匹配顺序即注册顺序；QQ 平台下 onebot 与 milky 同时注册，先注册者先匹配，
-因此 ``onebot.py`` 的 ``match`` 必须足够严格（只看 onebot 特征），
-而 ``milky.py`` 可以宽松一些。
-"""
+"""platform 到实现的注册表：按注册顺序探测事件归属。"""
 
 from __future__ import annotations
 

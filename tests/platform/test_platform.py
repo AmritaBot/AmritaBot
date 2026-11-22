@@ -1,11 +1,4 @@
-"""platform 抽象层的验收测试。
-
-覆盖三件事：
-
-1. 两个适配器的入站事件都能归一化成同一套 Envelope 字段；
-2. uni_id 与 ``amrita.plugins.chat.utils.sql.make_uni_id`` 的格式逐字节一致；
-3. 出站 Sender 只暴露能力，不泄漏 Bot。
-"""
+"""平台层验收测试：归一化、主键对拍、出站、DI、角色补全、多模态。"""
 
 from __future__ import annotations
 
@@ -25,8 +18,6 @@ from amrita.platform import identity, registry
 from amrita.platform.dto import GROUP, MESSAGE, PRIVATE, UNKNOWN
 from amrita.platform.qq.milky import MilkyPort
 from amrita.platform.qq.onebot import OneBotPort
-
-# ---------------------------------------------------------------- fixtures
 
 
 def make_onebot_group_event() -> GroupMessageEvent:
@@ -165,9 +156,6 @@ class FakeMilkyBot:
         self.calls.append(("send_friend_nudge", kwargs))
 
 
-# ---------------------------------------------------------------- 入站归一化
-
-
 def test_onebot_group_envelope():
     port = OneBotPort()
     event = make_onebot_group_event()
@@ -237,17 +225,11 @@ def test_unknown_event_is_unknown_kind():
     assert env.kind == UNKNOWN
 
 
-# ---------------------------------------------------------------- 注册表
-
-
 def test_registry_resolves_by_adapter():
     assert isinstance(registry.resolve(make_onebot_group_event()), OneBotPort)
     assert isinstance(registry.resolve(MilkyGroupEvent()), MilkyPort)
     assert registry.resolve(SimpleNamespace(no="shape")) is None
     assert registry.get("qq") is not None
-
-
-# ---------------------------------------------------------------- 出站
 
 
 def test_onebot_sender_group():
@@ -312,9 +294,6 @@ def test_milky_sender_parts_degrades_to_text_without_adapter():
     assert bot.calls[0][0] == "send_group_message"
 
 
-# ---------------------------------------------------------------- 边界
-
-
 def test_scope_requires_known_kind():
     from amrita.platform.dto import Scope
 
@@ -327,9 +306,6 @@ def test_actor_coerces_user_id_to_str():
 
     actor = Actor(platform="qq", user_id=cast(str, 12345))
     assert actor.user_id == "12345"
-
-
-# ---------------------------------------------------------------- shim
 
 
 def test_envelope_from_is_cached_and_marked_with_adapter():
@@ -371,9 +347,6 @@ def test_envelope_scope_binds_and_resets():
     with shim.envelope_scope(env):
         assert shim.current_envelope() is env
     assert shim.current_envelope() is None
-
-
-# ---------------------------------------------------------------- 未来形状预留
 
 
 def test_telegram_shaped_envelope_fields():
@@ -453,9 +426,6 @@ def test_senders_satisfy_protocol():
     assert milky_sender.supports("edit") is False
 
 
-# ---------------------------------------------------------------- DI
-
-
 def test_provide_envelope_returns_cached_instance():
     from amrita.platform import di, shim
 
@@ -503,9 +473,6 @@ def test_ingress_preprocessor_binds_context():
     assert seen == ["789"]
     # 协程结束，外层上下文不受影响
     assert shim.current_envelope() is None
-
-
-# ---------------------------------------------------------------- 真机适配器（milky）
 
 
 def _real_milky_event():
@@ -580,9 +547,6 @@ def test_milky_real_adapter_send_builds_native_segments():
     assert bot.calls[0][0] == "send_group_message"
     assert "reply" in bot.calls[0][1][0]
     assert any("mention" in element for element in bot.calls[1][1])
-
-
-# ---------------------------------------------------------------- 角色补全
 
 
 def _onebot_group_event_without_role():
@@ -671,3 +635,32 @@ def test_milky_role_resolved_from_member_info():
     actor = asyncio.run(shim.role_of(env, cast(Bot, bot)))
     assert actor.role == "owner"
     assert actor.role_known is True
+
+
+def test_uni_id_is_platform_aware():
+    from amrita.platform import identity
+    from amrita.platform.dto import Scope
+
+    qq = identity.uni_id(Scope(platform="qq", kind="group", id="789"))
+    tg = identity.uni_id(Scope(platform="telegram", kind="group", id="789"))
+    assert qq == "QQPlatform_Group_789"
+    assert tg == "TelegramPlatform_Group_789"
+    assert qq != tg
+    parsed = identity.parse_uni_id(tg)
+    assert parsed is not None
+    assert parsed.platform == "telegram"
+
+
+def test_envelope_carries_self_id_and_reply():
+    env = OneBotPort().to_envelope(make_onebot_group_event())
+    assert env.self_id == "10000"
+    assert env.actor.is_bot is False
+
+
+def test_milky_all_mention_does_not_crash():
+    from amrita.platform.dto import Part
+
+    env = MilkyPort().to_envelope(_real_milky_event())
+    sender = MilkyPort().sender(cast(Bot, FakeMilkyBot()), env.scope)
+    built = sender._build_message([Part(kind="at", value="all")])
+    assert built is not None

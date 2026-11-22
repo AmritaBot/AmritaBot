@@ -157,7 +157,7 @@ async def leave(bot: Bot, env: EnvelopeNBDep, target: Match[str]):
 
 ## 11. 依赖策略
 
-- `nonebot-adapter-milky`：**可选依赖**（`pip install "amrita[milky]"`）。
+- `nonebot-adapter-milky`：**可选依赖**（`uv add "amrita[milky]"`）。
   未安装时框架照常启动，QQ 平台下只有 OneBot 实现可用。
   平台层对 milky 采用形状识别 + 延迟 import，不 hard-depend。
 - `nonebot-plugin-alconna`：主依赖。命令迁移是既定方向，

@@ -42,7 +42,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# 可选平台实现。安装方式：pip install "amrita[milky]"
+# 可选平台实现。安装方式：uv add "amrita[milky]"
 # 未安装时框架照常启动，QQ 平台下只有 OneBot 实现可用。
 milky = [
     "nonebot-adapter-milky>=1.3.0",

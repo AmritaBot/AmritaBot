@@ -7,8 +7,8 @@ from typing import Protocol, cast
 
 from nonebot.adapters import Bot
 
-from ..dto import CHANNEL, GROUP, Part, Scope
-from ..ports import (
+from ...dto import CHANNEL, GROUP, Part, Scope
+from ...ports import (
     CAP_EDIT,
     CAP_IMAGE,
     CAP_RECALL,

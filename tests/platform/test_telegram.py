@@ -21,7 +21,7 @@ from amrita.platform.dto import (
     Part,
     Scope,
 )
-from amrita.platform.telegram import TelegramPort
+from amrita.platform.impl.telegram import TelegramPort
 
 TELEGRAM_ROOT = "-1001234567890"
 
@@ -520,7 +520,7 @@ def test_private_chat_skips_role_query():
 
 def _block_adapter(monkeypatch) -> None:
     """模拟没装 telegram 适配器：import 直接失败，不能靠缓存蒙混过关。"""
-    from amrita.platform.telegram import api as tg_api
+    from amrita.platform.impl.telegram import api as tg_api
 
     def _missing(name: str) -> None:
         raise ImportError(f"blocked: {name}")
@@ -531,7 +531,7 @@ def _block_adapter(monkeypatch) -> None:
 
 
 def test_load_api_returns_none_without_adapter(monkeypatch):
-    from amrita.platform.telegram import api as tg_api
+    from amrita.platform.impl.telegram import api as tg_api
 
     _block_adapter(monkeypatch)
     assert tg_api.load_api() is None

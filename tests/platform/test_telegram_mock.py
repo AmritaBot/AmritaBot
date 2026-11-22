@@ -14,7 +14,7 @@ from nonebot.adapters.telegram.config import BotConfig
 from nonebot.adapters.telegram.model import Message as TgMessage
 
 from amrita.platform.dto import GROUP, Part, Scope
-from amrita.platform.telegram import TelegramPort
+from amrita.platform.impl.telegram import TelegramPort
 
 TEXT_LIMIT = 4096
 CAPTION_LIMIT = 1024

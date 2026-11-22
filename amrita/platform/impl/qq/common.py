@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Protocol, runtime_checkable
 
-from ..common import dedupe_key, normalize_role
-from ..dto import GROUP, PRIVATE, MetaValue, Part, Scope
+from ...common import dedupe_key, normalize_role
+from ...dto import GROUP, PRIVATE, MetaValue, Part, Scope
 
 __all__ = [
     "QQ",

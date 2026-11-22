@@ -25,7 +25,7 @@ from nonebot.adapters.onebot.v11.event import (
 )
 from pydantic import BaseModel
 
-from ..dto import (
+from ...dto import (
     MESSAGE,
     META,
     NOTICE,
@@ -36,7 +36,7 @@ from ..dto import (
     Part,
     Scope,
 )
-from ..ports import (
+from ...ports import (
     CAP_AT,
     CAP_IMAGE,
     CAP_RECALL,

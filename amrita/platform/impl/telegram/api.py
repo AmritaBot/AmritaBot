@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from importlib import import_module
 from typing import Protocol, cast
 
-from ..dto import CHANNEL, GROUP, PRIVATE, Scope
+from ...dto import CHANNEL, GROUP, PRIVATE, Scope
 
 ADAPTER_MODULE = "nonebot.adapters.telegram"
 

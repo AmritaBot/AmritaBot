@@ -6,6 +6,7 @@ from nonebot.adapters import Bot
 from nonebot.log import logger
 from pydantic import BaseModel
 
+from .loader import load_ports
 from .ports import PlatformPort
 
 _ports: dict[str, list[PlatformPort]] = {}
@@ -23,6 +24,7 @@ def register(port: PlatformPort) -> None:
 
 def get(name: str) -> PlatformPort:
     """取某平台的首个实现，没有则抛 LookupError。"""
+    load_ports()
     try:
         return _ports[name][0]
     except (KeyError, IndexError) as exc:
@@ -31,14 +33,17 @@ def get(name: str) -> PlatformPort:
 
 def get_adapter(adapter: str) -> PlatformPort | None:
     """按具体实现名取端口（onebot11 / milky），未知返回 None。"""
+    load_ports()
     return _by_adapter.get(adapter)
 
 
 def all_for(name: str) -> list[PlatformPort]:
+    load_ports()
     return list(_ports.get(name, ()))
 
 
 def platforms() -> list[str]:
+    load_ports()
     return list(_ports)
 
 
@@ -47,6 +52,7 @@ def resolve(raw_event: BaseModel, bot: Bot | None = None) -> PlatformPort | None
 
     只做形状/模块名判断，禁止在此处 import 具体适配器的类。
     """
+    load_ports()
     for bucket in _ports.values():
         for port in bucket:
             if _safe_match(port, raw_event, bot):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..registry import register
+from ...registry import register
 from .milky import MilkyPort
 from .onebot import OneBotPort
 

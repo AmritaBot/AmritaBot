@@ -1,12 +1,8 @@
-"""平台抽象层：业务层只从这里取 DTO 与端口，具体实现由命名空间扫描注册。"""
+"""平台抽象层：业务层只从这里取 DTO 与端口，实现放在 impl 命名空间里按需加载。"""
 
 from __future__ import annotations
 
-import sys
-
-from amrita_core.utils import side_effect_import
-
-from . import identity, registry
+from . import identity, ingress, registry
 from .di import EnvelopeNBDep
 from .dto import (
     GROUP,
@@ -25,11 +21,7 @@ from .dto import (
     Part,
     Scope,
 )
-
-for _item in side_effect_import(sys.modules[__name__], False):
-    if isinstance(_item, BaseException):
-        # 单个平台实现导入失败不该拖垮整个框架，缺哪个平台由 registry 的空列表体现
-        registry.log_import_failure(_item)
+from .loader import load_ports
 
 __all__ = [
     "GROUP",
@@ -49,5 +41,7 @@ __all__ = [
     "Part",
     "Scope",
     "identity",
+    "ingress",
+    "load_ports",
     "registry",
 ]

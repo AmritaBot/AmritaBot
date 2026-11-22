@@ -8,8 +8,8 @@ from typing import cast
 from nonebot.adapters import Bot
 from pydantic import BaseModel
 
-from ..common import dedupe_key, normalize_role
-from ..dto import (
+from ...common import dedupe_key, normalize_role
+from ...dto import (
     ACTION,
     EDIT,
     GROUP,

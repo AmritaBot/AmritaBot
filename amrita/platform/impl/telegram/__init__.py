@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..registry import register
+from ...registry import register
 from .port import TelegramPort
 
 register(TelegramPort())

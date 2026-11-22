@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from . import (
     identity,
-    ingress,  # noqa: F401  导入即注册 event_preprocessor
-    qq,  # noqa: F401  导入即注册 QQ 平台的适配器实现
+    ingress,
+    qq,
     registry,
-    telegram,  # noqa: F401  导入即注册 Telegram 平台的适配器实现
+    telegram,
 )
 from .di import EnvelopeNBDep
 from .dto import (
@@ -46,5 +46,8 @@ __all__ = [
     "Part",
     "Scope",
     "identity",
+    "ingress",
+    "qq",
     "registry",
+    "telegram",
 ]

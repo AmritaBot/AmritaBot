@@ -13,6 +13,7 @@ from nonebot.adapters.onebot.v11.event import (
 from nonebot_plugin_amrita.memory import MemorySchema
 from typing_extensions import override
 
+from amrita.platform.di import EnvelopeNBDep
 from amrita.plugins.chat.utils.libchat import usage_enough
 from amrita.plugins.chat.utils.lock import get_group_lock, get_private_lock
 from amrita.plugins.chat.utils.sql import make_uni_id
@@ -43,33 +44,32 @@ class FakeEvent(Event):
         return str(self.user_id)
 
 
-async def is_bot_globally_enabled(event: Event) -> bool:
+async def is_bot_globally_enabled(env: EnvelopeNBDep) -> bool:
     """仅检查全局开关与功能开关，不检查每群的 enable 标记。
 
     供聊天开关（/chat）等命令使用，避免 /chat off 关闭群聊后
     is_bot_enabled 失效，导致无法再次执行 /chat on。
+
+    入站已是归一化对象：群聊判定用 ``scope.kind``，身份用 ``actor.user_id``，
+    不再依赖适配器事件。
     """
-    gid = getattr(event, "group_id", None)
-    is_in_group = gid is not None
     if not config_manager.config.enable:
         return False
-    elif is_in_group and not config_manager.config.function.enable_group_chat:
+    if env.is_group and not config_manager.config.function.enable_group_chat:
         return False
-    elif not is_in_group and not config_manager.config.function.enable_private_chat:
+    if not env.is_group and not config_manager.config.function.enable_private_chat:
         return False
     with contextlib.suppress(Exception):
-        bots = nonebot.get_bots()
-        if event.get_user_id() in bots:
+        if env.actor.user_id in nonebot.get_bots():
             return False
     return True
 
 
-async def is_bot_enabled(event: Event) -> bool:
-    gid = getattr(event, "group_id", None)
-    if not await is_bot_globally_enabled(event):
+async def is_bot_enabled(env: EnvelopeNBDep) -> bool:
+    if not await is_bot_globally_enabled(env):
         return False
-    if gid is not None:
-        data = await get_group_config(gid)
+    if env.is_group:
+        data = await get_group_config(int(env.scope.id))
         return data.enable
     return True
 

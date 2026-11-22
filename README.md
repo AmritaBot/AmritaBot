@@ -63,6 +63,16 @@ amctl create -t ambot
 uv add amrita
 ```
 
+### 可选平台实现
+
+Milky 协议适配器是可选依赖，按需安装（未安装时仅 OneBot 可用）：
+
+```bash
+uv add "amrita[milky]"
+# 或
+pip install "amrita[milky]"
+```
+
 ## ⚙️ 环境变量参考
 
 所有配置通过项目根目录的 `.env` 文件（或系统环境变量）注入，NoneBot 启动时自动读取。

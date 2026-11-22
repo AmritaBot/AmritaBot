@@ -12,11 +12,7 @@ from .dto import (
 
 
 def normalize_role(role: str | None) -> str:
-    """平台角色字面量 → 统一角色，未知一律降级为 member。
-
-    QQ 系给 owner/creator/admin/administrator/bot；Telegram 给
-    creator/administrator/restricted/member，restricted 也按 member 处理。
-    """
+    """平台角色字面量 → 统一角色，未知含 Telegram 的 restricted/left/kicked 一律降级 member。"""
     if not isinstance(role, str):
         return ROLE_MEMBER
     match role.lower():

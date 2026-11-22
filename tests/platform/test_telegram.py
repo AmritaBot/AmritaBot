@@ -26,7 +26,7 @@ from amrita.platform.telegram import TelegramPort
 TELEGRAM_ROOT = "-1001234567890"
 
 
-def _event(raw: dict) -> object:
+def _event(raw: dict[str, object]) -> object:
     pytest.importorskip("nonebot.adapters.telegram")
     from nonebot.adapters.telegram.event import Event
 
@@ -316,7 +316,7 @@ def test_registry_separates_platforms():
 
 class _FakeTgBot:
     def __init__(self) -> None:
-        self.calls: list[tuple[str, dict]] = []
+        self.calls: list[tuple[str, dict[str, object]]] = []
         self.messages: list[object] = []
 
     async def send_to(self, chat_id, message, message_thread_id=None):

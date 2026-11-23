@@ -113,6 +113,13 @@ _CORE_ROUTES = [
         "hidden": True,
     },
     {
+        "path": "/manage/chat/usage-ranking",
+        "name": "用量排行",
+        "category": "聊天管理",
+        "icon": "trophy",
+        "hidden": False,
+    },
+    {
         "path": "/manage/chat/insights",
         "name": "信息统计",
         "category": "聊天管理",

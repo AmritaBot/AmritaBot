@@ -77,6 +77,11 @@ export const registry: Record<string, ComponentType> = {
       default: m.InsightsPage,
     })),
   ),
+  "/manage/chat/usage-ranking": lazy(() =>
+    import("@/pages/manage/usage-ranking").then((m) => ({
+      default: m.UsageRankingPage,
+    })),
+  ),
   "/manage/chat/models": lazy(() =>
     import("@/pages/manage/models").then((m) => ({ default: m.ModelsPage })),
   ),

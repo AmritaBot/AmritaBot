@@ -34,6 +34,7 @@ if webui_config.webui_enable:
         menu,
         permissions,
         plugins,
+        usage,
     )
     from .service.route import (
         config as route_config,
@@ -53,5 +54,6 @@ if webui_config.webui_enable:
         "permissions",
         "plugins",
         "route_config",
+        "usage",
         "ws",
     ]

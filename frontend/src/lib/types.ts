@@ -343,3 +343,34 @@ export interface BotConfigListData {
 export interface BotConfigData {
   content: string;
 }
+
+/** 用量排行（窗口内聚合） */
+export interface UsageRankingGroupRow {
+  uni_id: string;
+  kind: string;
+  peer_id: string;
+  messages: number;
+  users: number;
+  media_messages: number;
+  last_active: string | null;
+}
+
+export interface UsageRankingUserRow {
+  user_id: string;
+  nickname: string;
+  messages: number;
+  sessions: number;
+  last_active: string | null;
+}
+
+export interface UsageRankingData {
+  window: {
+    days: number;
+    since: string;
+    until: string;
+    ttl_hours: number | null;
+  };
+  totals: { messages: number; sessions: number; users: number };
+  groups: UsageRankingGroupRow[];
+  users: UsageRankingUserRow[];
+}

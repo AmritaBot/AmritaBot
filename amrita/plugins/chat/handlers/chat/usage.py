@@ -13,6 +13,8 @@ from amrita_core.utils import gather_usage
 from amrita_sense.hook.matcher import MatcherFactory
 from nonebot_plugin_amrita.database import InsightsModel
 
+from amrita.utils.billing import UsageDispatch, dispatch_usage
+
 from ...events import ChatUsageRecordedEvent
 from ...utils.libchat import add_usage
 from ...utils.sql import get_uni_user_id, make_uni_id
@@ -74,6 +76,7 @@ async def record_usage(
     debug_log(f"更新全局统计完成，使用计数: {insights.usage_count}")
 
     ins = await cudr.get_metadata(get_uni_user_id(event))
+    units: list[str] = []
     for d in (
         (
             ins,
@@ -85,13 +88,24 @@ async def record_usage(
         d.called_count
         add_usage(d, usage)
         await cudr.update_metadata(d)
+        units.append(d.user_id)
 
     #  扩展点：用量落库后的钩子（计费、配额、审计的挂载点）
+    billing = _billing_snapshot(chat)
     await MatcherFactory.trigger_event(
         ChatUsageRecordedEvent(
             event=event,
             session_id=get_uni_user_id(event),
             usage=usage,
-            billing=_billing_snapshot(chat),
+            billing=billing,
+        )
+    )
+    #  计费 provider 的直连通道：与上面的事件等价，但不经 Matcher 调度
+    await dispatch_usage(
+        UsageDispatch(
+            session_id=get_uni_user_id(event),
+            units=units,
+            usage=usage,
+            billing=list(billing),
         )
     )

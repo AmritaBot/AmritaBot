@@ -20,6 +20,8 @@ from nonebot.log import logger
 from nonebot.message import event_postprocessor
 from typing_extensions import override
 
+from amrita.utils.events import event_user_id
+
 from ..models import (
     DefaultPermissionGroupsEnum,
     PermissionStorage,
@@ -146,7 +148,9 @@ class UserPermissionChecker(PermissionChecker):
     @override
     async def _check_permission(self, event: Event, perm: str) -> bool:
         global _event_to_key_mapping
-        user_id = event.get_user_id()
+        user_id = event_user_id(event)
+        if user_id is None:
+            return False
         with contextlib.suppress(ValueError):
             _event_to_key_mapping[event.get_session_id()] = (user_id, perm)
 

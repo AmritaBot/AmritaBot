@@ -16,6 +16,7 @@ from nonebot.adapters.onebot.v11 import (
 )
 
 from amrita.utils.admin import send_to_admin
+from amrita.utils.events import event_user_id
 from amrita.utils.utils import get_amrita_version, get_core_version, get_sense_version
 
 
@@ -34,7 +35,7 @@ async def report(
             ]
         )
     await send_to_admin(
-        f"{'群' + str(nb_event.group_id) if isinstance(nb_event, GroupMessageEvent) else ''}用户{nb_event.get_user_id()}被举报\n"
+        f"{'群' + str(nb_event.group_id) if isinstance(nb_event, GroupMessageEvent) else ''}用户{event_user_id(nb_event)}被举报\n"
         + "LLM原因总结：\n"
         + message
         + f"\n原始消息：\n{content}",

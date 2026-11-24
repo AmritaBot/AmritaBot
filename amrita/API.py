@@ -8,9 +8,6 @@ from .utils.billing import (
     BillingProvider,
     check_quota,
     dispatch_usage,
-    get_daily_usage,
-    get_unit_usage,
-    iter_unit_usage,
     register_billing_provider,
 )
 from .utils.bot_utils import init
@@ -30,10 +27,7 @@ __all__ = [
     "dispatch_usage",
     "get_amrita_version",
     "get_bucket",
-    "get_daily_usage",
-    "get_unit_usage",
     "init",
-    "iter_unit_usage",
     "load_plugins",
     "register_billing_provider",
     "send_forward_msg",

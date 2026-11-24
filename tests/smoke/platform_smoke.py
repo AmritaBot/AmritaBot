@@ -11,7 +11,8 @@ from amrita.utils.plugins import load_plugins
 init()
 load_plugins()
 
-from amrita.platform import ingress, shim
+from amrita.platform import shim
+from amrita.platform.di import provide_envelope
 from amrita.plugins.chat.check_rule import is_bot_enabled, is_bot_globally_enabled
 
 
@@ -52,9 +53,8 @@ async def main():
     )
     bot = FakeBot()
 
-    # 1) 全生命周期下的入站转换（preprocessor 手动触发，与运行时同一实现）
-    await ingress._bind_current_envelope(event, bot)
-    env = shim.current_envelope()
+    # 1) 走与 matcher 依赖注入同一个入口
+    env = await provide_envelope(event, bot)
     print(
         "[smoke] envelope:",
         env.kind,

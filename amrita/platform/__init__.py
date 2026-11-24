@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from . import identity, ingress, registry
+from . import identity, registry
 from .di import EnvelopeNBDep
 from .dto import (
     GROUP,
@@ -41,7 +41,6 @@ __all__ = [
     "Part",
     "Scope",
     "identity",
-    "ingress",
     "load_ports",
     "registry",
 ]

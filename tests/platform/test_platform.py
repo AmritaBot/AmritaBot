@@ -308,15 +308,20 @@ def test_actor_coerces_user_id_to_str():
     assert actor.user_id == "12345"
 
 
-def test_envelope_from_is_cached_and_marked_with_adapter():
+def test_envelope_from_marks_adapter_and_does_not_hold_events():
+    """不缓存：Envelope 持有 raw 的强引用，缓存会把每个事件都钉在内存里。"""
+    import gc
+    import weakref
+
     from amrita.platform import shim
 
     event = make_onebot_group_event()
-    first = shim.envelope_from(event)
-    second = shim.envelope_from(event)
-    assert first is second
-    assert first.adapter == "onebot11"
+    ref = weakref.ref(event)
+    assert shim.envelope_from(event).adapter == "onebot11"
     assert shim.envelope_from(MilkyGroupEvent()).adapter == "milky"
+    del event
+    gc.collect()
+    assert ref() is None
 
 
 def test_envelope_from_non_strict_returns_none():
@@ -426,15 +431,16 @@ def test_senders_satisfy_protocol():
     assert milky_sender.supports("edit") is False
 
 
-def test_provide_envelope_returns_cached_instance():
+def test_provide_envelope_builds_envelope_per_call():
     from amrita.platform import di, shim
 
     event = make_onebot_group_event()
     first = asyncio.run(di.provide_envelope(event))
     second = asyncio.run(di.provide_envelope(event))
-    assert first is second
+    assert first is not second
+    assert first.scope == second.scope
     assert first.adapter == "onebot11"
-    assert shim.envelope_from(event) is first
+    assert shim.envelope_from(event).scope == first.scope
 
 
 def test_provide_envelope_rejects_unknown_event():
@@ -455,24 +461,6 @@ def test_envelope_nb_dep_is_a_nonebot_depends():
     meta = di.EnvelopeNBDep.__metadata__[0]
     assert isinstance(meta, DependsInner)
     assert meta.dependency is di.provide_envelope
-
-
-def test_ingress_preprocessor_binds_context():
-    """ContextVar 在同一个事件处理协程内可见（NoneBot 的 preprocessor 与 matcher 同任务）。"""
-    from amrita.platform import ingress, shim
-
-    seen: list[str] = []
-
-    async def scope_of_one_event() -> None:
-        await ingress._bind_current_envelope(make_onebot_group_event(), FakeOneBotBot())
-        current = shim.current_envelope()
-        assert current is not None
-        seen.append(current.scope.id)
-
-    asyncio.run(scope_of_one_event())
-    assert seen == ["789"]
-    # 协程结束，外层上下文不受影响
-    assert shim.current_envelope() is None
 
 
 def _real_milky_event():
@@ -664,3 +652,40 @@ def test_milky_all_mention_does_not_crash():
     sender = MilkyPort().sender(cast(Bot, FakeMilkyBot()), env.scope)
     built = sender._build_message([Part(kind="at", value="all")])
     assert built is not None
+
+
+def _heartbeat_event():
+    from nonebot.adapters.onebot.v11.event import HeartbeatMetaEvent
+
+    return HeartbeatMetaEvent(
+        time=1700000003,
+        self_id=10000,
+        post_type="meta_event",
+        meta_event_type="heartbeat",
+        status={"online": True, "good": True},
+        interval=5000,
+    )
+
+
+def _lifecycle_event():
+    from nonebot.adapters.onebot.v11.event import LifecycleMetaEvent
+
+    return LifecycleMetaEvent(
+        time=1700000004,
+        self_id=10000,
+        post_type="meta_event",
+        meta_event_type="lifecycle",
+        sub_type="connect",
+    )
+
+
+def test_onebot_meta_event_falls_back_to_self_id():
+    from amrita.platform.dto import META
+
+    for event in (_heartbeat_event(), _lifecycle_event()):
+        env = OneBotPort().to_envelope(event)
+        assert env.kind == META
+        assert env.scope.kind == PRIVATE
+        assert env.scope.id == "10000"
+        assert env.actor.user_id == "10000"
+        assert env.message_id == ""

@@ -133,6 +133,21 @@ class OneBotSender(BaseSender):
         return str(getattr(resp, "message_id", ""))
 
 
+def _user_id(event: OneBotEvent) -> str | None:
+    """事件发起者 ID；meta 事件（心跳/生命周期）没有发起者，返回 None。
+
+    不能直接用 ``event.get_user_id()``：它对没有上下文的事件抛 ValueError，
+    而 meta 事件会走同一个归一化入口。
+    """
+    for holder in (event, getattr(event, "sender", None)):
+        value = getattr(holder, "user_id", None)
+        if isinstance(value, int):
+            return str(value)
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
 class OneBotPort:
     name = QQ
     adapter = "onebot11"
@@ -212,7 +227,10 @@ class OneBotPort:
         group_id = getattr(event, "group_id", None)
         if isinstance(group_id, int) and group_id:
             return Scope(platform=QQ, kind="group", id=str(group_id))
-        return Scope(platform=QQ, kind="private", id=event.get_user_id())
+        #  meta 事件没有发送者，退到机器人自身，别让 get_user_id 抛出去
+        return Scope(
+            platform=QQ, kind="private", id=_user_id(event) or str(event.self_id)
+        )
 
     @staticmethod
     def _actor(event: OneBotEvent) -> Actor:
@@ -227,7 +245,7 @@ class OneBotPort:
             elif isinstance(name, str):
                 nickname = name
             role = getattr(sender, "role", None)
-        user_id = event.get_user_id()
+        user_id = _user_id(event) or str(event.self_id)
         return Actor(
             platform=QQ,
             user_id=user_id,

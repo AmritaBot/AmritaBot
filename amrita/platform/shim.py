@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
-from weakref import WeakKeyDictionary
 
 from nonebot.adapters import Bot
 from pydantic import BaseModel
@@ -19,11 +18,6 @@ current_envelope_var: ContextVar[Envelope | None] = ContextVar(
     "amrita_current_envelope", default=None
 )
 
-# 同一事件会被多层反复转换，用弱引用缓存；不支持弱引用的实现退回有上限的 dict。
-_cache: WeakKeyDictionary[BaseModel, Envelope] = WeakKeyDictionary()
-_fallback_cache: dict[int, Envelope] = {}
-_FALLBACK_CACHE_LIMIT = 256
-
 
 class UnsupportedEvent(RuntimeError):
     """没有任何已注册实现能识别该事件。"""
@@ -35,18 +29,17 @@ def envelope_from(
     *,
     strict: bool = True,
 ) -> Envelope | None:
-    """把平台原始事件归一化成 :class:`Envelope`。"""
-    cached = _lookup(raw_event)
-    if cached is not None:
-        return cached
+    """把平台原始事件归一化成 :class:`Envelope`。
+
+    不做缓存：Envelope 持有 ``raw`` 的强引用，任何以事件对象为键的缓存
+    都会被值反向钉住（弱引用键同样回收不掉），而一次转换只是字段搬运。
+    """
     port = registry.resolve(raw_event, bot)
     if port is None:
         if strict:
             raise UnsupportedEvent(f"no platform port matched {type(raw_event)!r}")
         return None
-    envelope = port.to_envelope(raw_event, bot)
-    _store(raw_event, envelope)
-    return envelope
+    return port.to_envelope(raw_event, bot)
 
 
 def sender_of(envelope: Envelope, bot: Bot) -> Sender:
@@ -101,19 +94,3 @@ def scope_of(envelope: Envelope) -> Scope:
 
 def actor_of(envelope: Envelope) -> Actor:
     return envelope.actor
-
-
-def _lookup(raw_event: BaseModel) -> Envelope | None:
-    try:
-        return _cache.get(raw_event)
-    except TypeError:
-        return _fallback_cache.get(id(raw_event))
-
-
-def _store(raw_event: BaseModel, envelope: Envelope) -> None:
-    try:
-        _cache[raw_event] = envelope
-    except TypeError:
-        if len(_fallback_cache) >= _FALLBACK_CACHE_LIMIT:
-            _fallback_cache.clear()
-        _fallback_cache[id(raw_event)] = envelope

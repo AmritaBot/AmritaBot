@@ -17,6 +17,8 @@ from collections import defaultdict
 from nonebot.adapters.onebot.v11 import MessageEvent
 from nonebot.matcher import Matcher
 
+from amrita.utils.events import event_user_id
+
 from .sql import get_uni_user_id
 
 __all__ = ["collect_batch", "has_active_batch"]
@@ -28,7 +30,7 @@ _signals: dict[tuple[str, str], asyncio.Event] = {}
 
 
 def _key(event: MessageEvent) -> tuple[str, str]:
-    return (get_uni_user_id(event), event.get_user_id())
+    return (get_uni_user_id(event), event_user_id(event) or "")
 
 
 def has_active_batch(event: MessageEvent) -> bool:

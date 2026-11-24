@@ -27,6 +27,8 @@ from sqlalchemy.ext.asyncio import AsyncSessionTransaction
 from sqlalchemy.orm import Mapped, mapped_column
 from typing_extensions import Self
 
+from amrita.utils.events import event_user_id
+
 from .lock import database_lock
 
 QQ_PLATFORM = "QQPlatform"
@@ -48,8 +50,10 @@ _MAX_UNI_ID_LEN = 64
 def get_uni_user_id(event: Event) -> str:
     if uid := getattr(event, "group_id", None):
         return make_uni_id(uid, is_group=True)
-    else:
-        return make_uni_id(event.get_user_id(), is_group=False)
+    user_id = event_user_id(event)
+    if user_id is None:
+        raise ValueError("event has no user id")
+    return make_uni_id(user_id, is_group=False)
 
 
 async def get_user_metadata_or_none(uni_user_id: str) -> UserMetadata | None:
@@ -63,8 +67,10 @@ async def get_user_metadata_or_none(uni_user_id: str) -> UserMetadata | None:
 def get_any_id(event: Event) -> tuple[int, bool]:
     if uid := getattr(event, "group_id", None):
         return uid, True
-    else:
-        return int(event.get_user_id()), False
+    user_id = event_user_id(event)
+    if user_id is None:
+        raise ValueError("event has no user id")
+    return int(user_id), False
 
 
 def make_uni_id(id: int | str, is_group: bool) -> str:

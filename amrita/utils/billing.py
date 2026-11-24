@@ -13,6 +13,13 @@ Amrita 不定义价格、不做扣费、不管套餐。这里只负责两件事�
 
 刻意没有做的：按天归档、价格折算、额度扣减、对账重放。
 这些属于接入方的职责，Amrita 只保证账面数据是原始的、可自证的。
+
+``nonebot_plugin_amrita`` 与 ``nonebot_plugin_orm`` 只能延迟到函数内导入。本模块
+在导入 ``amrita.API`` 时被带入，而 ``amrita.API`` 又经 ``amrita.plugins.manager``
+先于 ``amrita.plugins.chat`` 加载；若在模块级 import，``nonebot_plugin_amrita``
+会在 NoneBot 插件管理器登记之前进入 ``sys.modules``，之后 chat 里的
+``require("nonebot_plugin_amrita")`` 会因模块缺少 ``__plugin__`` 而失败，连带整个
+chat 插件加载不了。查询函数因此各自持有这条导入。
 """
 
 from __future__ import annotations
@@ -25,8 +32,6 @@ from typing import Protocol, runtime_checkable
 
 from amrita_core.types.billing import BillingRecord
 from nonebot import logger
-from nonebot_plugin_amrita.database import GlobalInsights, UserMetadata
-from nonebot_plugin_orm import get_session
 from sqlalchemy import select
 
 _DEFAULT_DAILY_DAYS = 7
@@ -159,6 +164,9 @@ async def check_quota(unit_id: str, requested_tokens: int = 0) -> bool:
 
 async def get_unit_usage(unit_id: str) -> UnitUsage | None:
     """读取单个单元的用量快照；单元从未产生用量时返回 ``None``。"""
+    from nonebot_plugin_amrita.database import UserMetadata
+    from nonebot_plugin_orm import get_session
+
     async with get_session() as session:
         row = (
             await session.execute(
@@ -186,6 +194,9 @@ async def iter_unit_usage(
     offset: int = 0,
 ) -> list[UnitUsage]:
     """翻页列出单元用量快照，可按 ``last_active`` 过滤出近期活跃的单元。"""
+    from nonebot_plugin_amrita.database import UserMetadata
+    from nonebot_plugin_orm import get_session
+
     limit = max(1, min(limit, _MAX_PAGE_SIZE))
     offset = max(0, offset)
     stmt = select(UserMetadata).order_by(UserMetadata.last_active.desc())
@@ -211,6 +222,9 @@ async def iter_unit_usage(
 
 async def get_daily_usage(days: int = _DEFAULT_DAILY_DAYS) -> list[DailyUsageRow]:
     """读取全局按日用量，按日期升序返回（最多 90 天）。"""
+    from nonebot_plugin_amrita.database import GlobalInsights
+    from nonebot_plugin_orm import get_session
+
     days = max(1, min(days, _MAX_DAILY_DAYS))
     stmt = select(GlobalInsights).order_by(GlobalInsights.date.desc()).limit(days)
     async with get_session() as session:

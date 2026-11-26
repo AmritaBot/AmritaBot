@@ -1,8 +1,11 @@
+"""LitePerm 用户权限配置子命令 ``/lp.user.*``。"""
+
+from __future__ import annotations
+
 from copy import deepcopy
 
-from nonebot.adapters.onebot.v11 import Message
 from nonebot.matcher import Matcher
-from nonebot.params import CommandArg
+from nonebot_plugin_alconna import Match
 
 from amrita.plugins.menu.models import MatcherData
 
@@ -15,15 +18,13 @@ from ..models import (
 from ..nodelib import Permissions
 
 
-# 用户权限节点操作相关指令
 @command.command(
     "user.permission",
+    with_params=True,
     permission=is_lp_admin,
 ).handle()
-async def lp_user_permission(
-    matcher: Matcher, args: Message = CommandArg()
-):
-    args_list = args.extract_plain_text().strip().split()
+async def lp_user_permission(matcher: Matcher, params: Match[tuple[str, ...]]):
+    args_list = list(params.result) if params.available else []
 
     if len(args_list) < 3:
         await matcher.finish(
@@ -74,15 +75,13 @@ async def lp_user_permission(
     await matcher.finish(msg_str)
 
 
-# 用户父权限组操作相关指令
 @command.command(
     "user.parent",
+    with_params=True,
     permission=is_lp_admin,
 ).handle()
-async def lp_user_parent(
-    matcher: Matcher, args: Message = CommandArg()
-):
-    args_list = args.extract_plain_text().strip().split()
+async def lp_user_parent(matcher: Matcher, params: Match[tuple[str, ...]]):
+    args_list = list(params.result) if params.available else []
 
     if len(args_list) < 3:
         await matcher.finish(
@@ -110,7 +109,6 @@ async def lp_user_parent(
 
     match operation:
         case "add" | "del":
-            # 修改继承关系
             group_perms = Permissions(perm_target_data.permissions)
             user_perms = Permissions(user_data.permissions)
 
@@ -134,15 +132,13 @@ async def lp_user_parent(
     await matcher.finish(string_msg)
 
 
-# 用户权限组关系操作相关指令
 @command.command(
     "user.perm_group",
+    with_params=True,
     permission=is_lp_admin,
 ).handle()
-async def lp_user_perm_group(
-    matcher: Matcher, args: Message = CommandArg()
-):
-    args_list = args.extract_plain_text().strip().split()
+async def lp_user_perm_group(matcher: Matcher, params: Match[tuple[str, ...]]):
+    args_list = list(params.result) if params.available else []
 
     if len(args_list) < 3:
         await matcher.finish(
@@ -159,7 +155,6 @@ async def lp_user_perm_group(
         await matcher.finish("不允许操作默认权限组")
     if operation == "add":
         if not await store.is_member_in_permission_group(id, "user", target):
-            # 检查权限组是否存在
             if not await store.permission_group_exists(target):
                 await matcher.finish(f"❌ 权限组 {target} 不存在")
             await store.add_member_related_permission_group(id, "user", target)
@@ -178,7 +173,6 @@ async def lp_user_perm_group(
     await matcher.finish(msg_str)
 
 
-# 运行进入点
 @command.command(
     "user",
     permission=is_lp_admin,

@@ -11,6 +11,7 @@ from amrita.utils.utils import get_amrita_version, get_core_version, get_sense_v
 amrita_cmd = on_alconna(
     Alconna("amrita"),
     aliases={"Amrita", "版本", "关于"},
+    use_cmd_start=True,
     priority=10,
     block=True,
     default_state=MatcherData(

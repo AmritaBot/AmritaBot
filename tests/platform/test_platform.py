@@ -20,6 +20,12 @@ from amrita.platform.impl.qq.milky import MilkyPort
 from amrita.platform.impl.qq.onebot import OneBotPort
 
 
+def _resolve_role(env, bot):
+    """按 envelope.adapter 找到端口，再让端口去补全角色。"""
+    port = registry.get_adapter(env.adapter) or registry.get(env.scope.platform)
+    return asyncio.run(port.resolve_role(bot, env.scope, env.actor))
+
+
 def make_onebot_group_event() -> GroupMessageEvent:
     return GroupMessageEvent(
         time=1700000000,
@@ -332,26 +338,22 @@ def test_envelope_from_non_strict_returns_none():
         shim.envelope_from(SimpleNamespace(foo=1))
 
 
-def test_sender_of_picks_implementation_by_adapter():
+def test_port_sender_picks_implementation_by_adapter():
     from amrita.platform import shim
     from amrita.platform.impl.qq.milky import MilkySender
     from amrita.platform.impl.qq.onebot import OneBotSender
 
     onebot_env = shim.envelope_from(make_onebot_group_event())
     milky_env = shim.envelope_from(MilkyGroupEvent())
+    onebot_port = registry.get_adapter("onebot11")
+    milky_port = registry.get_adapter("milky")
+    assert onebot_port is not None
+    assert milky_port is not None
 
-    assert isinstance(shim.sender_of(onebot_env, FakeOneBotBot()), OneBotSender)
-    assert isinstance(shim.sender_of(milky_env, FakeMilkyBot()), MilkySender)
-
-
-def test_envelope_scope_binds_and_resets():
-    from amrita.platform import shim
-
-    env = shim.envelope_from(make_onebot_group_event())
-    assert shim.current_envelope() is None
-    with shim.envelope_scope(env):
-        assert shim.current_envelope() is env
-    assert shim.current_envelope() is None
+    assert isinstance(
+        onebot_port.sender(FakeOneBotBot(), onebot_env.scope), OneBotSender
+    )
+    assert isinstance(milky_port.sender(FakeMilkyBot(), milky_env.scope), MilkySender)
 
 
 def test_telegram_shaped_envelope_fields():
@@ -573,43 +575,35 @@ class _RoleBot:
 
 
 def test_onebot_role_resolved_lazily():
-    from amrita.platform import shim
-
     env = OneBotPort().to_envelope(_onebot_group_event_without_role())
     assert env.actor.role_known is False
     assert env.actor.role == "member"
 
     bot = _RoleBot("admin")
-    actor = asyncio.run(shim.role_of(env, cast(Bot, bot)))
+    actor = _resolve_role(env, cast(Bot, bot))
     assert actor.role == "admin"
     assert actor.role_known is True
     assert bot.queried == [(789, 123)]
 
 
 def test_onebot_role_kept_when_event_has_it():
-    from amrita.platform import shim
-
     env = OneBotPort().to_envelope(make_onebot_group_event())
     assert env.actor.role_known is True
 
     bot = _RoleBot("owner")
-    actor = asyncio.run(shim.role_of(env, cast(Bot, bot)))
+    actor = _resolve_role(env, cast(Bot, bot))
     assert actor.role == "admin"  # 事件里的值优先
     assert bot.queried == []  # 没有多余请求
 
 
 def test_role_query_failure_does_not_guess():
-    from amrita.platform import shim
-
     env = OneBotPort().to_envelope(_onebot_group_event_without_role())
-    actor = asyncio.run(shim.role_of(env, cast(Bot, _RoleBot(None, fail=True))))
+    actor = _resolve_role(env, cast(Bot, _RoleBot(None, fail=True)))
     assert actor.role == "member"
     assert actor.role_known is False
 
 
 def test_milky_role_resolved_from_member_info():
-    from amrita.platform import shim
-
     env = MilkyPort().to_envelope(_real_milky_event())
     assert env.actor.role_known is False
 
@@ -620,7 +614,7 @@ def test_milky_role_resolved_from_member_info():
             return type("Member", (), {"role": self.role})()
 
     bot = _MilkyRoleBot("owner")
-    actor = asyncio.run(shim.role_of(env, cast(Bot, bot)))
+    actor = _resolve_role(env, cast(Bot, bot))
     assert actor.role == "owner"
     assert actor.role_known is True
 

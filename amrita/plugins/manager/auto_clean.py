@@ -1,5 +1,5 @@
 from nonebot import get_driver, logger, on_command
-from nonebot.adapters.onebot.v11 import Bot, Message, MessageEvent
+from nonebot.adapters.onebot.v11 import Bot, Message
 from nonebot.params import CommandArg
 
 from amrita import get_amrita_config
@@ -21,7 +21,7 @@ clean_groups = on_command(
 
 
 @clean_groups.handle()
-async def _(bot: Bot, event: MessageEvent, args: Message = CommandArg()):
+async def _(bot: Bot, args: Message = CommandArg()):
     if "--confirm" not in args.extract_plain_text().split():
         await clean_groups.finish(
             "⚠️ 该操作会批量退出人数少于20人的群组，确认执行请再次输入：/clean_groups --confirm"

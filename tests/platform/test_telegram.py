@@ -558,8 +558,10 @@ def test_envelope_from_registers_telegram_adapter():
     env = shim.envelope_from(_group_message())
     assert env.adapter == "telegram"
     assert registry.get_adapter("telegram") is not None
-    assert shim.uni_id_of(env).startswith("TelegramPlatform_Group_")
-    assert shim.sender_of(env, cast(Bot, _FakeTgBot())).capabilities
+    assert identity.uni_id(env.scope).startswith("TelegramPlatform_Group_")
+    assert (
+        registry.get_adapter("telegram").sender(cast(Bot, _FakeTgBot()), env.scope).capabilities
+    )
 
 
 def test_channel_uni_id_roundtrip():

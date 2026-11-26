@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-from nonebot.adapters.onebot.v11 import Message, MessageEvent
+from nonebot.adapters.onebot.v11 import Message
 from nonebot.matcher import Matcher
 from nonebot.params import CommandArg
 
@@ -21,7 +21,7 @@ from ..nodelib import Permissions
     permission=is_lp_admin,
 ).handle()
 async def lp_user_permission(
-    event: MessageEvent, matcher: Matcher, args: Message = CommandArg()
+    matcher: Matcher, args: Message = CommandArg()
 ):
     args_list = args.extract_plain_text().strip().split()
 
@@ -80,7 +80,7 @@ async def lp_user_permission(
     permission=is_lp_admin,
 ).handle()
 async def lp_user_parent(
-    event: MessageEvent, matcher: Matcher, args: Message = CommandArg()
+    matcher: Matcher, args: Message = CommandArg()
 ):
     args_list = args.extract_plain_text().strip().split()
 
@@ -140,7 +140,7 @@ async def lp_user_parent(
     permission=is_lp_admin,
 ).handle()
 async def lp_user_perm_group(
-    event: MessageEvent, matcher: Matcher, args: Message = CommandArg()
+    matcher: Matcher, args: Message = CommandArg()
 ):
     args_list = args.extract_plain_text().strip().split()
 
@@ -194,7 +194,6 @@ async def lp_user_perm_group(
     ).model_dump(),
 ).handle()
 async def lp_user(
-    event: MessageEvent,
     matcher: Matcher,
 ):
     await matcher.finish(

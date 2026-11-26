@@ -11,7 +11,7 @@ from amrita.utils.plugins import load_plugins
 init()
 load_plugins()
 
-from amrita.platform import shim
+from amrita.platform import registry
 from amrita.platform.di import provide_envelope
 from amrita.plugins.chat.check_rule import is_bot_enabled, is_bot_globally_enabled
 
@@ -77,8 +77,9 @@ async def main():
     ok2 = await Rule(is_bot_enabled)(bot, event, {})
     print("[smoke] rule(is_bot_enabled) ->", ok2)
 
-    actor = await shim.role_of(env, bot)
-    print("[smoke] role_of ->", actor.role, "role_known=", actor.role_known)
+    _port = registry.get_adapter(env.adapter) or registry.get(env.scope.platform)
+    actor = await _port.resolve_role(bot, env.scope, env.actor)
+    print("[smoke] resolve_role ->", actor.role, "role_known=", actor.role_known)
 
     # 3) 真实命令 handler：参数换成 EnvelopeNBDep 后仍能按 scope 取群号
     from nonebot_plugin_alconna import Match

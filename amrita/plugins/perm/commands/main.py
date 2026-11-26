@@ -1,4 +1,4 @@
-from nonebot.adapters.onebot.v11 import Message, MessageEvent
+from nonebot.adapters.onebot.v11 import Message
 from nonebot.matcher import Matcher
 from nonebot.params import CommandArg
 
@@ -15,7 +15,7 @@ from ..command_manager import command
         usage="/lp",
     ).model_dump(),
 ).handle()
-async def lp(event: MessageEvent, matcher: Matcher, args: Message = CommandArg()):
+async def lp(matcher: Matcher, args: Message = CommandArg()):
     args_list = args.extract_plain_text().strip().split()
     if not args_list:
         lp_0_help = "LP LitePerm\n请输入参数\nlp.user\nlp.chat_group\nlp.perm_group"

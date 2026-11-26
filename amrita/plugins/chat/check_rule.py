@@ -15,8 +15,8 @@ from typing_extensions import override
 
 from amrita.platform.di import EnvelopeNBDep
 from amrita.plugins.chat.utils.libchat import usage_enough
-from amrita.plugins.chat.utils.lock import get_group_lock, get_private_lock
-from amrita.plugins.chat.utils.sql import make_uni_id
+from amrita.plugins.chat.utils.lock import get_session_lock
+from amrita.plugins.chat.utils.sql import get_uni_user_id, make_uni_id
 from amrita.plugins.perm.API.admin import is_lp_admin
 
 from .config import config_manager
@@ -106,11 +106,7 @@ async def is_group_admin_if_is_in_group(event: MessageEvent, bot: Bot) -> bool:
 
 async def should_respond_to_message(event: MessageEvent, bot: Bot) -> bool:
     """根据配置和消息事件判断是否需要回复"""
-    lock = (
-        get_group_lock(event.group_id)
-        if isinstance(event, GroupMessageEvent)
-        else get_private_lock(event.user_id)
-    )
+    lock = get_session_lock(get_uni_user_id(event))
     async with lock:
         message = event.get_message()
         #  纯 xml/json 卡片没有可读正文，不进模型也不落上下文

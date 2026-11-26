@@ -18,9 +18,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import aiologic
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageEvent
 
-from .lock import get_group_lock, get_private_lock
+from amrita.platform.dto import Envelope, Scope
+from amrita.platform.identity import uni_id as scope_to_uni_id
+
+from .lock import get_session_lock
 
 if TYPE_CHECKING:
     from amrita_core.chatmanager import ChatObject as CoreChatObject
@@ -37,7 +39,7 @@ def active_chat_object(session_id: str) -> CoreChatObject | None:
     没有可读的活状态，无需关心。
 
     Args:
-        session_id: 统一会话 ID（``get_uni_user_id``）
+        session_id: 统一会话 ID（``uni_id``）
 
     Returns:
         最近一次运行且尚未结束的对象；会话空闲时为 ``None``
@@ -57,7 +59,7 @@ def is_session_busy(session_id: str) -> bool:
     """会话当前是否有本轮在跑，或已有消息在排队等锁。
 
     Args:
-        session_id: 统一会话 ID（``get_uni_user_id``）
+        session_id: 统一会话 ID（``uni_id``）
 
     Returns:
         有运行中或排队中的 ``ChatObject`` 时为 ``True``
@@ -73,18 +75,22 @@ def is_session_busy(session_id: str) -> bool:
     )
 
 
-def session_lock(event: MessageEvent) -> aiologic.Lock:
+def session_lock(target: Envelope | Scope | str) -> aiologic.Lock:
     """取得该会话在 chat 主路径上使用的同一把锁。
 
-    必须复用 ``get_group_lock`` / ``get_private_lock``：``repo.make_lock``
-    是数据库侧的独立锁池，chat 路径并不持有，抢它无法等到本轮结束。
+    统一委托 :func:`get_session_lock`，避免 ``repo.make_lock`` 等独立锁池
+    与 chat 主路径错开。
 
     Args:
-        event: 消息事件
+        target: 归一化信封、会话 ``Scope`` 或已编码的 ``uni_id``
 
     Returns:
         该会话的 ``aiologic.Lock``
     """
-    if isinstance(event, GroupMessageEvent):
-        return get_group_lock(event.group_id)
-    return get_private_lock(event.user_id)
+    if isinstance(target, Envelope):
+        key = scope_to_uni_id(target.scope)
+    elif isinstance(target, Scope):
+        key = scope_to_uni_id(target)
+    else:
+        key = target
+    return get_session_lock(key)

@@ -13,11 +13,11 @@ from nonebot.adapters.onebot.v11.event import (
 from nonebot_plugin_amrita.memory import MemorySchema
 from typing_extensions import override
 
-from amrita.platform.di import EnvelopeNBDep
+from amrita.platform.di import EnvelopeNBDep, OptionalEnvelopeNBDep
 from amrita.plugins.chat.utils.libchat import usage_enough
 from amrita.plugins.chat.utils.lock import get_session_lock
 from amrita.plugins.chat.utils.sql import get_uni_user_id, make_uni_id
-from amrita.plugins.perm.API.admin import is_lp_admin
+from amrita.plugins.perm.API.admin import is_lp_admin_for
 
 from .config import config_manager
 from .utils.context_store import append_context_record
@@ -87,15 +87,15 @@ async def is_group_admin(event: GroupMessageEvent, bot: Bot) -> bool:
         )
         if role != "member":
             return True
-        if await is_bot_admin(event):
+        if await is_lp_admin_for(event):
             return True
     except Exception:
         logger.warning(f"获取群成员信息失败: {event.group_id} {event.user_id}")
     return False
 
 
-async def is_bot_admin(event: Event) -> bool:
-    return await is_lp_admin(event)
+async def is_bot_admin(env: OptionalEnvelopeNBDep) -> bool:
+    return await is_lp_admin_for(env)
 
 
 async def is_group_admin_if_is_in_group(event: MessageEvent, bot: Bot) -> bool:

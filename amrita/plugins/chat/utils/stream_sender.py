@@ -329,6 +329,9 @@ class ChatStreamSender:
         self._pending_text = ""
         if not content.strip():
             content = buffered
+        if not content.strip():
+            await self._matcher.send("❌ 模型提供商返回空文本")
+            return
 
         # 构建 MessageSegment（引用回复）
         message: Message = MessageSegment.reply(

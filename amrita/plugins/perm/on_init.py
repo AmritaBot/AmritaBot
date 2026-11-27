@@ -6,6 +6,7 @@ from nonebot_plugin_uniconf import UniConfigManager
 from amrita.plugins.perm.config import Config, search_perm
 from amrita.plugins.perm.config import DataManager as DT
 
+from .identity import resolve_member_id
 from .models import PermissionStorage
 
 banner_template = """\033[34m▗▖   ▗▄▄▖
@@ -46,21 +47,22 @@ async def load():
             count += 1
             if file.is_file():
                 group_data = GroupData.model_validate_json(file.read_text("utf-8"))
+                group_mid = resolve_member_id(file.stem, "group")
                 await store.update_member_permission(
                     MemberPermissionPydantic(
                         permissions=search_perm(group_data.permissions),
-                        member_id=file.stem,
+                        member_id=group_mid,
                         type="group",
                     )
                 )
                 for g in group_data.permission_groups:
                     count += 1
                     logger.info(
-                        f"Add member related permission group for {file.stem}@group on {g}"
+                        f"Add member related permission group for {group_mid}@group on {g}"
                     )
                     try:
                         await store.add_member_related_permission_group(
-                            file.stem, "group", g
+                            group_mid, "group", g
                         )
                     except Exception as e:
                         logger.opt(colors=True, exception=e, raw=True).error(e)
@@ -69,21 +71,22 @@ async def load():
             count += 1
             if file.is_file():
                 user_data = UserData.model_validate_json(file.read_text("utf-8"))
+                user_mid = resolve_member_id(file.stem, "user")
                 await store.update_member_permission(
                     MemberPermissionPydantic(
                         permissions=search_perm(user_data.permissions),
-                        member_id=file.stem,
+                        member_id=user_mid,
                         type="user",
                     )
                 )
                 for g in user_data.permission_groups:
                     count += 1
                     logger.info(
-                        f"Add member related permission group for {file.stem}@user on {g}"
+                        f"Add member related permission group for {user_mid}@user on {g}"
                     )
                     try:
                         await store.add_member_related_permission_group(
-                            file.stem, "user", g
+                            user_mid, "user", g
                         )
                     except Exception as e:
                         logger.opt(colors=True, exception=e, raw=True).error(e)

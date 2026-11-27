@@ -6,6 +6,7 @@ from collections.abc import Mapping, Sequence
 from typing import cast
 
 from nonebot.adapters import Bot
+from nonebot.log import logger
 from pydantic import BaseModel
 
 from ...common import dedupe_key, normalize_role
@@ -428,7 +429,10 @@ class TelegramPort:
         api = cast(TelegramBot, bot)
         try:
             member = await api.get_chat_member(chat_id=chat_id(scope), user_id=user_id)
-        except Exception:  # 查不到就是查不到，不猜
+        except Exception as exc:  # 查不到就是查不到，不猜，但留日志供排查
+            logger.warning(
+                f"Telegram resolve_role 失败 (chat={scope.id}, user={actor.user_id}): {exc}"
+            )
             return actor
         status = _opt_str(member, "status")
         if status is None or status not in _KNOWN_ROLES:

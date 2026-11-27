@@ -9,6 +9,7 @@ from pydantic import BaseModel as B_Model
 from sqlalchemy import (
     JSON,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     String,
@@ -76,13 +77,7 @@ class Member2PermissionGroup(Model):
 
     __tablename__ = "lp_member_to_permission_group"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    member_id: Mapped[str] = mapped_column(
-        String(255),
-        ForeignKey(
-            "lp_member_permission.member_id", ondelete=OnDeleteEnum.CASCADE.value
-        ),
-        nullable=False,
-    )
+    member_id: Mapped[str] = mapped_column(String(255), nullable=False)
     member_type: Mapped[PERM_TYPE] = mapped_column(String(255), nullable=False)
     group_name: Mapped[str] = mapped_column(
         String(255),
@@ -92,6 +87,12 @@ class Member2PermissionGroup(Model):
         nullable=False,
     )
     __table_args__ = (
+        ForeignKeyConstraint(
+            ["member_id", "member_type"],
+            ["lp_member_permission.member_id", "lp_member_permission.type"],
+            name="fk_lp_member_to_permission_group_member_lp_member_permission",
+            ondelete=OnDeleteEnum.CASCADE.value,
+        ),
         UniqueConstraint(
             "member_id",
             "group_name",

@@ -1,0 +1,29 @@
+minimum_pre_commit_version: "3.5.0"
+fail_fast: false
+
+ci:
+  autofix_prs: true
+  autoupdate_schedule: monthly
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-toml
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=2048]
+      - id: trailing-whitespace
+        exclude: ^frontend/
+      - id: end-of-file-fixer
+        exclude: ^frontend/
+
+  # ruff 走官方镜像仓库，由 pre-commit 在自己的隔离环境里装它，
+  # 不依赖项目虚拟环境，也不调用 uv（pre-commit.ci 上没有 uv）。
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.9
+    hooks:
+      - id: ruff-check
+        args: [--fix, --exit-non-zero-on-fix]

@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import HTTPException
 from pydantic import BaseModel
 
+from amrita.plugins.perm.identity import resolve_member_id
 from amrita.plugins.perm.models import PermissionStorage
 from amrita.plugins.perm.nodelib import Permissions
 
@@ -102,10 +103,11 @@ async def delete_perm_group(name: str):
 @app.get("/api/permissions/users/{user_id}")
 async def get_user_permissions(user_id: str):
     """用户权限详情。"""
+    member_id = resolve_member_id(user_id, "user")
     dt = PermissionStorage()
-    user_data = await dt.get_member_permission(user_id, "user")
+    user_data = await dt.get_member_permission(member_id, "user")
     perm = Permissions(user_data.permissions)
-    groups = (await dt.get_member_related_permission_groups(user_id, "user")).groups
+    groups = (await dt.get_member_related_permission_groups(member_id, "user")).groups
     return ok(
         "success",
         data={
@@ -120,10 +122,11 @@ async def get_user_permissions(user_id: str):
 async def update_user_permissions(user_id: str, data: PermissionsUpdateSchema):
     """更新用户权限。"""
     try:
+        member_id = resolve_member_id(user_id, "user")
         dt = PermissionStorage()
         perm = Permissions()
         perm.from_perm_str(data.permissions)
-        user_data = await dt.get_member_permission(user_id, "user")
+        user_data = await dt.get_member_permission(member_id, "user")
         user_data.permissions = perm.dump_data()
         await dt.update_member_permission(user_data)
         return ok("用户权限已更新")
@@ -134,10 +137,11 @@ async def update_user_permissions(user_id: str, data: PermissionsUpdateSchema):
 @app.get("/api/permissions/group-scopes/{group_id}")
 async def get_group_permissions(group_id: str):
     """群组权限详情。"""
+    member_id = resolve_member_id(group_id, "group")
     dt = PermissionStorage()
-    group_data = await dt.get_member_permission(group_id, "group")
+    group_data = await dt.get_member_permission(member_id, "group")
     perm = Permissions(group_data.permissions)
-    groups = (await dt.get_member_related_permission_groups(group_id, "group")).groups
+    groups = (await dt.get_member_related_permission_groups(member_id, "group")).groups
     return ok(
         "success",
         data={
@@ -152,10 +156,11 @@ async def get_group_permissions(group_id: str):
 async def update_group_permissions(group_id: str, data: PermissionsUpdateSchema):
     """更新群组权限。"""
     try:
+        member_id = resolve_member_id(group_id, "group")
         dt = PermissionStorage()
         perm = Permissions()
         perm.from_perm_str(data.permissions)
-        group_data = await dt.get_member_permission(group_id, "group")
+        group_data = await dt.get_member_permission(member_id, "group")
         group_data.permissions = perm.dump_data()
         await dt.update_member_permission(group_data)
         return ok("群组权限已更新")

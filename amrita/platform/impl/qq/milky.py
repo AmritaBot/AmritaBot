@@ -7,6 +7,7 @@ from importlib import import_module
 from typing import Protocol, cast
 
 from nonebot.adapters import Bot
+from nonebot.log import logger
 from pydantic import BaseModel
 
 from ...dto import (
@@ -27,6 +28,7 @@ from ...ports import (
     CAP_RECALL,
     CAP_REPLY,
     CAP_TEXT,
+    CAP_THREAD,
     BaseSender,
 )
 from .common import QQ, SegmentLike, dedupe_key, normalize_role, segment_to_part
@@ -160,6 +162,8 @@ class MilkySender(BaseSender):
         thread: str | None = None,
     ) -> str:
         self._require(CAP_TEXT)
+        if thread is not None:
+            self._require(CAP_THREAD)
         if reply_to and self.supports(CAP_REPLY):
             return await self.send_parts(
                 (Part(kind="reply", value=reply_to), Part(kind="text", value=text))
@@ -174,6 +178,8 @@ class MilkySender(BaseSender):
         thread: str | None = None,
     ) -> str:
         self._require(CAP_TEXT)
+        if thread is not None:
+            self._require(CAP_THREAD)
         message = self._build_message(parts, reply_to=reply_to)
         return await self._send(message)
 
@@ -291,7 +297,10 @@ class MilkyPort:
             member = await api.get_group_member_info(
                 group_id=int(scope.id), user_id=int(actor.user_id), no_cache=True
             )
-        except Exception:  # 查不到就是查不到，不猜
+        except Exception as exc:  # 查不到就是查不到，不猜，但留日志供排查
+            logger.warning(
+                f"Milky resolve_role 失败 (group={scope.id}, user={actor.user_id}): {exc}"
+            )
             return actor
         role = getattr(member, "role", None)
         if not isinstance(role, str):
@@ -366,12 +375,25 @@ class MilkyPort:
                 data = _raw_data(raw_event)
                 message_id = _opt_int(data, "message_seq") if data is not None else None
             return dedupe_key(QQ, "msg", message_id)
+        data = _raw_data(raw_event)
+        sub_type = _opt_str(raw_event, "sub_type") or (
+            _opt_str(data, "event_type") if data is not None else None
+        )
+        discriminator = (
+            (_opt_str(data, "notification_seq") if data is not None else None)
+            or (_opt_str(data, "message_seq") if data is not None else None)
+            or (_opt_str(data, "request_id") if data is not None else None)
+            or (_opt_str(data, "operator_id") if data is not None else None)
+            or ""
+        )
         return dedupe_key(
             QQ,
             _event_type(raw_event) or "notice",
+            sub_type or "",
             scope.id,
             actor.user_id,
             _opt_int(raw_event, "time"),
+            discriminator,
         )
 
 

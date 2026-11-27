@@ -1,8 +1,11 @@
+"""LitePerm 群聊权限配置子命令 ``/lp.chat_group.*``。"""
+
+from __future__ import annotations
+
 from copy import deepcopy
 
-from nonebot.adapters.onebot.v11 import Message
 from nonebot.matcher import Matcher
-from nonebot.params import CommandArg
+from nonebot_plugin_alconna import Match
 
 from amrita.plugins.menu.models import MatcherData
 
@@ -15,15 +18,13 @@ from ..models import (
 from ..nodelib import Permissions
 
 
-# 权限节点操作相关指令
 @command.command(
     "chat_group.permission",
+    with_params=True,
     permission=is_lp_admin,
 ).handle()
-async def lp_group_permission(
-    matcher: Matcher, args: Message = CommandArg()
-):
-    args_list = args.extract_plain_text().strip().split()
+async def lp_group_permission(matcher: Matcher, params: Match[tuple[str, ...]]):
+    args_list = list(params.result) if params.available else []
 
     if len(args_list) < 2:
         await matcher.finish(
@@ -71,15 +72,13 @@ async def lp_group_permission(
     await matcher.finish(msg_str)
 
 
-# 父权限组操作相关指令
 @command.command(
     "chat_group.parent",
+    with_params=True,
     permission=is_lp_admin,
 ).handle()
-async def lp_group_parent(
-    matcher: Matcher, args: Message = CommandArg()
-):
-    args_list = args.extract_plain_text().strip().split()
+async def lp_group_parent(matcher: Matcher, params: Match[tuple[str, ...]]):
+    args_list = list(params.result) if params.available else []
 
     if len(args_list) < 3:
         await matcher.finish(
@@ -107,7 +106,6 @@ async def lp_group_parent(
 
     match operation:
         case "add" | "del":
-            # 修改继承关系
             perm_group_perms = Permissions(perm_target_data.permissions)
             group_perms = Permissions(group_data.permissions)
 
@@ -131,15 +129,13 @@ async def lp_group_parent(
     await matcher.finish(string_msg)
 
 
-# 权限组关系操作相关指令
 @command.command(
     "chat_group.perm_group",
+    with_params=True,
     permission=is_lp_admin,
 ).handle()
-async def lp_group_perm_group(
-    matcher: Matcher, args: Message = CommandArg()
-):
-    args_list = args.extract_plain_text().strip().split()
+async def lp_group_perm_group(matcher: Matcher, params: Match[tuple[str, ...]]):
+    args_list = list(params.result) if params.available else []
 
     if len(args_list) < 3:
         await matcher.finish(
@@ -173,7 +169,6 @@ async def lp_group_perm_group(
     await matcher.finish(msg_str)
 
 
-# 运行进入点
 @command.command(
     "chat_group",
     permission=is_lp_admin,

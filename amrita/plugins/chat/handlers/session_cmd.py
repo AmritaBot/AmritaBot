@@ -22,6 +22,7 @@ from nonebot_plugin_amrita.memory import CachedUserDataRepository, MemorySession
 from nonebot_plugin_orm import get_session
 from sqlalchemy import delete
 
+from amrita.platform.di import EnvelopeNBDep
 from amrita.plugins.chat.utils.libchat import add_usage
 
 from ..check_rule import is_group_admin_if_is_in_group
@@ -576,7 +577,11 @@ async def _dispatch_subcommand(
 
 
 async def session(
-    bot: Bot, event: MessageEvent, matcher: Matcher, args: Message = CommandArg()
+    bot: Bot,
+    event: MessageEvent,
+    env: EnvelopeNBDep,
+    matcher: Matcher,
+    args: Message = CommandArg(),
 ):
     """/session 命令入口"""
     if not await is_group_admin_if_is_in_group(event, bot):
@@ -587,14 +592,14 @@ async def session(
     force = any(a in _FORCE_FLAGS for a in arg_list[1:])
 
     if _is_destructive(sub, arg_list):
-        if is_session_busy(get_uni_user_id(event)) and not force:
+        if is_session_busy(get_uni_user_id(env)) and not force:
             await matcher.finish(
                 "⚠️ 当前会话正在运行中，该指令的结果会被本轮结束时的记忆回写覆盖。\n"
                 f"   请等待回复完成，或追加 force 等待本轮结束后执行："
                 f"/session {sub} force"
             )
         #  空闲路径同样必须持锁：否则「检查通过」到「执行」之间可以插入新一轮对话，本轮结束时的记忆回写会覆盖指令刚做的修改
-        async with session_lock(event):
+        async with session_lock(env):
             await _dispatch_subcommand(sub, arg_list, force, event, matcher)
         return
 

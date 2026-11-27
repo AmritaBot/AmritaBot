@@ -158,6 +158,7 @@ def create_system_info_image(system_info: list[str]):
 
 status_cmd = on_alconna(
     Alconna("status"),
+    use_cmd_start=True,
     default_state=MatcherData(
         description="查看系统状态",
         name="查看系统状态",

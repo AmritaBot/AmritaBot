@@ -27,7 +27,7 @@ from ..utils.functions import (
     split_message_into_chats,
 )
 from ..utils.libchat import add_usage, usage_enough
-from ..utils.lock import get_group_lock, get_private_lock
+from ..utils.lock import get_session_lock
 from ..utils.preset import resolve_preset
 
 
@@ -77,11 +77,10 @@ async def poke_event(event: PokeNotifyEvent, bot: Bot, matcher: Matcher):
         if not await usage_enough(event) or not await usage_enough(fake_event):
             return
 
-        if event.group_id is not None:  # 判断是群聊还是私聊
-            async with get_group_lock(event.group_id):
+        async with get_session_lock(get_uni_user_id(event)):
+            if event.group_id is not None:  # 判断是群聊还是私聊
                 await handle_group_poke(event, bot, matcher, repo)
-        else:
-            async with get_private_lock(event.user_id):
+            else:
                 await handle_private_poke(event, bot, matcher, repo)
     except NoneBotException:
         raise

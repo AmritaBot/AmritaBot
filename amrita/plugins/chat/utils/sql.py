@@ -1,3 +1,5 @@
+"""聊天会话主键映射与群配置存储。"""
+
 from __future__ import annotations
 
 import re
@@ -5,7 +7,7 @@ from datetime import datetime
 from typing import Literal
 
 from aiologic import Lock
-from nonebot.adapters.onebot.v11 import Event
+from nonebot.adapters import Event
 from nonebot_plugin_amrita.database import (
     HasUserIDModel,
     Memory,
@@ -27,11 +29,14 @@ from sqlalchemy.ext.asyncio import AsyncSessionTransaction
 from sqlalchemy.orm import Mapped, mapped_column
 from typing_extensions import Self
 
+from amrita.platform.dto import GROUP, PRIVATE, Envelope, Scope
+from amrita.platform.identity import QQ_ADAPTER_NAME
+from amrita.platform.identity import uni_id as scope_to_uni_id
 from amrita.utils.events import event_user_id
 
 from .lock import database_lock
 
-QQ_PLATFORM = "QQPlatform"
+QQ_PLATFORM = QQ_ADAPTER_NAME
 """QQ 系平台在会话 ID 中的适配器名"""
 
 #  nonebot_plugin_amrita 推荐格式：AdapterType_ExtraType_UserPayload（如 QQPlatform_Private_12345）
@@ -47,7 +52,20 @@ _EXTRA_GROUP = "Group"
 _MAX_UNI_ID_LEN = 64
 
 
-def get_uni_user_id(event: Event) -> str:
+def get_uni_id(target: Envelope | Scope) -> str:
+    """从归一化信封或会话 Scope 生成统一会话主键。"""
+    scope = target.scope if isinstance(target, Envelope) else target
+    return scope_to_uni_id(scope)
+
+
+def get_uni_user_id(event: Event | Envelope | Scope) -> str:
+    """从 Envelope / Scope 或原始 NoneBot 事件解析统一会话主键。
+
+    Envelope / Scope 走 platform.identity.uni_id；原始事件路径作为过渡兼容保留，
+    待上游调用方全部迁至 Envelope 后移除。
+    """
+    if isinstance(event, (Envelope, Scope)):
+        return get_uni_id(event)
     if uid := getattr(event, "group_id", None):
         return make_uni_id(uid, is_group=True)
     user_id = event_user_id(event)
@@ -73,10 +91,11 @@ def get_any_id(event: Event) -> tuple[int, bool]:
     return int(user_id), False
 
 
-def make_uni_id(id: int | str, is_group: bool) -> str:
-    """生成会话 ID：``QQPlatform_Group_{群号}`` / ``QQPlatform_Private_{QQ}``"""
-    extra = _EXTRA_GROUP if is_group else _EXTRA_PRIVATE
-    return f"{QQ_PLATFORM}_{extra}_{id!s}"
+def make_uni_id(id: int | str, is_group: bool, *, platform: str = "qq") -> str:
+    """生成会话 ID：默认 QQ 系为 ``QQPlatform_Group_{群号}`` / ``QQPlatform_Private_{QQ}``。"""
+    return scope_to_uni_id(
+        Scope(platform=platform, kind=GROUP if is_group else PRIVATE, id=str(id))
+    )
 
 
 def parse_uni_user_id(user_id: str) -> tuple[str, str] | None:

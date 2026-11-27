@@ -15,6 +15,7 @@ from amrita.utils.admin import send_to_admin
 
 set_leave = on_alconna(
     Alconna("set_leave", Args["target?", str]),
+    use_cmd_start=True,
     permission=is_lp_admin,
     default_state=MatcherData(
         name="退出指定群聊",

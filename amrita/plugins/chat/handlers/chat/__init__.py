@@ -48,7 +48,7 @@ from amrita.plugins.chat.utils.context_store import (
 from amrita.plugins.chat.utils.context_vars import current_uni_id
 from amrita.plugins.chat.utils.debounce import collect_batch
 from amrita.plugins.chat.utils.functions import is_card_only_message
-from amrita.plugins.chat.utils.lock import get_group_lock, get_private_lock
+from amrita.plugins.chat.utils.lock import get_session_lock
 from amrita.plugins.chat.utils.preset import is_multimodal_enabled, resolve_preset
 from amrita.plugins.chat.utils.sql import get_uni_user_id
 
@@ -228,9 +228,7 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
         notify_sec=config.session.session_long_running_notify_seconds,
         is_group=is_group,
     )
-    lock = (
-        get_group_lock(event.group_id) if is_group else get_private_lock(event.user_id)
-    )
+    lock = get_session_lock(session_id)
 
     #  TODO(review #326): interactive 模式下 handle_locked 只转发批首文本，批次内其余消息会丢
     if await get_pending_mode_strategy(config.function.chat_pending_mode).handle_locked(

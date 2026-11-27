@@ -1,28 +1,31 @@
-from nonebot import CommandGroup
-from nonebot.adapters.onebot.v11 import Message
-from nonebot.params import CommandArg
+"""解封群聊与用户命令。"""
 
-from amrita.plugins.menu.models import (
-    MatcherData,
-)
+from __future__ import annotations
+
+from arclet.alconna import Alconna, Args, MultiVar
+from nonebot_plugin_alconna import Match, on_alconna
+
+from amrita.plugins.menu.models import MatcherData
 from amrita.plugins.perm.API.admin import is_lp_admin
 
 from .blacklist.black import bl_manager
 
-pardon = CommandGroup("pardon", permission=is_lp_admin)
-
-pardon_group = pardon.command(
-    "group",
-    state=MatcherData(
+pardon_group = on_alconna(
+    Alconna("pardon.group", Args["target?", MultiVar(str)]),
+    use_cmd_start=True,
+    permission=is_lp_admin,
+    default_state=MatcherData(
         name="解封群组",
         description="用于解封群",
         usage="/pardon.group <group-id>",
         show_if="lp.admin",
     ).model_dump(),
 )
-pardon_user = pardon.command(
-    "user",
-    state=MatcherData(
+pardon_user = on_alconna(
+    Alconna("pardon.user", Args["target?", MultiVar(str)]),
+    use_cmd_start=True,
+    permission=is_lp_admin,
+    default_state=MatcherData(
         name="解封用户",
         description="用于解封用户",
         usage="/pardon.user <user-id>",
@@ -32,24 +35,22 @@ pardon_user = pardon.command(
 
 
 @pardon_group.handle()
-async def _(args: Message = CommandArg()):
-    arg = args.extract_plain_text().strip()
+async def _(target: Match[tuple[str, ...]]):
+    arg = " ".join(target.result).strip() if target.available else ""
     if not arg:
         await pardon_group.finish("❌ 请提供要解封的群ID！")
     if not await bl_manager.is_group_black(arg):
         await pardon_group.finish("❌ 该群未被封禁！")
-    else:
-        await bl_manager.group_remove(arg)
-        await pardon_group.finish(f"✅ 解封群{arg}成功！")
+    await bl_manager.group_remove(arg)
+    await pardon_group.finish(f"✅ 解封群{arg}成功！")
 
 
 @pardon_user.handle()
-async def pardon_user_handle(args: Message = CommandArg()):
-    arg = args.extract_plain_text().strip()
+async def pardon_user_handle(target: Match[tuple[str, ...]]):
+    arg = " ".join(target.result).strip() if target.available else ""
     if not arg:
         await pardon_user.finish("❌ 请提供要解封的用户ID！")
     if not await bl_manager.is_private_black(arg):
         await pardon_user.finish("❌ 该用户没有被封禁！")
-    else:
-        await bl_manager.private_remove(arg)
-        await pardon_user.finish(f"✅ 解封用户{arg}成功！")
+    await bl_manager.private_remove(arg)
+    await pardon_user.finish(f"✅ 解封用户{arg}成功！")

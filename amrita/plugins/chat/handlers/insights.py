@@ -12,7 +12,8 @@ from nonebot.params import CommandArg
 from nonebot_plugin_amrita import CachedUserDataRepository
 from nonebot_plugin_amrita.database import InsightsModel, UserDataExecutor, UserMetadata
 
-from amrita.plugins.perm.API.rules import any_has_permission
+from amrita.platform.di import EnvelopeNBDep
+from amrita.plugins.perm.API.rules import has_any_permission
 
 from ..check_rule import is_bot_admin
 from ..config import config_manager
@@ -50,7 +51,12 @@ def _parse_inspect(arg: str) -> tuple[str, str] | None:
     return kind, target
 
 
-async def insights(event: MessageEvent, matcher: Matcher, args: Message = CommandArg()):
+async def insights(
+    event: MessageEvent,
+    env: EnvelopeNBDep,
+    matcher: Matcher,
+    args: Message = CommandArg(),
+):
     msg = "未知参数。"
     config = config_manager.config
     if not (arg := args.extract_plain_text().strip()):
@@ -62,9 +68,9 @@ async def insights(event: MessageEvent, matcher: Matcher, args: Message = Comman
         group_limit = config.usage_limit.group_daily_limit
         group_token_limit = config.usage_limit.group_daily_token_limit
         enable_limit = config.usage_limit.enable_usage_limit
-        is_bypass = await is_bot_admin(event) or await (
-            any_has_permission("amrita.usage.bypass")
-        )(event)
+        is_bypass = await is_bot_admin(env) or await has_any_permission(
+            env, "amrita.usage.bypass"
+        )
 
         msg = (
             f"您今日的使用次数为：{data.called_count}/{user_limit if (user_limit != -1 and enable_limit and not is_bypass) else '♾'}次"
@@ -82,7 +88,7 @@ async def insights(event: MessageEvent, matcher: Matcher, args: Message = Comman
     elif arg == "global":
         total_token_limit = config.usage_limit.total_daily_token_limit
         total_limit = config.usage_limit.total_daily_limit
-        if not await is_bot_admin(event):
+        if not await is_bot_admin(env):
             await matcher.finish("你没有权限查看全局数据")
         data = await InsightsModel.get()
         msg = (
@@ -93,7 +99,7 @@ async def insights(event: MessageEvent, matcher: Matcher, args: Message = Comman
             + "\n(您的限制：♾)"
         )
     elif arg.startswith("inspect"):
-        if not await is_bot_admin(event):
+        if not await is_bot_admin(env):
             await matcher.finish("你没有权限查看其他用户/群组数据")
         parsed = _parse_inspect(arg)
         if parsed is None:
@@ -115,7 +121,7 @@ async def insights(event: MessageEvent, matcher: Matcher, args: Message = Comman
                     f"\n历史累计：{data.total_called_count}次，{total_history} tokens"
                 )
     elif match := _TOP_RE.match(arg):
-        if not await is_bot_admin(event):
+        if not await is_bot_admin(env):
             await matcher.finish("你没有权限查看排名数据")
 
         # 获取 topN 数据（群/私聊各取前 N，最多 2N 条）

@@ -10,6 +10,7 @@ from nonebot.matcher import Matcher
 from nonebot.params import CommandArg
 
 from amrita.config import get_amrita_config
+from amrita.platform.di import EnvelopeNBDep
 from amrita.plugins.perm.API.admin import is_lp_admin
 from amrita.utils.send import send_forward_msg
 
@@ -44,6 +45,7 @@ async def show_menu(
     matcher: Matcher,
     bot: Bot,
     event: MessageEvent,
+    env: EnvelopeNBDep,
     args: Message = CommandArg(),
 ):
     """显示菜单（/menu --sudo 需要 lp.admin 权限展示完整菜单）"""
@@ -52,12 +54,12 @@ async def show_menu(
 
     # sudo 需要 lp.admin 权限
     sudo = "--sudo" in args.extract_plain_text().split()
-    if sudo and not await is_lp_admin(event):
+    if sudo and not await is_lp_admin(env):
         await matcher.finish("❌ 无权限查看管理员菜单（需要 lp.admin 权限）")
 
     menu_datas = await generate_menu(
         menu_mamager.plugins,
-        event=event,
+        event=env,
         sudo=sudo,
     )
 

@@ -32,6 +32,7 @@ from typing_extensions import Self
 
 from amrita import config, get_amrita_config
 from amrita.cache import WeakValueLRUCache
+from amrita.platform.di import OptionalEnvelopeNBDep
 from amrita.plugins.menu.models import MatcherData
 from amrita.plugins.perm.API.admin import is_lp_admin
 from amrita.utils.admin import send_to_admin
@@ -161,8 +162,8 @@ async def _(bot: Bot):
 
 
 @run_preprocessor
-async def run(matcher: Matcher, event: MessageEvent):
-    if (not StatusManager().ready) and (not await is_lp_admin(event)):
+async def run(matcher: Matcher, event: MessageEvent, env: OptionalEnvelopeNBDep):
+    if (not StatusManager().ready) and (not await is_lp_admin(env)):
         raise IgnoredException("Maintenance in progress, operation not supported.")
     has_text_rule = any(
         isinstance(
@@ -185,7 +186,7 @@ async def run(matcher: Matcher, event: MessageEvent):
     )
     data = watch_group if isinstance(event, GroupMessageEvent) else watch_user
     bucket = data[ins_id]
-    if not bucket.consume() and (not await is_lp_admin(event)):
+    if not bucket.consume() and (not await is_lp_admin(env)):
         raise IgnoredException("Rate limit exceeded, operation ignored.")
 
 

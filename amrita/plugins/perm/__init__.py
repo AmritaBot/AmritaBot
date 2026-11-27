@@ -1,3 +1,5 @@
+"""Amrita 内置权限管理插件（LitePerm）。"""
+
 from nonebot.plugin import PluginMetadata, require
 
 require("nonebot_plugin_localstore")
@@ -25,5 +27,4 @@ __plugin_meta__ = PluginMetadata(
     usage="https://amrita.suggar.top/amrita/plugins/liteperm/",
     homepage="https://github.com/AmritaBot/AmritaBot",
     type="library",
-    supported_adapters={"~onebot.v11"},
 )

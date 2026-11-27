@@ -1,12 +1,14 @@
-from nonebot.adapters.onebot.v11 import MessageEvent
+"""菜单文本生成与按权限节点过滤。"""
 
-from amrita.plugins.perm.API.rules import any_has_permission
+from __future__ import annotations
+
+from amrita.plugins.perm.API.rules import PermTarget, has_any_permission
 
 from .models import MatcherData, PluginData
 
 
-async def _visible(matcher_data: MatcherData, event: MessageEvent, sudo: bool) -> bool:
-    """判断某个 matcher 是否对调用者可见
+async def _visible(matcher_data: MatcherData, target: PermTarget, sudo: bool) -> bool:
+    """判断某个 matcher 是否对调用者可见。
 
     - show_if 为 None -> 总是可见
     - sudo 模式 -> 强制可见（已由调用方校验 lp.admin）
@@ -14,20 +16,20 @@ async def _visible(matcher_data: MatcherData, event: MessageEvent, sudo: bool) -
     """
     if matcher_data.show_if is None or sudo:
         return True
-    return await (any_has_permission(matcher_data.show_if))(event)
+    return await has_any_permission(target, matcher_data.show_if)
 
 
 async def generate_menu(
     plugins: list[PluginData],
     *,
-    event: MessageEvent,
+    event: PermTarget,
     sudo: bool = False,
 ) -> list[str]:
-    """生成菜单文本
+    """生成菜单文本。
 
     Args:
         plugins: 插件列表
-        event: 调用者事件（用于权限节点判断）
+        event: 调用者归一化信封或事件（用于权限节点判断）
         sudo: 是否完整模式（--sudo，展示所有 show_if 项，调用方需先校验 lp.admin）
 
     Returns:

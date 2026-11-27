@@ -8,11 +8,10 @@ from nonebot_plugin_amrita.database import InsightsModel
 from nonebot_plugin_amrita.memory import CachedUserDataRepository, UserMetadataSchema
 
 from amrita.plugins.chat.config import config_manager
-from amrita.plugins.perm.API.rules import any_has_permission
+from amrita.plugins.perm.API.admin import is_lp_admin_for
+from amrita.plugins.perm.API.rules import has_any_permission
 
 from .sql import make_uni_id
-
-is_bot_admin = None
 
 
 def add_usage(
@@ -35,19 +34,14 @@ def add_usage(
 
 
 async def usage_enough(event: Event) -> bool:
-    global is_bot_admin
-    if is_bot_admin is None:
-        from ..check_rule import is_bot_admin
-
-        is_bot_admin = is_bot_admin
     dm = CachedUserDataRepository()
 
     config = config_manager.config
     if not config.usage_limit.enable_usage_limit:
         return True
-    elif await is_bot_admin(event):
+    elif await is_lp_admin_for(event):
         return True
-    elif await (any_has_permission("amrita.usage.bypass"))(event):
+    elif await has_any_permission(event, "amrita.usage.bypass"):
         return True
 
     # ### Starts of Global Insights ###

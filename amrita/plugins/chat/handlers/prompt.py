@@ -9,14 +9,14 @@ from nonebot_plugin_amrita import CachedUserDataRepository
 
 from amrita.plugins.chat.utils.data_access import update_memory
 from amrita.plugins.chat.utils.sql import get_uni_user_id
+from amrita.plugins.perm.API.admin import is_lp_admin_for
 
-from ..check_rule import is_bot_admin
 from ..config import config_manager
 
 
 async def _require_bot_admin(event: MessageEvent, matcher: Matcher) -> None:
     """模板切换会写入全局配置，仅超级管理员可用"""
-    if not await is_bot_admin(event):
+    if not await is_lp_admin_for(event):
         await matcher.finish("仅超级管理员可切换提示词模板。")
 
 

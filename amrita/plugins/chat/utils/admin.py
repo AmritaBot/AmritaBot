@@ -1,7 +1,9 @@
+"""Chat 插件错误上报到管理员的轻量包装。"""
+
+from __future__ import annotations
+
 from nonebot import logger
-from nonebot.adapters.onebot.v11 import (
-    Bot,
-)
+from nonebot.adapters import Bot
 
 from amrita.utils.admin import send_to_admin
 

@@ -54,16 +54,19 @@ async def is_group_owner(bot: Bot, group_id: int) -> bool:
     return getattr(member, "role", None) == "owner"
 
 
+def _has_real_method(bot: Bot, name: str) -> bool:
+    """区分真实定义的方法与 Bot.__getattr__ 返回的动态 call_api 偏函数。"""
+    return hasattr(type(bot), name) or name in bot.__dict__
+
+
 async def _leave_group(bot: Bot, group_id: int) -> bool:
-    """按适配器能力调用退群 API：OneBot 是 set_group_leave，Milky 是 quit_group。"""
-    for name in ("set_group_leave", "quit_group"):
-        method = getattr(bot, name, None)
-        if method is None:
-            continue
-        if name == "quit_group":
-            await cast(_QuitGroupAPI, bot).quit_group(group_id=group_id)
-        else:
-            await cast(_LeaveAPI, bot).set_group_leave(group_id=group_id)
+    """按适配器能力调用退群 API：Milky 是 quit_group，OneBot 是 set_group_leave。"""
+    module = type(bot).__module__
+    if "nonebot.adapters.milky" in module or _has_real_method(bot, "quit_group"):
+        await cast(_QuitGroupAPI, bot).quit_group(group_id=group_id)
+        return True
+    if "nonebot.adapters.onebot" in module or _has_real_method(bot, "set_group_leave"):
+        await cast(_LeaveAPI, bot).set_group_leave(group_id=group_id)
         return True
     return False
 

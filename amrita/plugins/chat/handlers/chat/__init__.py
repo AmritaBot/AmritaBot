@@ -129,13 +129,17 @@ async def entry(event: MessageEvent, matcher: Matcher, bot: Bot):
     )
     data = memory.memory_json
 
-    #  清理异常 content：Core 1.4 起 ToolResult 也可能携带内容块列表
+    #  清理异常 content（Core 1.4 起 ToolResult 也可能携带内容块列表）并剔除历史空 assistant 消息
+    cleaned_messages = []
     for mem in data.messages:
-        if not isinstance(mem, (Message, ToolResult)):
+        if isinstance(mem, (Message, ToolResult)) and not (
+            mem.content is None or isinstance(mem.content, str)
+        ):
+            mem.content = [i for i in mem.content if isinstance(i, Content)]
+        if ChatMemoryBackend._is_empty_assistant_message(mem):
             continue
-        if mem.content is None or isinstance(mem.content, str):
-            continue
-        mem.content = [i for i in mem.content if isinstance(i, Content)]
+        cleaned_messages.append(mem)
+    data.messages = cleaned_messages
 
     # 会话超时 / 继续恢复
     await SessionManager(

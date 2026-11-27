@@ -6,6 +6,7 @@ from amrita_core.contexts import AbilityContext
 from amrita_core.preset import MultiPresetManager
 from amrita_core.tools.manager import MultiToolsManager
 from amrita_core.tools.mcp import MultiClientManager
+from amrita_core.types import Message
 from nonebot_plugin_amrita.memory import CachedUserDataRepository, MemorySchema
 
 from .utils.context_store import fold_media_in_messages
@@ -35,8 +36,28 @@ class ChatMemoryBackend(MemoryBackend):
         #  纯拷贝，零图片 IO（必须拷贝：JINJA2_RENDER 会 append 本轮 user_input，直接返回共享对象会污染缓存）
         return self.memory_view.model_copy()
 
+    @staticmethod
+    def _is_empty_assistant_message(item: object) -> bool:
+        """判定是否为空正文且无工具调用的 assistant 消息（避免污染上下文导致上游 400）。"""
+        if not isinstance(item, Message) or item.role != "assistant":
+            return False
+        if item.tool_calls:
+            return False
+        content = item.content
+        if content is None:
+            return True
+        if isinstance(content, str):
+            return content.strip() == ""
+        if isinstance(content, list):
+            return len(content) == 0
+        return False
+
     async def commit_memory(self, session_id: str, memory: MemoryModel) -> None:
         del session_id
+        # 剔除空 content 且无 tool_calls 的 assistant 消息，防止写入空串污染后续请求
+        memory.messages = [
+            msg for msg in memory.messages if not self._is_empty_assistant_message(msg)
+        ]
         #  图片内容 -> 占位符（纯函数，不读库、不入库）
         fold_media_in_messages(memory.messages)
         if self.memory_val.memory_json is not memory:

@@ -23,6 +23,7 @@ from nonebot.adapters.onebot.v11.event import (
 from nonebot.adapters.onebot.v11.event import (
     RequestEvent as OneBotRequestEvent,
 )
+from nonebot.log import logger
 from pydantic import BaseModel
 
 from ...dto import (
@@ -42,6 +43,7 @@ from ...ports import (
     CAP_RECALL,
     CAP_REPLY,
     CAP_TEXT,
+    CAP_THREAD,
     BaseSender,
 )
 from .common import QQ, dedupe_key, normalize_role, segments_to_parts
@@ -77,6 +79,8 @@ class OneBotSender(BaseSender):
         thread: str | None = None,
     ) -> str:
         self._require(CAP_TEXT)
+        if thread is not None:
+            self._require(CAP_THREAD)
         segments: list[MessageSegment] = []
         if reply_to and self.supports(CAP_REPLY):
             segments.append(MessageSegment.reply(int(reply_to)))
@@ -90,6 +94,8 @@ class OneBotSender(BaseSender):
         reply_to: str | None = None,
         thread: str | None = None,
     ) -> str:
+        if thread is not None:
+            self._require(CAP_THREAD)
         segments: list[MessageSegment] = []
         if reply_to and self.supports(CAP_REPLY):
             segments.append(MessageSegment.reply(int(reply_to)))
@@ -209,7 +215,10 @@ class OneBotPort:
             info = await api.get_group_member_info(
                 group_id=int(scope.id), user_id=int(actor.user_id), no_cache=True
             )
-        except Exception:  # 查不到就是查不到，不猜
+        except Exception as exc:  # 查不到就是查不到，不猜，但留日志供排查
+            logger.warning(
+                f"OneBot resolve_role 失败 (group={scope.id}, user={actor.user_id}): {exc}"
+            )
             return actor
         role = info.get("role")
         if not isinstance(role, str):
@@ -259,5 +268,26 @@ class OneBotPort:
     def _dedupe(event: OneBotEvent, kind: str, scope: Scope, actor: Actor) -> str:
         if kind == MESSAGE:
             return dedupe_key(QQ, "msg", getattr(event, "message_id", ""))
-        notice_type = getattr(event, "notice_type", "")
-        return dedupe_key(QQ, str(notice_type), scope.id, actor.user_id, event.time)
+        event_kind = (
+            getattr(event, "notice_type", "")
+            or getattr(event, "request_type", "")
+            or getattr(event, "meta_event_type", "")
+            or kind
+        )
+        sub_type = getattr(event, "sub_type", "")
+        discriminator = (
+            getattr(event, "flag", None)
+            or getattr(event, "message_id", None)
+            or getattr(event, "target_id", None)
+            or getattr(event, "operator_id", None)
+            or ""
+        )
+        return dedupe_key(
+            QQ,
+            str(event_kind),
+            str(sub_type),
+            scope.id,
+            actor.user_id,
+            event.time,
+            str(discriminator),
+        )

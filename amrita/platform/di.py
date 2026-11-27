@@ -31,7 +31,22 @@ async def provide_envelope(event: Event, bot: Bot | None = None) -> Envelope:
     return envelope
 
 
+async def provide_optional_envelope(
+    event: Event, bot: Bot | None = None
+) -> Envelope | None:
+    """把当前事件转换成 Envelope；无法识别时静默返回 ``None``，供权限与规则层使用。"""
+    return envelope_from(event, bot, strict=False)
+
+
 # 仅用于 nonebot 原生 matcher
 EnvelopeNBDep = Annotated[Envelope, NoneBotDepends(provide_envelope)]
+OptionalEnvelopeNBDep = Annotated[
+    Envelope | None, NoneBotDepends(provide_optional_envelope)
+]
 
-__all__ = ["EnvelopeNBDep", "provide_envelope"]
+__all__ = [
+    "EnvelopeNBDep",
+    "OptionalEnvelopeNBDep",
+    "provide_envelope",
+    "provide_optional_envelope",
+]

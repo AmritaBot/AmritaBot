@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from . import identity, registry
-from .di import EnvelopeNBDep
+from .di import EnvelopeNBDep, OptionalEnvelopeNBDep
 from .dto import (
     GROUP,
     MESSAGE,
@@ -38,6 +38,7 @@ __all__ = [
     "Actor",
     "Envelope",
     "EnvelopeNBDep",
+    "OptionalEnvelopeNBDep",
     "Part",
     "Scope",
     "identity",

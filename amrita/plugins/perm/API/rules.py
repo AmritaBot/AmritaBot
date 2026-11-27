@@ -16,6 +16,7 @@ from amrita.platform.di import OptionalEnvelopeNBDep
 from amrita.platform.dto import META, Envelope
 from amrita.platform.shim import envelope_from
 
+from ..identity import envelope_group_member_id, envelope_user_member_id
 from ..models import (
     DefaultPermissionGroupsEnum,
     PermissionStorage,
@@ -149,7 +150,7 @@ class UserPermissionChecker(PermissionChecker):
         env = _resolve_envelope(target)
         if env is None or not env.actor.user_id:
             return False
-        user_id = env.actor.user_id
+        user_id = envelope_user_member_id(env)
         if token := _cache_token(env):
             _event_to_keys.setdefault(token, set()).add(("user", user_id, perm, False))
         return await _check_user_permission_with_cache(user_id, perm)
@@ -175,7 +176,7 @@ class GroupPermissionChecker(PermissionChecker):
             return False
         if not env.is_group:
             return not self.only_group
-        group_id = env.scope.id
+        group_id = envelope_group_member_id(env)
         if token := _cache_token(env):
             _event_to_keys.setdefault(token, set()).add(
                 ("group", group_id, perm, self.only_group)

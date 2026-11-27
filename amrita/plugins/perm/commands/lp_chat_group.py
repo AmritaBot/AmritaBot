@@ -7,10 +7,12 @@ from copy import deepcopy
 from nonebot.matcher import Matcher
 from nonebot_plugin_alconna import Match
 
+from amrita.platform.di import OptionalEnvelopeNBDep
 from amrita.plugins.menu.models import MatcherData
 
 from ..API.admin import is_lp_admin
 from ..command_manager import command
+from ..identity import DEFAULT_PLATFORM, resolve_member_id
 from ..models import (
     DefaultPermissionGroupsEnum,
     PermissionStorage,
@@ -23,7 +25,9 @@ from ..nodelib import Permissions
     with_params=True,
     permission=is_lp_admin,
 ).handle()
-async def lp_group_permission(matcher: Matcher, params: Match[tuple[str, ...]]):
+async def lp_group_permission(
+    matcher: Matcher, params: Match[tuple[str, ...]], env: OptionalEnvelopeNBDep
+):
     args_list = list(params.result) if params.available else []
 
     if len(args_list) < 2:
@@ -31,7 +35,8 @@ async def lp_group_permission(matcher: Matcher, params: Match[tuple[str, ...]]):
             "❌ 参数不足，需要：群号 操作 [权限节点] [值]\n/lp.chat_group.permission <群号> <操作:add|del|set|check|list> <权限节点> [值]"
         )
 
-    id = args_list[0]
+    platform = env.scope.platform if env is not None else DEFAULT_PLATFORM
+    id = resolve_member_id(args_list[0], "group", default_platform=platform)
     operation = args_list[1]
     target = args_list[2] if len(args_list) >= 3 else ""
     value = args_list[3] if len(args_list) >= 4 else ""
@@ -77,7 +82,9 @@ async def lp_group_permission(matcher: Matcher, params: Match[tuple[str, ...]]):
     with_params=True,
     permission=is_lp_admin,
 ).handle()
-async def lp_group_parent(matcher: Matcher, params: Match[tuple[str, ...]]):
+async def lp_group_parent(
+    matcher: Matcher, params: Match[tuple[str, ...]], env: OptionalEnvelopeNBDep
+):
     args_list = list(params.result) if params.available else []
 
     if len(args_list) < 3:
@@ -85,7 +92,8 @@ async def lp_group_parent(matcher: Matcher, params: Match[tuple[str, ...]]):
             "❌ 参数不足，需要：群号 操作 权限组名\n/lp.chat_group.parent <群号> <操作:add|del|set> <权限组名>"
         )
 
-    id = args_list[0]
+    platform = env.scope.platform if env is not None else DEFAULT_PLATFORM
+    id = resolve_member_id(args_list[0], "group", default_platform=platform)
     operation = args_list[1]
     target = args_list[2]
 
@@ -134,7 +142,9 @@ async def lp_group_parent(matcher: Matcher, params: Match[tuple[str, ...]]):
     with_params=True,
     permission=is_lp_admin,
 ).handle()
-async def lp_group_perm_group(matcher: Matcher, params: Match[tuple[str, ...]]):
+async def lp_group_perm_group(
+    matcher: Matcher, params: Match[tuple[str, ...]], env: OptionalEnvelopeNBDep
+):
     args_list = list(params.result) if params.available else []
 
     if len(args_list) < 3:
@@ -142,7 +152,8 @@ async def lp_group_perm_group(matcher: Matcher, params: Match[tuple[str, ...]]):
             "❌ 参数不足，需要：群号 操作 权限组名\n/lp.chat_group.perm_group <群号> <操作:add|del> <权限组名>"
         )
 
-    id = args_list[0]
+    platform = env.scope.platform if env is not None else DEFAULT_PLATFORM
+    id = resolve_member_id(args_list[0], "group", default_platform=platform)
     operation = args_list[1]
     target = args_list[2]
 
@@ -153,6 +164,7 @@ async def lp_group_perm_group(matcher: Matcher, params: Match[tuple[str, ...]]):
 
     if operation == "add":
         if await store.permission_group_exists(target):
+            await store.get_member_permission(id, "group")
             await store.add_member_related_permission_group(id, "group", target)
             msg_str = f"✅ 成功添加权限组 {target}"
         else:

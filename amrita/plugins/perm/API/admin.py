@@ -7,6 +7,7 @@ from nonebot import get_driver
 from amrita.platform.di import OptionalEnvelopeNBDep
 
 from ..config import DataManager
+from ..identity import matches_superuser
 from .rules import PermTarget, _resolve_envelope, has_any_permission
 
 ENV_ADMINS = get_driver().config.superusers
@@ -24,6 +25,6 @@ async def is_lp_admin_for(target: PermTarget) -> bool:
         return False
 
     return (
-        resolved.actor.user_id in ENV_ADMINS
+        matches_superuser(resolved, ENV_ADMINS)
         or await has_any_permission(resolved, "lp.admin")
     ) and DataManager().config.enable

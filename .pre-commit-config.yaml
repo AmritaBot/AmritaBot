@@ -15,6 +15,10 @@ repos:
       - id: check-merge-conflict
       - id: check-added-large-files
         args: [--maxkb=2048]
+      - id: trailing-whitespace
+        exclude: ^frontend/
+      - id: end-of-file-fixer
+        exclude: ^frontend/
 
   # ruff 走官方镜像仓库，由 pre-commit 在自己的隔离环境里装它，
   # 不依赖项目虚拟环境，也不调用 uv（pre-commit.ci 上没有 uv）。

@@ -1,9 +1,6 @@
-"""无用群组清理命令：Alconna + 按适配器能力调用群列表/退群 API。"""
+"""无用群组清理命令：Alconna + 经群管理 helper 调用群列表与退群能力。"""
 
 from __future__ import annotations
-
-from collections.abc import Iterable
-from typing import Protocol, cast
 
 from arclet.alconna import Alconna, Option
 from nonebot import get_driver, logger
@@ -17,7 +14,12 @@ from amrita.plugins.menu.models import MatcherData
 from amrita.plugins.perm.API.admin import is_lp_admin
 from amrita.utils.send import resolve_sender
 
-from .leave import _leave_group, is_group_owner
+from .leave import (
+    is_group_owner,
+    leave_group,
+    list_group_members,
+    list_groups,
+)
 
 clean_groups = on_alconna(
     Alconna("clean_groups", Option("--confirm")),
@@ -30,12 +32,6 @@ clean_groups = on_alconna(
         show_if="lp.admin",
     ).model_dump(),
 )
-
-
-class _GroupListAPI(Protocol):
-    async def get_group_list(self) -> Iterable[object]: ...
-
-    async def get_group_member_list(self, *, group_id: int) -> Iterable[object]: ...
 
 
 def _extract_group_info(item: object) -> tuple[int, str] | None:
@@ -84,24 +80,12 @@ async def _(
         await clean_groups.finish(
             "⚠️ 该操作会批量退出人数少于20人的群组，确认执行请再次输入：/clean_groups --confirm"
         )
-    module = type(bot).__module__
-    has_group_api = (
-        "nonebot.adapters.onebot" in module
-        or "nonebot.adapters.milky" in module
-        or (
-            (hasattr(type(bot), "get_group_list") or "get_group_list" in bot.__dict__)
-            and (
-                hasattr(type(bot), "get_group_member_list")
-                or "get_group_member_list" in bot.__dict__
-            )
-        )
-    )
-    if not has_group_api:
+    adapter_hint = env.adapter or None
+    groups = await list_groups(bot, adapter_hint=adapter_hint)
+    if groups is None:
         await clean_groups.finish("❌ 当前平台不支持群列表批量清理。")
 
     await clean_groups.send("⚠️ 开始清理低群人数群组...")
-    api = cast(_GroupListAPI, bot)
-    groups = await api.get_group_list()
     admins = _superuser_int_ids()
     left = skipped_admin = skipped_owner = failed = 0
     for group in groups:
@@ -110,7 +94,9 @@ async def _(
             continue
         group_id, group_name = info
         try:
-            raw_members = await api.get_group_member_list(group_id=group_id)
+            raw_members = await list_group_members(
+                bot, group_id, adapter_hint=adapter_hint
+            )
             members: set[int] = {
                 uid
                 for member in raw_members
@@ -138,7 +124,7 @@ async def _(
             await clean_groups.send(f"⚠️ 尝试退出群组{group_name}({group_id}).....")
             try:
                 scope = Scope(platform=env.scope.platform, kind=GROUP, id=str(group_id))
-                sender = resolve_sender(bot, scope, adapter=env.adapter or None)
+                sender = resolve_sender(bot, scope, adapter=adapter_hint)
                 notice = (
                     "⚠️ 该群人数小于二十人！Bot将退出该群组。"
                     f"{f'如有疑问请加群{get_amrita_config().public_group}' if get_amrita_config().public_group else ''}。"
@@ -148,7 +134,7 @@ async def _(
             except Exception as e:
                 logger.error(f"⚠️ 发送退群通知失败: {e!s}")
             try:
-                if await _leave_group(bot, group_id):
+                if await leave_group(bot, group_id, adapter_hint=adapter_hint):
                     left += 1
                 else:
                     failed += 1

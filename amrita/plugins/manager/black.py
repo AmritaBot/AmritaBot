@@ -13,7 +13,7 @@ from amrita.platform.identity import uni_id, user_uni_id
 from amrita.utils.admin import send_to_admin
 
 from .blacklist.black import bl_manager
-from .leave import _leave_group
+from .leave import leave_group
 
 
 async def _is_group_blacklisted(group_id: str, group_uni_id: str) -> bool:
@@ -35,7 +35,7 @@ async def message_preprocessor(matcher: Matcher, bot: Bot, env: OptionalEnvelope
     if env.is_group and await _is_group_blacklisted(env.scope.id, uni_id(env.scope)):
         await send_to_admin(f"尝试退出黑名单群组{env.scope.id}.......")
         if env.scope.id.isdigit():
-            await _leave_group(bot, int(env.scope.id))
+            await leave_group(bot, int(env.scope.id), adapter_hint=env.adapter or None)
         raise IgnoredException("群组黑名单")
     if env.actor.user_id and await _is_user_blacklisted(
         env.actor.user_id, user_uni_id(env.actor.platform, env.actor.user_id)

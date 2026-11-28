@@ -39,6 +39,7 @@ from ...dto import (
 )
 from ...ports import (
     CAP_AT,
+    CAP_FORWARD,
     CAP_IMAGE,
     CAP_RECALL,
     CAP_REPLY,
@@ -66,7 +67,7 @@ class OneBotSender(BaseSender):
         # 端口只认框架基类，具体类型在实现内部收窄；运行期按鸭子类型使用。
         self._bot = cast(OneBotBot, bot)
         self.scope = scope
-        caps = {CAP_TEXT, CAP_IMAGE, CAP_RECALL}
+        caps = {CAP_TEXT, CAP_IMAGE, CAP_RECALL, CAP_FORWARD}
         if scope.is_group:
             caps |= {CAP_AT, CAP_REPLY}
         self.capabilities = frozenset(caps)
@@ -116,6 +117,51 @@ class OneBotSender(BaseSender):
                     segments.append(MessageSegment.text(part.value))
         return await self._send(Message(segments))
 
+    async def send_forward(
+        self,
+        nodes: Sequence[Part],
+        *,
+        name: str = "",
+        uin: str = "",
+    ) -> str:
+        self._require(CAP_FORWARD)
+        if not nodes:
+            return ""
+        messages = [
+            {
+                "type": "node",
+                "data": {
+                    "name": name,
+                    "uin": uin,
+                    "content": self._part_to_forward_content(part),
+                },
+            }
+            for part in nodes
+        ]
+        if self.scope.is_group:
+            resp = await self._bot.send_group_forward_msg(
+                group_id=int(self.scope.id), messages=messages
+            )
+        else:
+            resp = await self._bot.send_private_forward_msg(
+                user_id=int(self.scope.id), messages=messages
+            )
+        if isinstance(resp, dict):
+            return str(resp.get("message_id", ""))
+        return str(getattr(resp, "message_id", ""))
+
+    @staticmethod
+    def _part_to_forward_content(part: Part) -> object:
+        if part.kind == "text":
+            return MessageSegment.text(part.value)
+        if part.kind == "image" and part.value:
+            return MessageSegment.image(part.value)
+        raw_type = part.meta.get("type")
+        raw_data = part.meta.get("data")
+        if isinstance(raw_type, str) and isinstance(raw_data, dict):
+            return MessageSegment(raw_type, dict(raw_data))
+        return MessageSegment.text(part.value)
+
     async def recall(self, message_id: str) -> bool:
         if not self.supports(CAP_RECALL):
             return False
@@ -161,6 +207,11 @@ class OneBotPort:
     def match(self, raw_event: BaseModel, bot: Bot | None = None) -> bool:
         module = type(raw_event).__module__
         return module.startswith(_ADAPTER_MODULE) and isinstance(raw_event, OneBotEvent)
+
+    def match_bot(self, bot: Bot) -> bool:
+        return isinstance(bot, OneBotBot) or type(bot).__module__.startswith(
+            _ADAPTER_MODULE
+        )
 
     def to_envelope(self, raw_event: BaseModel, bot: Bot | None = None) -> Envelope:
         if not isinstance(raw_event, OneBotEvent):

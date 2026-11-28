@@ -547,3 +547,52 @@ def test_set_enable_handler_toggles_status_manager():
     finally:
         sm.set_disable(orig_disable)
         sm.set_unready(orig_unready)
+
+
+def test_auto_clean_rejects_unsupported_platform_without_reflection():
+    """auto_clean 通过群管理 helper 判断平台能力，Telegram 等无群列表 API 的平台安全提示。"""
+    from amrita.plugins.manager import auto_clean as clean_mod
+
+    tg_bot = _FakeTelegramBot()
+    tg_env = Envelope(
+        kind=MESSAGE,
+        scope=Scope(platform="telegram", kind=GROUP, id="-100888"),
+        actor=Actor(platform="telegram", user_id="77001"),
+        self_id="tg_bot",
+        adapter="telegram",
+    )
+    handler = clean_mod.clean_groups.handlers[0].call
+    fake_result = SimpleNamespace(
+        result=SimpleNamespace(find=lambda name: name == "confirm")
+    )
+    with (
+        patch.object(
+            clean_mod.clean_groups,
+            "finish",
+            AsyncMock(side_effect=FinishedException),
+        ) as mock_finish,
+        pytest.raises(FinishedException),
+    ):
+        asyncio.run(handler(tg_bot, tg_env, fake_result))
+    assert "不支持群列表" in mock_finish.call_args.args[0]
+
+
+def test_platform_sender_forward_capability_and_missing_raises():
+    """CAP_FORWARD 由平台 Sender 声明，不支持合并转发的 TelegramSender 调用 send_forward 抛 CapabilityMissing。"""
+    from amrita.platform import registry
+    from amrita.platform.ports import CAP_FORWARD, CapabilityMissing
+
+    ob_sender = registry.get_adapter("onebot11").sender(  # type: ignore[union-attr]
+        _FakeOneBot(), Scope(platform="qq", kind=GROUP, id="123")
+    )
+    milky_sender = registry.get_adapter("milky").sender(  # type: ignore[union-attr]
+        _FakeMilkyBot(), Scope(platform="qq", kind=GROUP, id="123")
+    )
+    tg_sender = registry.get_adapter("telegram").sender(  # type: ignore[union-attr]
+        _FakeTelegramBot(), Scope(platform="telegram", kind=GROUP, id="-1001")
+    )
+    assert ob_sender.supports(CAP_FORWARD) is True
+    assert milky_sender.supports(CAP_FORWARD) is True
+    assert tg_sender.supports(CAP_FORWARD) is False
+    with pytest.raises(CapabilityMissing):
+        asyncio.run(tg_sender.send_forward([Part(kind="text", value="hi")]))

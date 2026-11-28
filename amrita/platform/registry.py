@@ -1,4 +1,4 @@
-"""platform 到实现的注册表：按注册顺序探测事件归属。"""
+"""platform 到实现的注册表：按注册顺序探测事件与 Bot 归属。"""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ def get(name: str) -> PlatformPort:
 
 
 def get_adapter(adapter: str) -> PlatformPort | None:
-    """按具体实现名取端口（onebot11 / milky），未知返回 None。"""
+    """按具体实现名取端口（onebot11 / milky / telegram），未知返回 None。"""
     load_ports()
     return _by_adapter.get(adapter)
 
@@ -57,6 +57,21 @@ def resolve(raw_event: BaseModel, bot: Bot | None = None) -> PlatformPort | None
         for port in bucket:
             if _safe_match(port, raw_event, bot):
                 return port
+    return None
+
+
+def resolve_bot(bot: Bot) -> PlatformPort | None:
+    """按注册顺序探测 Bot 属于哪个适配器实现。"""
+    load_ports()
+    for bucket in _ports.values():
+        for port in bucket:
+            matcher = getattr(port, "match_bot", None)
+            if callable(matcher):
+                try:
+                    if matcher(bot):
+                        return port
+                except Exception:
+                    continue
     return None
 
 

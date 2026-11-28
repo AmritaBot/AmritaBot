@@ -12,11 +12,12 @@ from nonebot import logger
 from nonebot.adapters import Bot
 
 from amrita.config import get_amrita_config
+from amrita.platform import registry
 from amrita.platform.dto import GROUP, Scope
 from amrita.utils.rate import TokenBucket
 from amrita.utils.send import (
     ForwardItem,
-    _item_to_text,
+    _item_to_part,
     resolve_sender,
     send_forward_msg,
 )
@@ -71,9 +72,9 @@ async def _check_and_handle_rate_limit() -> bool:
 
 
 def _admin_scope(bot: Bot, admin_group: int) -> Scope:
-    """按 Bot 所属适配器构造管理员群 Scope。"""
-    module = type(bot).__module__
-    platform = "telegram" if "nonebot.adapters.telegram" in module else "qq"
+    """按 Bot 注册端口构造管理员群 Scope。"""
+    port = registry.resolve_bot(bot)
+    platform = port.name if port is not None else "qq"
     return Scope(platform=platform, kind=GROUP, id=str(admin_group))
 
 
@@ -121,7 +122,7 @@ async def send_forward_msg_to_admin(
     if config.admin_group == -1:
         nonebot.logger.warning(
             "LOG_MSG_FORWARD\n".join(
-                text for item in items if (text := _item_to_text(item))
+                text for item in items if (text := _item_to_part(item).value)
             )
         )
         return

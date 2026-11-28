@@ -16,6 +16,7 @@ CAP_IMAGE = "image"
 CAP_AT = "at"
 CAP_REPLY = "reply"
 CAP_RECALL = "recall"
+CAP_FORWARD = "forward"  # 合并转发（QQ 系 OneBot / Milky 等）
 # 预留：暂未由 QQ 侧实现，给 Telegram 这类平台留位
 CAP_THREAD = "thread"  # 发到话题/子区
 CAP_EDIT = "edit"  # 编辑已发送消息
@@ -56,6 +57,16 @@ class Sender(Protocol):
         thread: str | None = None,
     ) -> str:
         """发送富消息体，返回消息 id。"""
+        ...
+
+    async def send_forward(
+        self,
+        nodes: Sequence[Part],
+        *,
+        name: str = "",
+        uin: str = "",
+    ) -> str:
+        """发送合并转发消息；需要 ``CAP_FORWARD``。"""
         ...
 
     async def recall(self, message_id: str) -> bool:
@@ -107,6 +118,16 @@ class BaseSender:
             raise CapabilityMissing(
                 f"platform does not support {capability!r}: {sorted(self.capabilities)}"
             )
+
+    async def send_forward(
+        self,
+        nodes: Sequence[Part],
+        *,
+        name: str = "",
+        uin: str = "",
+    ) -> str:
+        self._require(CAP_FORWARD)
+        raise NotImplementedError
 
     async def edit(self, message_id: str, parts: Sequence[Part]) -> bool:
         if not self.supports(CAP_EDIT):

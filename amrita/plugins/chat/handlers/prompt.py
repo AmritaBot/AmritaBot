@@ -2,43 +2,45 @@
 
 from __future__ import annotations
 
-from nonebot.adapters.onebot.v11 import Bot, Message, MessageEvent
 from nonebot.matcher import Matcher
-from nonebot.params import CommandArg
+from nonebot_plugin_alconna import AlconnaResult, CommandResult
 from nonebot_plugin_amrita import CachedUserDataRepository
 
+from amrita.platform.di import EnvelopeNBDep
+from amrita.platform.dto import Envelope
 from amrita.plugins.chat.utils.data_access import update_memory
 from amrita.plugins.chat.utils.sql import get_uni_user_id
 from amrita.plugins.perm.API.admin import is_lp_admin_for
 
 from ..config import config_manager
+from ._alconna import extract_raw_args
 
 
-async def _require_bot_admin(event: MessageEvent, matcher: Matcher) -> None:
+async def _require_bot_admin(env: Envelope, matcher: Matcher) -> None:
     """模板切换会写入全局配置，仅超级管理员可用"""
-    if not await is_lp_admin_for(event):
+    if not await is_lp_admin_for(env):
         await matcher.finish("仅超级管理员可切换提示词模板。")
 
 
-async def _show_extra(event: MessageEvent, matcher: Matcher) -> None:
+async def _show_extra(env: Envelope, matcher: Matcher) -> None:
     """展示当前自定义提示词"""
-    data = await CachedUserDataRepository().get_memory(get_uni_user_id(event))
+    data = await CachedUserDataRepository().get_memory(get_uni_user_id(env))
     await matcher.send(f"当前自定义提示词：\n{data.extra_prompt or '（无）'}")
 
 
-async def _set_extra(event: MessageEvent, matcher: Matcher, text: str) -> None:
+async def _set_extra(env: Envelope, matcher: Matcher, text: str) -> None:
     """设置自定义提示词"""
     if len(text) >= 1000:
         await matcher.finish("prompt 过长，预期的参数不超过 1000 字。")
-    data = await CachedUserDataRepository().get_memory(get_uni_user_id(event))
+    data = await CachedUserDataRepository().get_memory(get_uni_user_id(env))
     data.extra_prompt = text
     await update_memory(data)
     await matcher.send(f"✅ prompt 已设置为：\n{text}")
 
 
-async def _clear_extra(event: MessageEvent, matcher: Matcher) -> None:
+async def _clear_extra(env: Envelope, matcher: Matcher) -> None:
     """清空自定义提示词"""
-    data = await CachedUserDataRepository().get_memory(get_uni_user_id(event))
+    data = await CachedUserDataRepository().get_memory(get_uni_user_id(env))
     data.extra_prompt = ""
     await update_memory(data)
     await matcher.send("✅ prompt 已清空。")
@@ -96,25 +98,28 @@ async def _template_set(matcher: Matcher, prompt_type: str, name: str) -> None:
 
 
 async def prompt(
-    bot: Bot, event: MessageEvent, matcher: Matcher, args: Message = CommandArg()
+    env: EnvelopeNBDep,
+    matcher: Matcher,
+    result: CommandResult = AlconnaResult(),
 ):
     """/prompt 命令入口：set/clear/show/template"""
     if not config_manager.config.function.allow_custom_prompt:
         await matcher.finish("当前不允许自定义 prompt。")
 
-    arg_list = args.extract_plain_text().strip().split()
+    raw_text = extract_raw_args(result).strip()
+    arg_list = raw_text.split()
     if not arg_list:
-        await _show_extra(event, matcher)
+        await _show_extra(env, matcher)
         return
 
     match arg_list[0]:
         case "set" | "设置":
-            text = args.extract_plain_text().strip()[len(arg_list[0]) :].strip()
-            await _set_extra(event, matcher, text)
+            text = raw_text[len(arg_list[0]) :].strip()
+            await _set_extra(env, matcher, text)
         case "clear" | "清空" | "reset":
-            await _clear_extra(event, matcher)
+            await _clear_extra(env, matcher)
         case "show" | "查看":
-            await _show_extra(event, matcher)
+            await _show_extra(env, matcher)
         case "template" | "模板" | "tpl":
             if len(arg_list) < 2:
                 await _show_template(matcher)
@@ -122,13 +127,13 @@ async def prompt(
             tpl_type = arg_list[1]
             if tpl_type in ("group", "群组", "g"):
                 if len(arg_list) >= 3:
-                    await _require_bot_admin(event, matcher)
+                    await _require_bot_admin(env, matcher)
                     await _template_set(matcher, "group", arg_list[2])
                 else:
                     await _template_list(matcher, "group")
             elif tpl_type in ("private", "私聊", "p"):
                 if len(arg_list) >= 3:
-                    await _require_bot_admin(event, matcher)
+                    await _require_bot_admin(env, matcher)
                     await _template_set(matcher, "private", arg_list[2])
                 else:
                     await _template_list(matcher, "private")

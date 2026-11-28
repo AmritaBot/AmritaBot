@@ -11,13 +11,16 @@ from aiologic import Lock
 from amrita_core import PresetReport
 from amrita_core.preset import TEST_MSG_PROMPT, TEST_MSG_USER, MultiPresetManager
 from amrita_core.types import ModelPreset
-from nonebot.adapters.onebot.v11 import Bot, Message, MessageEvent, MessageSegment
+from nonebot.adapters import Bot
 from nonebot.matcher import Matcher
-from nonebot.params import CommandArg
+from nonebot_plugin_alconna import AlconnaResult, CommandResult
 
+from amrita.platform.di import EnvelopeNBDep
+from amrita.platform.dto import Envelope
 from amrita.utils.send import send_forward_msg
 
 from ..config import config_manager
+from ._alconna import extract_raw_args
 
 TEST_LOCK = Lock()
 DEFAULT_TEST_TIMEOUT_SECONDS = 30.0
@@ -131,9 +134,7 @@ async def model_list(matcher: Matcher) -> None:
     await matcher.finish(msg)
 
 
-async def model_switch(
-    event: MessageEvent, matcher: Matcher, bot: Bot, name: str
-) -> None:
+async def model_switch(matcher: Matcher, name: str) -> None:
     """切换当前模型预设"""
     if not name:
         await matcher.finish("请指定要切换的模型名，如：/model switch claude-thinking")
@@ -145,7 +146,7 @@ async def model_switch(
     await matcher.finish(f"未找到模型 {name}，请输入 /model list 查看可用模型。")
 
 
-async def model_info(event: MessageEvent, matcher: Matcher, bot: Bot) -> None:
+async def model_info(matcher: Matcher) -> None:
     """展示当前模型的详细信息（模型名、思考深度）"""
     preset = await config_manager.get_preset(
         config_manager.config.preset, fix=True, cache=True
@@ -176,7 +177,7 @@ async def model_test_cancel(matcher: Matcher) -> None:
 
 
 async def model_test(
-    event: MessageEvent,
+    env: Envelope,
     matcher: Matcher,
     bot: Bot,
     name: str,
@@ -251,15 +252,13 @@ async def model_test(
             f"测试结果：\n"
             f"测试完成，共测试{len(results)}个预设，成功{ok}个，失败{failed}个。\n"
         )
-        detail_msgs = [
-            MessageSegment.text(_format_detail_result(result)) for result in results
-        ]
+        detail_msgs = [_format_detail_result(result) for result in results]
         await send_forward_msg(
             bot,
-            event,
+            env,
             "Amrita-测试结果",
-            str(event.self_id),
-            [MessageSegment.text(summary), *detail_msgs],
+            env.self_id or str(bot.self_id),
+            [summary, *detail_msgs],
         )
     else:
         lines = [
@@ -309,10 +308,13 @@ def _parse_test_args(
 
 
 async def model(
-    event: MessageEvent, matcher: Matcher, bot: Bot, args: Message = CommandArg()
+    bot: Bot,
+    env: EnvelopeNBDep,
+    matcher: Matcher,
+    result: CommandResult = AlconnaResult(),
 ):
     """/model 命令入口：list / switch <名> / info / test [名] [-d] [-t 秒] / test cancel"""
-    arg_list = args.extract_plain_text().strip().split()
+    arg_list = extract_raw_args(result).strip().split()
     sub = arg_list[0] if arg_list else "list"
     rest = arg_list[1:]
 
@@ -320,16 +322,16 @@ async def model(
         case "list" | "ls" | "查看":
             await model_list(matcher)
         case "switch" | "use" | "set" | "切换":
-            await model_switch(event, matcher, bot, rest[0] if rest else "")
+            await model_switch(matcher, rest[0] if rest else "")
         case "info" | "详情" | "当前":
-            await model_info(event, matcher, bot)
+            await model_info(matcher)
         case "test" | "测试" | "check":
             is_cancel, name, detailed, timeout, err_msg = _parse_test_args(rest)
             if err_msg:
                 await matcher.finish(err_msg)
             if is_cancel:
                 await model_test_cancel(matcher)
-            await model_test(event, matcher, bot, name, detailed, timeout=timeout)
+            await model_test(env, matcher, bot, name, detailed, timeout=timeout)
         case "cancel" | "stop" | "abort" | "取消":
             await model_test_cancel(matcher)
         case _:

@@ -4,6 +4,8 @@
 
 所有匹配器以数据驱动方式声明在 MATCHERS 路由表中，
 由 _register 统一按规格注册，避免重复的注册样板代码。
+命令类匹配器统一走 ``on_alconna(use_cmd_start=True)``，配合 ``EnvelopeNBDep``
+实现平台无关的指令解析与环境注入。
 """
 
 from __future__ import annotations
@@ -12,8 +14,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from arclet.alconna import Alconna, AllParam, Args, Namespace
+from arclet.alconna import config as alc_config
 from nonebot import MatcherGroup
 from nonebot.rule import Rule
+from nonebot_plugin_alconna import AlconnaMatcher, on_alconna
 
 from ..menu.models import MatcherData
 from .check_rule import (
@@ -39,11 +44,18 @@ from .handlers import (
     session,
 )
 
-# 创建基础匹配器组，所有匹配器都需满足is_bot_enabled规则
+# 创建基础匹配器组，所有非命令匹配器都需满足 is_bot_enabled 规则
 base_matcher = MatcherGroup(rule=is_bot_enabled)
 
 # 聊天开关匹配器组：仅检查全局开关，不受每群 enable 标记影响（否则 /chat off 后无法再 /chat on）
 chat_switch_matcher = MatcherGroup(rule=is_bot_globally_enabled)
+
+# 禁用 Alconna 内置 --help/--comp/shortcut 拦截，把自由文本与子命令标志完整交给业务 handler
+_CHAT_CMD_NAMESPACE = Namespace(
+    "amrita_chat_cmd",
+    disable_builtin_options={"help", "shortcut", "completion"},
+)
+alc_config.namespaces[_CHAT_CMD_NAMESPACE.name] = _CHAT_CMD_NAMESPACE
 
 
 @dataclass(frozen=True)
@@ -246,6 +258,8 @@ MATCHERS: list[MatcherSpec] = [
     ),
 ]
 
+COMMAND_MATCHERS: dict[str, type[AlconnaMatcher]] = {}
+
 
 def _register(spec: MatcherSpec) -> None:
     """按规格注册单个匹配器"""
@@ -260,19 +274,40 @@ def _register(spec: MatcherSpec) -> None:
 
     if spec.kind == "notice":
         matcher = group.on_notice(**kwargs)
-    elif spec.kind == "message":
+        matcher.append_handler(spec.handler)
+        return
+    if spec.kind == "message":
         if spec.rule is not None:
             kwargs["rule"] = spec.rule
         matcher = group.on_message(**kwargs)
-    else:
-        assert spec.command is not None, "command 类匹配器必须提供 command"
-        kwargs["aliases"] = spec.aliases
-        # 仅当显式指定时才传入，避免 False 覆盖 NoneBot 默认的 None（force_whitespace=False 要求命令后无空白）
-        if spec.force_whitespace is not None:
-            kwargs["force_whitespace"] = spec.force_whitespace
-        kwargs["state"] = spec.state
-        matcher = group.on_command(spec.command, **kwargs)
-    matcher.append_handler(spec.handler)
+        matcher.append_handler(spec.handler)
+        return
+
+    assert spec.command is not None, "command 类匹配器必须提供 command"
+    # after_rule 在 Alconna 确认命令命中后才执行，避免每条普通消息都触发 DB 查群开关
+    after_rule = spec.rule
+    if after_rule is None:
+        after_rule = (
+            Rule(is_bot_globally_enabled)
+            if group is chat_switch_matcher
+            else Rule(is_bot_enabled)
+        )
+    alc = Alconna(
+        spec.command,
+        Args["args?", AllParam],
+        namespace=_CHAT_CMD_NAMESPACE,
+    )
+    alc_kwargs: dict[str, Any] = {
+        "aliases": spec.aliases,
+        "after_rule": after_rule,
+        "use_cmd_start": True,
+        "auto_send_output": False,
+        "default_state": spec.state,
+        **kwargs,
+    }
+    alc_matcher = on_alconna(alc, **alc_kwargs)
+    alc_matcher.append_handler(spec.handler)
+    COMMAND_MATCHERS[spec.command] = alc_matcher
 
 
 for _spec in MATCHERS:

@@ -14,15 +14,16 @@ from amrita_core.types.preset import resolve_max_context, resolve_max_output
 from amrita_core.usage import SessionUsageProxy
 from amrita_sense.hook.matcher import MatcherFactory
 from nonebot import logger
-from nonebot.adapters.onebot.v11 import Bot, Message, MessageEvent, MessageSegment
+from nonebot.adapters import Bot
 from nonebot.matcher import Matcher
-from nonebot.params import CommandArg
+from nonebot_plugin_alconna import AlconnaResult, CommandResult, Text, UniMessage
 from nonebot_plugin_amrita.database import MemorySessions, UserDataExecutor
 from nonebot_plugin_amrita.memory import CachedUserDataRepository, MemorySessionsSchema
 from nonebot_plugin_orm import get_session
 from sqlalchemy import delete
 
 from amrita.platform.di import EnvelopeNBDep
+from amrita.platform.dto import Envelope
 from amrita.plugins.chat.utils.libchat import add_usage
 
 from ..check_rule import is_group_admin_if_is_in_group
@@ -39,6 +40,7 @@ from ..utils.preset import resolve_preset
 from ..utils.session_guard import active_chat_object, is_session_busy, session_lock
 from ..utils.session_tag import TAG_MAX_LEN, spawn_tag_backfill
 from ..utils.sql import get_uni_user_id
+from ._alconna import extract_raw_args
 
 if TYPE_CHECKING:
     from amrita_core.chatmanager import ChatObject as CoreChatObject
@@ -97,27 +99,27 @@ def _resolve_session(
     return next((item for item in sessions if item.id == target_id), None)
 
 
-async def _session_list(event: MessageEvent, matcher: Matcher) -> None:
+async def _session_list(env: Envelope, matcher: Matcher) -> None:
     """显示历史会话列表"""
     repo = CachedUserDataRepository()
-    sessions = await repo.get_sesssions(get_uni_user_id(event))
+    sessions = await repo.get_sesssions(get_uni_user_id(env))
     if not sessions:
         await matcher.finish("没有历史会话")
-    msg = Message("历史会话\n")
+    segments: list[Text] = [Text("历史会话\n")]
     for s in sessions:
         if s.data.messages:
             label = (s.tag or s.data.abstract or "（无描述）")[:15]
             t = datetime.fromtimestamp(s.created_at).strftime("%Y-%m-%d %I:%M:%S %p")
             #  标签来自模型，按文本段发，避免被解析成 CQ 码或提及
-            msg += MessageSegment.text(f"ID {s.id}｜{label}｜{t}\n")
-    await matcher.finish(msg)
+            segments.append(Text(f"ID {s.id}｜{label}｜{t}\n"))
+    await UniMessage(segments).finish()
 
 
-async def _session_use(event: MessageEvent, matcher: Matcher, index: str) -> None:
+async def _session_use(env: Envelope, matcher: Matcher, index: str) -> None:
     """将当前会话覆盖为指定 ID 的会话"""
     repo = CachedUserDataRepository()
     try:
-        user_sessions = await repo.get_sesssions(get_uni_user_id(event))
+        user_sessions = await repo.get_sesssions(get_uni_user_id(env))
     except Exception as e:
         logger.opt(exception=e, colors=True, raw=True).exception("覆盖记忆文件失败。")
         await matcher.finish("覆盖记忆文件失败，这个对话可能损坏了。")
@@ -125,7 +127,7 @@ async def _session_use(event: MessageEvent, matcher: Matcher, index: str) -> Non
     if target is None:
         await matcher.finish("请输入正确的会话 ID。")
     try:
-        memory_data = await repo.get_memory(get_uni_user_id(event))
+        memory_data = await repo.get_memory(get_uni_user_id(env))
         #  恢复的是完整快照：消息、摘要、用量一起换回来
         restore_history(memory_data.memory_json, target.data)
         await update_memory(memory_data)
@@ -135,16 +137,14 @@ async def _session_use(event: MessageEvent, matcher: Matcher, index: str) -> Non
     await matcher.send("✅ 已完成记忆覆盖。")
 
 
-async def _session_del(event: MessageEvent, matcher: Matcher, index: str) -> None:
+async def _session_del(env: Envelope, matcher: Matcher, index: str) -> None:
     """删除指定 ID 的会话"""
     repo = CachedUserDataRepository()
-    uni_id = get_uni_user_id(event)
+    uni_id = get_uni_user_id(env)
     try:
         user_sessions = await repo.get_sesssions(uni_id)
     except Exception as e:
-        logger.opt(exception=e, colors=True, raw=True).exception(
-            "删除指定会话失败。"
-        )
+        logger.opt(exception=e, colors=True, raw=True).exception("删除指定会话失败。")
         await matcher.finish("删除指定会话失败。")
     if not user_sessions:
         await matcher.finish("没有历史会话")
@@ -164,17 +164,15 @@ async def _session_del(event: MessageEvent, matcher: Matcher, index: str) -> Non
             )
             await session.commit()
     except Exception as e:
-        logger.opt(exception=e, colors=True, raw=True).exception(
-            "删除指定会话失败。"
-        )
+        logger.opt(exception=e, colors=True, raw=True).exception("删除指定会话失败。")
         await matcher.finish("删除指定会话失败。")
     await matcher.send("✅ 已删除对应的会话。")
 
 
-async def _session_archive(event: MessageEvent, matcher: Matcher) -> None:
+async def _session_archive(env: Envelope, matcher: Matcher) -> None:
     """归档当前会话"""
     repo = CachedUserDataRepository()
-    uni_id = get_uni_user_id(event)
+    uni_id = get_uni_user_id(env)
     try:
         memory_data = await repo.get_memory(uni_id)
     except Exception as e:
@@ -216,10 +214,10 @@ async def _session_archive(event: MessageEvent, matcher: Matcher) -> None:
     await matcher.finish("✅ 当前会话已归档。")
 
 
-async def _session_clear(event: MessageEvent, matcher: Matcher) -> None:
+async def _session_clear(env: Envelope, matcher: Matcher) -> None:
     """清空所有历史会话"""
     repo = CachedUserDataRepository()
-    uni_id = get_uni_user_id(event)
+    uni_id = get_uni_user_id(env)
     user_sessions = await repo.get_sesssions(uni_id)
     if user_sessions:
         async with get_session() as session:
@@ -230,11 +228,11 @@ async def _session_clear(event: MessageEvent, matcher: Matcher) -> None:
 
 
 async def _session_rename(
-    event: MessageEvent, matcher: Matcher, index: str, tag: str
+    env: Envelope, matcher: Matcher, index: str, tag: str
 ) -> None:
     """按会话 ID 改名。"""
     repo = CachedUserDataRepository()
-    uni_id = get_uni_user_id(event)
+    uni_id = get_uni_user_id(env)
     try:
         user_sessions = await repo.get_sesssions(uni_id)
     except Exception as e:
@@ -299,7 +297,7 @@ def _render_context_bar(used: int, reserved: int, window: int) -> str:
     )
 
 
-async def _session_info(event: MessageEvent, matcher: Matcher) -> None:
+async def _session_info(env: Envelope, matcher: Matcher) -> None:
     """展示当前会话的模型、思考深度与上下文占用
 
     运行中的会话从活 ``ChatObject`` 取上下文规模：``repo`` 缓存的
@@ -307,7 +305,7 @@ async def _session_info(event: MessageEvent, matcher: Matcher) -> None:
     会话空闲时才查库，消息数也只在空闲时展示（见下文说明）。
     """
     config = config_manager.config
-    uni_id = get_uni_user_id(event)
+    uni_id = get_uni_user_id(env)
 
     chat = active_chat_object(uni_id)
     live_memory = _live_memory(chat) if chat is not None else None
@@ -362,7 +360,7 @@ async def _session_info(event: MessageEvent, matcher: Matcher) -> None:
 # 压缩
 
 
-async def _session_compact(event: MessageEvent, matcher: Matcher, force: bool) -> None:
+async def _session_compact(env: Envelope, matcher: Matcher, force: bool) -> None:
     """压缩当前会话上下文：将早期消息总结为摘要
 
     调用方已持有 ``session_lock``，本函数内的改内存与写库都在该锁内完成，
@@ -375,7 +373,7 @@ async def _session_compact(event: MessageEvent, matcher: Matcher, force: bool) -
     """
     config = config_manager.config
     repo = CachedUserDataRepository()
-    uni_id = get_uni_user_id(event)
+    uni_id = get_uni_user_id(env)
     memory = await repo.get_memory(uni_id)
     data = memory.memory_json
     if not data.messages:
@@ -427,7 +425,7 @@ async def _session_compact(event: MessageEvent, matcher: Matcher, force: bool) -
     #  扩展点：压缩完成后的钩子（消息条数、占用与摘要用量均已确定）
     await MatcherFactory.trigger_event(
         SessionCompactEvent(
-            event=event,
+            event=env,
             matcher=matcher,
             session_id=uni_id,
             before_count=before_count,
@@ -443,19 +441,19 @@ async def _session_compact(event: MessageEvent, matcher: Matcher, force: bool) -
 # 记忆
 
 
-async def _session_forget(event: MessageEvent, matcher: Matcher) -> None:
+async def _session_forget(env: Envelope, matcher: Matcher) -> None:
     """清空当前记忆"""
     repo = CachedUserDataRepository()
-    data = await repo.get_memory(get_uni_user_id(event))
+    data = await repo.get_memory(get_uni_user_id(env))
     clear_history(data.memory_json)
     await update_memory(data)
     await matcher.send("上下文已清除")
 
 
-async def _session_abstract(event: MessageEvent, matcher: Matcher, clear: bool) -> None:
+async def _session_abstract(env: Envelope, matcher: Matcher, clear: bool) -> None:
     """查看或清空当前会话摘要"""
     repo = CachedUserDataRepository()
-    data = await repo.get_memory(get_uni_user_id(event))
+    data = await repo.get_memory(get_uni_user_id(env))
     if clear:
         clear_abstract(data.memory_json)
         await update_memory(data)
@@ -536,27 +534,27 @@ async def _dispatch_subcommand(
     sub: str,
     arg_list: list[str],
     force: bool,
-    event: MessageEvent,
+    env: Envelope,
     matcher: Matcher,
 ) -> None:
     """按子命令分发（``force`` 对 compact 另有跳过阈值检查的含义）"""
     rest = _sub_arg(arg_list)
     match sub:
         case "info" | "信息" | "元信息":
-            await _session_info(event, matcher)
+            await _session_info(env, matcher)
         case "list" | "历史" | "列表":
-            await _session_list(event, matcher)
+            await _session_list(env, matcher)
         case "use" | "set" | "覆盖" | "恢复":
-            await _session_use(event, matcher, rest)
+            await _session_use(env, matcher, rest)
         case "del" | "delete" | "删除":
-            await _session_del(event, matcher, rest)
+            await _session_del(env, matcher, rest)
         case "archive" | "归档":
-            await _session_archive(event, matcher)
+            await _session_archive(env, matcher)
         case "rename" | "重命名" | "改名":
             parts = [a for a in arg_list[1:] if a not in _FORCE_FLAGS]
             if len(parts) < 2:
                 await matcher.finish("用法：/session rename <ID> <新名称>")
-            await _session_rename(event, matcher, parts[0], " ".join(parts[1:]))
+            await _session_rename(env, matcher, parts[0], " ".join(parts[1:]))
         case "clear" | "清空":
             if rest not in ("confirm", "确认"):
                 await matcher.finish(
@@ -564,30 +562,29 @@ async def _dispatch_subcommand(
                     "   如果你只是想清空当前对话上下文，请用 /session forget。\n\n"
                     "确认请发送：/session clear confirm"
                 )
-            await _session_clear(event, matcher)
+            await _session_clear(env, matcher)
         case "compact" | "压缩":
-            await _session_compact(event, matcher, force)
+            await _session_compact(env, matcher, force)
         case "forget" | "失忆" | "清除记忆":
-            await _session_forget(event, matcher)
+            await _session_forget(env, matcher)
         case "abstract" | "摘要":
             clear = rest in _ABSTRACT_CLEAR_FLAGS
-            await _session_abstract(event, matcher, clear)
+            await _session_abstract(env, matcher, clear)
         case _:
             await matcher.finish(_HELP_TEXT)
 
 
 async def session(
     bot: Bot,
-    event: MessageEvent,
     env: EnvelopeNBDep,
     matcher: Matcher,
-    args: Message = CommandArg(),
+    result: CommandResult = AlconnaResult(),
 ):
     """/session 命令入口"""
-    if not await is_group_admin_if_is_in_group(event, bot):
+    if not await is_group_admin_if_is_in_group(env, bot):
         await matcher.finish("你没有权限执行此命令。")
 
-    arg_list = args.extract_plain_text().strip().split()
+    arg_list = extract_raw_args(result).strip().split()
     sub = arg_list[0] if arg_list else "info"
     force = any(a in _FORCE_FLAGS for a in arg_list[1:])
 
@@ -600,7 +597,7 @@ async def session(
             )
         #  空闲路径同样必须持锁：否则「检查通过」到「执行」之间可以插入新一轮对话，本轮结束时的记忆回写会覆盖指令刚做的修改
         async with session_lock(env):
-            await _dispatch_subcommand(sub, arg_list, force, event, matcher)
+            await _dispatch_subcommand(sub, arg_list, force, env, matcher)
         return
 
-    await _dispatch_subcommand(sub, arg_list, force, event, matcher)
+    await _dispatch_subcommand(sub, arg_list, force, env, matcher)

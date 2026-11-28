@@ -22,6 +22,8 @@ from nonebot_plugin_amrita.memory import (
     MemorySchema,
 )
 
+from amrita.platform.dto import Envelope, Scope
+
 from .app import CachedGroupDataRepository, GroupConfigSchema
 from .context_store import fold_media_in_messages
 
@@ -37,7 +39,9 @@ __all__ = [
 ]
 
 
-async def get_group_config(group_id: int) -> GroupConfigSchema:
+async def get_group_config(
+    group_id: int | str | Scope | Envelope,
+) -> GroupConfigSchema:
     """获取群聊配置（带缓存与锁）"""
     return await CachedGroupDataRepository().get_group_config(group_id)
 

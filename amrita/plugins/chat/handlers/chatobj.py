@@ -1,23 +1,27 @@
+from __future__ import annotations
+
 import contextlib
 from datetime import datetime
 from typing import Generic, TypeVar
 
 from amrita_core.chatmanager import ChatObject
-from nonebot.adapters.onebot.v11 import Bot, Message, MessageSegment
-from nonebot.adapters.onebot.v11.event import (
-    MessageEvent,
-)
+from nonebot.adapters import Bot
 from nonebot.matcher import Matcher
-from nonebot.params import CommandArg
+from nonebot_plugin_alconna import AlconnaResult, CommandResult
 from pytz import timezone, utc
 
+from amrita.platform.di import EnvelopeNBDep
+from amrita.platform.dto import Envelope
 from amrita.plugins.chat.runtime import (
     bot_chat_manager,
     pending_chatobj,
     try_get_amrita_ctx,
 )
 from amrita.plugins.chat.utils.sql import get_uni_user_id
+from amrita.utils.events import event_user_id
 from amrita.utils.send import send_forward_msg
+
+from ._alconna import extract_raw_args
 
 T = TypeVar("T", contravariant=True)
 
@@ -25,7 +29,7 @@ T = TypeVar("T", contravariant=True)
 class ListWriteSafe(list, Generic[T]): ...
 
 
-def get_chat_objects_status(event: MessageEvent) -> dict[str, list[ChatObject]]:
+def get_chat_objects_status(env: Envelope) -> dict[str, list[ChatObject]]:
     """获取所有ChatObject的状态分类。
 
     通过隐式锁队列追踪 pending（等待锁）状态。
@@ -35,7 +39,7 @@ def get_chat_objects_status(event: MessageEvent) -> dict[str, list[ChatObject]]:
     done_objects: list[ChatObject] = []
     error_objects: list[ChatObject] = []
 
-    uni_id = get_uni_user_id(event)
+    uni_id = get_uni_user_id(env)
     all_objects = bot_chat_manager.get_objs(uni_id)
 
     # pending：仍在 waiting_tasks 且未完成的 ChatObject
@@ -70,14 +74,19 @@ def get_chat_objects_status(event: MessageEvent) -> dict[str, list[ChatObject]]:
 def format_chat_object_info(obj: ChatObject) -> str:
     """格式化单个ChatObject的信息。
 
-    通过 try_get_amrita_ctx 读取 event 上下文。
+    通过 try_get_amrita_ctx 读取上下文（同时兼容 Envelope 与过渡期原生 Event）。
     """
     ctx = try_get_amrita_ctx(obj)
     if ctx is None:
         return f"\n🆔 ID: {obj.stream_id[:8]}...\n> 无上下文信息\n"
-    event = ctx["event"]
-    user_id = event.user_id
-    instance_id = get_uni_user_id(event)
+    ctx_event = ctx["event"]
+    if isinstance(ctx_event, Envelope):
+        user_id = ctx_event.actor.user_id
+        is_group = ctx_event.is_group
+    else:
+        user_id = event_user_id(ctx_event) or "unknown"
+        is_group = getattr(ctx_event, "group_id", None) is not None
+    instance_id = get_uni_user_id(ctx_event)
 
     # 检查是否在隐式锁队列中 pending
     in_pending = id(obj) in {
@@ -102,7 +111,7 @@ def format_chat_object_info(obj: ChatObject) -> str:
 
     info = (
         f"\n🆔 ID: {obj.stream_id[:8]}...\n"
-        + f"💬 类型: {'👥 群聊' if getattr(event, 'group_id', None) is not None else '👤 私聊'}\n"
+        + f"💬 类型: {'👥 群聊' if is_group else '👤 私聊'}\n"
         + f"👤 用户ID: {user_id}\n"
         + f"🔢 会话ID: {instance_id}\n"
         + f">Status: {status}\n"
@@ -115,47 +124,37 @@ def format_chat_object_info(obj: ChatObject) -> str:
 
 
 async def send_status_report(
-    bot: Bot, event: MessageEvent, status_dict: dict[str, list[ChatObject]]
+    bot: Bot, env: Envelope, status_dict: dict[str, list[ChatObject]]
 ) -> None:
     """发送状态报告"""
     report_parts = ["📋【会话运行状态】"]
+    status_names = {
+        "running": "🟢 运行中 (Running)",
+        "pending": "⏳ 等待中 (Pending)",
+        "done": "✅ 已完成 (Done)",
+        "error": "❌ 错误 (Error)",
+    }
 
     for status_type, objects in status_dict.items():
+        status_name = status_names[status_type]
         if objects:
-            s_part = ""
-            status_name = {
-                "running": "🟢 运行中 (Running)",
-                "pending": "⏳ 等待中 (Pending)",
-                "done": "✅ 已完成 (Done)",
-                "error": "❌ 错误 (Error)",
-            }[status_type]
-
-            s_part += f"\n🔸--- {status_name} ({len(objects)}) ---"
+            s_part = f"\n🔸--- {status_name} ({len(objects)}) ---"
             s_part += "\n".join([format_chat_object_info(obj) for obj in objects])
             report_parts.append(s_part)
         else:
-            s_part = ""
-            status_name = {
-                "running": "🟢 运行中 (Running)",
-                "pending": "⏳ 等待中 (Pending)",
-                "done": "✅ 已完成 (Done)",
-                "error": "❌ 错误 (Error)",
-            }[status_type]
-            s_part += f"\n🔸--- {status_name} (0) ---"
-            s_part += " 无"
-            report_parts.append(s_part)
+            report_parts.append(f"\n🔸--- {status_name} (0) --- 无")
     await send_forward_msg(
         bot,
-        event,
+        env,
         "Amrita-ChatOBJ",
-        uin=str(event.self_id),
-        msgs=[MessageSegment.text(i) for i in report_parts],
+        uin=env.self_id or str(bot.self_id),
+        msgs=report_parts,
     )
 
 
-async def terminate_chat_object(stream_id: str, event: MessageEvent) -> bool:
+async def terminate_chat_object(stream_id: str, env: Envelope) -> bool:
     """终止指定的ChatObject"""
-    all_objects = bot_chat_manager.get_objs(get_uni_user_id(event))
+    all_objects = bot_chat_manager.get_objs(get_uni_user_id(env))
     for obj in all_objects:
         if obj.stream_id.startswith(stream_id):  # 支持ID前缀匹配
             if obj.is_running():
@@ -168,19 +167,22 @@ async def terminate_chat_object(stream_id: str, event: MessageEvent) -> bool:
 
 
 async def chatobj_manage(
-    event: MessageEvent, matcher: Matcher, bot: Bot, args: Message = CommandArg()
+    bot: Bot,
+    env: EnvelopeNBDep,
+    matcher: Matcher,
+    result: CommandResult = AlconnaResult(),
 ):
     """处理chatobj命令"""
-    plain_args = args.extract_plain_text().strip().lower()
+    plain_args = extract_raw_args(result).strip().lower()
 
     if plain_args in ["", "status", "show"]:
         # 显示所有ChatObject的状态
-        status_dict = get_chat_objects_status(event)
-        await send_status_report(bot, event, status_dict)
+        status_dict = get_chat_objects_status(env)
+        await send_status_report(bot, env, status_dict)
 
     elif plain_args == "kill" or plain_args == "terminate":
         # 仅输入 "kill" 或 "terminate"，没有指定ID，尝试杀死最后一个活动的会话
-        all_objects = bot_chat_manager.get_objs(get_uni_user_id(event))
+        all_objects = bot_chat_manager.get_objs(get_uni_user_id(env))
         active_objects = [obj for obj in all_objects if obj.is_running()]
         active_objects.sort(key=lambda obj: obj.last_call, reverse=True)
 
@@ -200,12 +202,12 @@ async def chatobj_manage(
         if len(stream_id_prefix) < 4:  # 至少需要4位前缀
             await matcher.finish("⚠️ 请输入至少4位的ID前缀来终止会话")
         elif stream_id_prefix == "all":
-            for obj in bot_chat_manager.get_objs(get_uni_user_id(event)):
+            for obj in bot_chat_manager.get_objs(get_uni_user_id(env)):
                 with contextlib.suppress(Exception):
                     obj.terminate()
             await matcher.finish("⚠️ 已终止所有匹配的会话")
 
-        success = await terminate_chat_object(stream_id_prefix, event)
+        success = await terminate_chat_object(stream_id_prefix, env)
         if success:
             await matcher.finish(f"✅ 已尝试终止ID为 '{stream_id_prefix}' 的会话")
         else:
@@ -215,7 +217,7 @@ async def chatobj_manage(
 
     elif plain_args == "clear" or plain_args == "clean":
         count = 0
-        bot_chat_manager.clean_obj(get_uni_user_id(event), maxitems=0)
+        bot_chat_manager.clean_obj(get_uni_user_id(env), maxitems=0)
         await matcher.finish(f"🧹 已清除 {count} 个已完成的会话")
 
     elif plain_args == "help":

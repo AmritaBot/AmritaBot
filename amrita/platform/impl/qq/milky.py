@@ -24,6 +24,7 @@ from ...dto import (
 )
 from ...ports import (
     CAP_AT,
+    CAP_FORWARD,
     CAP_IMAGE,
     CAP_RECALL,
     CAP_REPLY,
@@ -57,6 +58,23 @@ class _MilkyFragments(Protocol):
     @staticmethod
     def image(url: str | None = None) -> _MilkyOutgoing: ...
 
+    @staticmethod
+    def node(
+        user_id: int,
+        name: str,
+        segments: _MilkyOutgoing,
+        time: int | None = None,
+    ) -> object: ...
+
+    @staticmethod
+    def forward(
+        messages: list[object],
+        title: str | None = None,
+        preview: list[str] | None = None,
+        summary: str | None = None,
+        prompt: str | None = None,
+    ) -> _MilkyOutgoing: ...
+
 
 class _MilkyMessageFactory(Protocol):
     def __call__(self, segments: Sequence[_MilkyOutgoing]) -> _MilkyOutgoing: ...
@@ -76,11 +94,11 @@ class _MilkyBot(Protocol):
     ) -> _MilkyMember: ...
 
     async def send_group_message(
-        self, *, group_id: int, message: str | _MilkyOutgoing
+        self, *, group_id: int, message: str | _MilkyOutgoing | list[dict[str, object]]
     ) -> _MilkyResponse: ...
 
     async def send_private_message(
-        self, *, user_id: int, message: str | _MilkyOutgoing
+        self, *, user_id: int, message: str | _MilkyOutgoing | list[dict[str, object]]
     ) -> _MilkyResponse: ...
 
     async def recall_group_message(
@@ -149,7 +167,7 @@ class MilkySender(BaseSender):
     def __init__(self, bot: Bot, scope: Scope) -> None:
         self._bot = cast(_MilkyBot, bot)
         self.scope = scope
-        caps = {CAP_TEXT, CAP_IMAGE, CAP_RECALL}
+        caps = {CAP_TEXT, CAP_IMAGE, CAP_RECALL, CAP_FORWARD}
         if scope.is_group:
             caps |= {CAP_AT, CAP_REPLY}
         self.capabilities = frozenset(caps)
@@ -182,6 +200,59 @@ class MilkySender(BaseSender):
             self._require(CAP_THREAD)
         message = self._build_message(parts, reply_to=reply_to)
         return await self._send(message)
+
+    async def send_forward(
+        self,
+        nodes: Sequence[Part],
+        *,
+        name: str = "",
+        uin: str = "",
+    ) -> str:
+        self._require(CAP_FORWARD)
+        if not nodes:
+            return ""
+        uid = int(uin) if uin.isdigit() else 0
+        factories = _load_factories()
+        if factories is not None:
+            message_factory, fragments = factories
+            forwarded = [
+                fragments.node(
+                    user_id=uid,
+                    name=name,
+                    segments=message_factory(
+                        [
+                            fragments.image(part.value)
+                            if part.kind == "image" and part.value
+                            else fragments.text(part.value)
+                        ]
+                    ),
+                )
+                for part in nodes
+            ]
+            payload = message_factory(
+                [fragments.forward(messages=forwarded, title=name or None)]
+            )
+            return await self._send(payload)
+        raw_nodes: list[dict[str, object]] = [
+            {
+                "user_id": uid,
+                "sender_name": name,
+                "segments": [
+                    {"type": "image", "data": {"uri": part.value}}
+                    if part.kind == "image" and part.value
+                    else {"type": "text", "data": {"text": part.value}}
+                ],
+            }
+            for part in nodes
+        ]
+        return await self._send(
+            [
+                {
+                    "type": "forward",
+                    "data": {"messages": raw_nodes, "title": name or None},
+                }
+            ]
+        )
 
     async def recall(self, message_id: str) -> bool:
         if not self.supports(CAP_RECALL):
@@ -228,7 +299,9 @@ class MilkySender(BaseSender):
                     segments.append(fragments.text(part.value))
         return message_factory(segments)
 
-    async def _send(self, message: str | _MilkyOutgoing) -> str:
+    async def _send(
+        self, message: str | _MilkyOutgoing | list[dict[str, object]]
+    ) -> str:
         if self.scope.is_group:
             resp = await self._bot.send_group_message(
                 group_id=int(self.scope.id), message=message
@@ -255,6 +328,9 @@ class MilkyPort:
             return False
         scene = _opt_str(data, "message_scene")
         return scene in _MESSAGE_SCENES or _opt_int(data, "group_id") is not None
+
+    def match_bot(self, bot: Bot) -> bool:
+        return type(bot).__module__.startswith(_ADAPTER_MODULE)
 
     def to_envelope(self, raw_event: BaseModel, bot: Bot | None = None) -> Envelope:
         data = _raw_data(raw_event)

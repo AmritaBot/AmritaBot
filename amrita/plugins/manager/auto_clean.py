@@ -1,17 +1,31 @@
-from nonebot import get_driver, logger, on_command
-from nonebot.adapters.onebot.v11 import Bot, Message
-from nonebot.params import CommandArg
+"""无用群组清理命令：Alconna + 经群管理 helper 调用群列表与退群能力。"""
+
+from __future__ import annotations
+
+from arclet.alconna import Alconna, Option
+from nonebot import get_driver, logger
+from nonebot.adapters import Bot
+from nonebot_plugin_alconna import AlconnaResult, CommandResult, on_alconna
 
 from amrita import get_amrita_config
+from amrita.platform.di import EnvelopeNBDep
+from amrita.platform.dto import GROUP, Scope
 from amrita.plugins.menu.models import MatcherData
 from amrita.plugins.perm.API.admin import is_lp_admin
+from amrita.utils.send import resolve_sender
 
-from .leave import is_group_owner
+from .leave import (
+    is_group_owner,
+    leave_group,
+    list_group_members,
+    list_groups,
+)
 
-clean_groups = on_command(
-    "clean_groups",
+clean_groups = on_alconna(
+    Alconna("clean_groups", Option("--confirm")),
+    use_cmd_start=True,
     permission=is_lp_admin,
-    state=MatcherData(
+    default_state=MatcherData(
         name="无用群组清理",
         description="清理人数小于20的无效群聊",
         usage="/clean_groups [--confirm]",
@@ -20,55 +34,110 @@ clean_groups = on_command(
 )
 
 
+def _extract_group_info(item: object) -> tuple[int, str] | None:
+    if isinstance(item, dict):
+        gid = item.get("group_id")
+        name = item.get("group_name", "")
+    else:
+        gid = getattr(item, "group_id", None)
+        name = getattr(item, "group_name", None) or getattr(item, "name", "")
+    if isinstance(gid, int):
+        return gid, str(name)
+    if isinstance(gid, str) and gid.isdigit():
+        return int(gid), str(name)
+    return None
+
+
+def _extract_member_id(item: object) -> int | None:
+    if isinstance(item, dict):
+        uid = item.get("user_id")
+    else:
+        uid = getattr(item, "user_id", None)
+    if isinstance(uid, int):
+        return uid
+    if isinstance(uid, str) and uid.isdigit():
+        return int(uid)
+    return None
+
+
+def _superuser_int_ids() -> set[int]:
+    """提取 SUPERUSERS 中的数字 ID（兼容裸 ID、platform:id 与 uni_id）。"""
+    ids: set[int] = set()
+    for raw in get_driver().config.superusers:
+        token = raw.rsplit(":", 1)[-1].rsplit("_", 1)[-1]
+        if token.isdigit():
+            ids.add(int(token))
+    return ids
+
+
 @clean_groups.handle()
-async def _(bot: Bot, args: Message = CommandArg()):
-    if "--confirm" not in args.extract_plain_text().split():
+async def _(
+    bot: Bot,
+    env: EnvelopeNBDep,
+    result: CommandResult = AlconnaResult(),
+):
+    if not result.result.find("confirm"):
         await clean_groups.finish(
             "⚠️ 该操作会批量退出人数少于20人的群组，确认执行请再次输入：/clean_groups --confirm"
         )
+    adapter_hint = env.adapter or None
+    groups = await list_groups(bot, adapter_hint=adapter_hint)
+    if groups is None:
+        await clean_groups.finish("❌ 当前平台不支持群列表批量清理。")
+
     await clean_groups.send("⚠️ 开始清理低群人数群组...")
-    groups = await bot.get_group_list()
+    admins = _superuser_int_ids()
     left = skipped_admin = skipped_owner = failed = 0
     for group in groups:
-        group_id = group["group_id"]
+        info = _extract_group_info(group)
+        if info is None:
+            continue
+        group_id, group_name = info
         try:
+            raw_members = await list_group_members(
+                bot, group_id, adapter_hint=adapter_hint
+            )
             members: set[int] = {
-                member["user_id"]
-                for member in await bot.get_group_member_list(group_id=group_id)
+                uid
+                for member in raw_members
+                if (uid := _extract_member_id(member)) is not None
             }
         except Exception as e:
             logger.error(f"⚠️ 获取群成员信息失败: {e!s}")
             failed += 1
             continue
-        admins = {int(i) for i in get_driver().config.superusers if i.isdigit()}
 
         if len(members) < 20:
             admin_members = members & admins
             if len(admin_members) > 0:
                 await clean_groups.send(
-                    f"⚠️ 群组 {group['group_name']} ({group_id}) 人数小于20,但有 {len(admin_members)} 个Bot管理员，跳过"
+                    f"⚠️ 群组 {group_name} ({group_id}) 人数小于20,但有 {len(admin_members)} 个Bot管理员，跳过"
                 )
                 skipped_admin += 1
                 continue
             if await is_group_owner(bot, group_id):
                 await clean_groups.send(
-                    f"⚠️ 群组 {group['group_name']} ({group_id}) 人数小于20,但Bot是群主，跳过"
+                    f"⚠️ 群组 {group_name} ({group_id}) 人数小于20,但Bot是群主，跳过"
                 )
                 skipped_owner += 1
                 continue
-            await clean_groups.send(
-                f"⚠️ 尝试退出群组{group['group_name']}({group_id})....."
-            )
+            await clean_groups.send(f"⚠️ 尝试退出群组{group_name}({group_id}).....")
             try:
-                await bot.send_group_msg(
-                    group_id=group_id,
-                    message=f"⚠️ 该群人数小于二十人！Bot将退出该群组。{f'如有疑问请加群{get_amrita_config().public_group}' if get_amrita_config().public_group else ''}。",
+                scope = Scope(platform=env.scope.platform, kind=GROUP, id=str(group_id))
+                sender = resolve_sender(bot, scope, adapter=adapter_hint)
+                notice = (
+                    "⚠️ 该群人数小于二十人！Bot将退出该群组。"
+                    f"{f'如有疑问请加群{get_amrita_config().public_group}' if get_amrita_config().public_group else ''}。"
                 )
+                if sender is not None:
+                    await sender.send_text(notice)
             except Exception as e:
                 logger.error(f"⚠️ 发送退群通知失败: {e!s}")
             try:
-                await bot.set_group_leave(group_id=group_id)
-                left += 1
+                if await leave_group(bot, group_id, adapter_hint=adapter_hint):
+                    left += 1
+                else:
+                    failed += 1
             except Exception as e:
                 logger.error(f"⚠️ 退出群组失败: {e!s}")
                 failed += 1

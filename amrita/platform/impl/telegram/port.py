@@ -374,6 +374,9 @@ class TelegramPort:
             return False
         return _opt_int(raw_event, "date") is not None
 
+    def match_bot(self, bot: Bot) -> bool:
+        return type(bot).__module__.startswith(ADAPTER_MODULE)
+
     def to_envelope(self, raw_event: BaseModel, bot: Bot | None = None) -> Envelope:
         event = raw_event
         kind = _kind(event)

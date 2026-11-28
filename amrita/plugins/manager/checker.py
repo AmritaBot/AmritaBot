@@ -1,3 +1,7 @@
+"""全局开关、速率限制、禁言提醒与 API/消息用量统计。"""
+
+from __future__ import annotations
+
 import asyncio
 import contextlib
 from collections import defaultdict
@@ -5,18 +9,12 @@ from typing import Any, ClassVar
 from weakref import WeakSet
 
 import aiologic
-from nonebot import get_driver, on_command, on_message, on_notice
+from arclet.alconna import Alconna, Args
+from nonebot import get_driver, on_message, on_notice
 from nonebot.adapters import Bot
-from nonebot.adapters.onebot.v11 import (
-    GroupBanNoticeEvent,
-    GroupMessageEvent,
-    Message,
-    MessageEvent,
-)
 from nonebot.exception import IgnoredException
 from nonebot.matcher import Matcher
 from nonebot.message import run_preprocessor
-from nonebot.params import CommandArg
 from nonebot.rule import (
     CommandRule,
     EndswithRule,
@@ -27,12 +25,15 @@ from nonebot.rule import (
     StartswithRule,
     ToMeRule,
 )
+from nonebot_plugin_alconna import AlconnaRule, Match, on_alconna
 from pydantic import BaseModel
 from typing_extensions import Self
 
 from amrita import config, get_amrita_config
 from amrita.cache import WeakValueLRUCache
 from amrita.platform.di import OptionalEnvelopeNBDep
+from amrita.platform.dto import MESSAGE, NOTICE
+from amrita.platform.identity import uni_id, user_uni_id
 from amrita.plugins.menu.models import MatcherData
 from amrita.plugins.perm.API.admin import is_lp_admin
 from amrita.utils.admin import send_to_admin
@@ -51,6 +52,18 @@ watch_user = defaultdict(
 _running_task: WeakSet[asyncio.Task] = WeakSet()
 
 conf = config.get_amrita_config()
+
+_TEXT_RULE_TYPES = (
+    AlconnaRule,
+    FullmatchRule,
+    CommandRule,
+    StartswithRule,
+    EndswithRule,
+    KeywordsRule,
+    ShellCommandRule,
+    RegexRule,
+    ToMeRule,
+)
 
 
 class UsageInsights:
@@ -76,7 +89,7 @@ class UsageInsights:
 
 
 class APICalledRepo:
-    _repo: defaultdict[str, tuple[int, int]]  # (count, successful_count, cost)
+    _repo: defaultdict[str, tuple[int, int]]  # (count, successful_count)
     _lock_pool: WeakValueLRUCache[str, aiologic.Lock]
     _instance = None
 
@@ -116,39 +129,51 @@ class APICalledRepo:
 
 
 @on_notice(block=False, priority=10).handle()
-async def _(event: GroupBanNoticeEvent):
-    if event.user_id != event.self_id:
+async def _(env: OptionalEnvelopeNBDep):
+    if env is None or env.kind != NOTICE or env.raw is None:
         return
+    if getattr(env.raw, "notice_type", None) != "group_ban":
+        return
+    if env.actor.user_id != env.self_id:
+        return
+    duration = getattr(env.raw, "duration", 0) or 0
     await send_to_admin(
-        f"{get_amrita_config().bot_name}在群{event.group_id}中{f'被禁言了{event.duration / 60}分钟' if event.duration else '被解除了禁言'}，请不要错过这条消息。"
+        f"{get_amrita_config().bot_name}在群{env.scope.id}中"
+        f"{f'被禁言了{duration / 60}分钟' if duration else '被解除了禁言'}，请不要错过这条消息。"
     )
 
 
-@on_command(
-    "set_enable",
+set_enable_cmd = on_alconna(
+    Alconna("set_enable", Args["state?", str]),
+    use_cmd_start=True,
     priority=2,
     permission=is_lp_admin,
-    state=MatcherData(
+    default_state=MatcherData(
         name="Bot可用状态设置",
         usage="/set_enable <true|false>",
         description="设置Bot状态",
         show_if="lp.admin",
     ).model_dump(),
-).handle()
-async def _(event: MessageEvent, matcher: Matcher, args: Message = CommandArg()):
-    arg = args.extract_plain_text().strip()
+)
+
+
+@set_enable_cmd.handle()
+async def _(state: Match[str]):
+    arg = state.result.strip().lower() if state.available else ""
     if not arg:
-        state = "已启用" if StatusManager().ready else "已关闭"
-        await matcher.finish(f"当前状态：{state}（用法：/set_enable <true|false>）")
+        status_text = "已启用" if StatusManager().ready else "已关闭"
+        await set_enable_cmd.finish(
+            f"当前状态：{status_text}（用法：/set_enable <true|false>）"
+        )
     if arg in ("true", "yes", "1", "on"):
         StatusManager().set_disable(False)
         StatusManager().set_unready(False)
-        await matcher.finish("✅ 已启用")
+        await set_enable_cmd.finish("✅ 已启用")
     elif arg in ("false", "no", "0", "off"):
         StatusManager().set_disable(True)
-        await matcher.finish("✅ 已关闭")
+        await set_enable_cmd.finish("✅ 已关闭")
     else:
-        await matcher.finish("❌ 参数无效，用法：/set_enable <true|false>")
+        await set_enable_cmd.finish("❌ 参数无效，用法：/set_enable <true|false>")
 
 
 @on_message(priority=1, block=False).handle()
@@ -162,29 +187,22 @@ async def _(bot: Bot):
 
 
 @run_preprocessor
-async def run(matcher: Matcher, event: MessageEvent, env: OptionalEnvelopeNBDep):
+async def run(matcher: Matcher, env: OptionalEnvelopeNBDep):
+    if env is None or env.kind != MESSAGE:
+        return
     if (not StatusManager().ready) and (not await is_lp_admin(env)):
         raise IgnoredException("Maintenance in progress, operation not supported.")
     has_text_rule = any(
-        isinstance(
-            checker.call,
-            FullmatchRule
-            | CommandRule
-            | StartswithRule
-            | EndswithRule
-            | KeywordsRule
-            | ShellCommandRule
-            | RegexRule
-            | ToMeRule,
-        )
-        for checker in matcher.rule.checkers
-    )  # 检查该匹配器是否有文字类匹配类规则
+        isinstance(checker.call, _TEXT_RULE_TYPES) for checker in matcher.rule.checkers
+    )  # 检查该匹配器是否有文字类匹配规则
     if not has_text_rule:
         return
-    ins_id = str(
-        event.group_id if isinstance(event, GroupMessageEvent) else event.user_id
-    )
-    data = watch_group if isinstance(event, GroupMessageEvent) else watch_user
+    if env.is_group:
+        ins_id = uni_id(env.scope)
+        data = watch_group
+    else:
+        ins_id = user_uni_id(env.actor.platform, env.actor.user_id)
+        data = watch_user
     bucket = data[ins_id]
     if not bucket.consume() and (not await is_lp_admin(env)):
         raise IgnoredException("Rate limit exceeded, operation ignored.")

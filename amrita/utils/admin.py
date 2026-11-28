@@ -1,19 +1,29 @@
+"""管理员通知推送与速率保护：按平台 Sender 分发，不绑定单一适配器。"""
+
 from __future__ import annotations
 
 import time
-import typing
 from collections import defaultdict
+from collections.abc import Iterable
 
 import nonebot
 from aiologic import Lock
 from nonebot import logger
-from nonebot.adapters.onebot.v11 import Bot, MessageSegment
+from nonebot.adapters import Bot
 
 from amrita.config import get_amrita_config
+from amrita.platform import registry
+from amrita.platform.dto import GROUP, Scope
 from amrita.utils.rate import TokenBucket
+from amrita.utils.send import (
+    ForwardItem,
+    _item_to_part,
+    resolve_sender,
+    send_forward_msg,
+)
 
 # 用于跟踪消息发送的计数器和时间戳
-_message_tracker = defaultdict(int)
+_message_tracker: defaultdict[str, int] = defaultdict(int)
 # 异常状态标志
 _critical_error_occurred = False
 # 线程锁，确保计数器操作的线程安全
@@ -22,12 +32,12 @@ bucket = TokenBucket(
     1 / 7,  # 7s一次
     1,
 )
-_last_exception_time = 0
+_last_exception_time = 0.0
 
 
 # 数据库出现问题时可能导致一直产生错误，这里的设计也是为了账号安全。
-async def _check_and_handle_rate_limit():
-    """检查消息发送频率并处理速率限制"""
+async def _check_and_handle_rate_limit() -> bool:
+    """检查消息发送频率并处理速率限制。"""
     global _critical_error_occurred, bucket, _last_exception_time
     from amrita.plugins.manager.status_manager import StatusManager
 
@@ -61,51 +71,64 @@ async def _check_and_handle_rate_limit():
     return False  # 表示不需要阻断消息发送
 
 
-async def send_to_admin(msg: str, bot: Bot | None = None):
-    """发送消息到管理
+def _admin_scope(bot: Bot, admin_group: int) -> Scope:
+    """按 Bot 注册端口构造管理员群 Scope。"""
+    port = registry.resolve_bot(bot)
+    platform = port.name if port is not None else "qq"
+    return Scope(platform=platform, kind=GROUP, id=str(admin_group))
 
-    Args:
-        bot (Bot): Bot
-        msg (str): 消息内容
-    """
+
+def _resolve_admin_bot(bot: Bot | None) -> Bot | None:
+    if bot is not None:
+        return bot
+    try:
+        return nonebot.get_bot()
+    except Exception:
+        return None
+
+
+async def send_to_admin(msg: str, bot: Bot | None = None) -> None:
+    """发送纯文本通知到管理员群；未配置管理群或无可用 Bot 时降级写日志。"""
     config = get_amrita_config()
     if config.admin_group == -1:
-        return nonebot.logger.warning("SEND_TO_ADMIN\n" + msg)
-    if bot is None:
-        bot = typing.cast(Bot, nonebot.get_bot())
-    await bot.send_group_msg(group_id=config.admin_group, message=msg)
+        nonebot.logger.warning("SEND_TO_ADMIN\n" + msg)
+        return
+    target_bot = _resolve_admin_bot(bot)
+    if target_bot is None:
+        nonebot.logger.warning("SEND_TO_ADMIN (no active bot)\n" + msg)
+        return
+    scope = _admin_scope(target_bot, config.admin_group)
+    sender = resolve_sender(target_bot, scope)
+    if sender is None:
+        nonebot.logger.warning("SEND_TO_ADMIN (no sender)\n" + msg)
+        return
+    await sender.send_text(msg)
 
 
 async def send_forward_msg_to_admin(
-    bot: Bot, name: str, uin: str, msgs: list[MessageSegment]
-):
-    """发送消息到管理
-
-    Args:
-        bot (Bot): Bot
-        name (str): 名称
-        uin (str): UID
-        msgs (list[MessageSegment]): 消息列表
-
-    Returns:
-        dict: 发送消息后的结果
-    """
+    bot: Bot,
+    name: str,
+    uin: str,
+    msgs: Iterable[ForwardItem],
+) -> None:
+    """发送多段异常/日志信息到管理员群，受频率保护与熔断控制。"""
     global _last_exception_time
-    # 检查是否需要阻断消息发送
     if await _check_and_handle_rate_limit():
-        return  # 阻断消息发送
+        return
     _last_exception_time = time.time()
 
-    def to_json(msg: MessageSegment) -> dict:
-        return {"type": "node", "data": {"name": name, "uin": uin, "content": msg}}
-
+    items = list(msgs)
     config = get_amrita_config()
     if config.admin_group == -1:
-        return nonebot.logger.warning(
+        nonebot.logger.warning(
             "LOG_MSG_FORWARD\n".join(
-                [msg.data.get("text", "") for msg in msgs if msg.is_text()]
+                text for item in items if (text := _item_to_part(item).value)
             )
         )
+        return
 
-    messages = [to_json(msg) for msg in msgs]
-    await bot.send_group_forward_msg(group_id=config.admin_group, messages=messages)
+    scope = _admin_scope(bot, config.admin_group)
+    await send_forward_msg(bot, scope, name=name, uin=uin, msgs=items)
+
+
+__all__ = ["send_forward_msg_to_admin", "send_to_admin"]

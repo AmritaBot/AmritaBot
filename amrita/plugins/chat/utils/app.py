@@ -6,8 +6,9 @@ from nonebot_plugin_amrita.memory import BaseSchema
 from pydantic import Field
 
 from amrita.cache import LRUCache, WeakValueLRUCache
+from amrita.platform.dto import Envelope, Scope
 
-from .sql import GroupConfigExecutor, make_uni_id
+from .sql import GroupConfigExecutor, get_uni_id, is_group_uni_id, make_uni_id
 
 
 class GroupConfigSchema(BaseSchema):
@@ -38,8 +39,15 @@ class CachedGroupDataRepository:
             self._action_lock.put(session_id, lock)
         return lock
 
-    async def get_group_config(self, group_id: int) -> GroupConfigSchema:
-        uni_id = make_uni_id(group_id, is_group=True)
+    async def get_group_config(
+        self, group_id: int | str | Scope | Envelope
+    ) -> GroupConfigSchema:
+        if isinstance(group_id, (Scope, Envelope)):
+            uni_id = get_uni_id(group_id)
+        elif isinstance(group_id, str) and is_group_uni_id(group_id):
+            uni_id = group_id
+        else:
+            uni_id = make_uni_id(group_id, is_group=True)
         if config := self._cached_group_config.get(uni_id):
             return config
         async with self.make_lock(uni_id):

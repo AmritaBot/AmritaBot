@@ -1,17 +1,15 @@
+from __future__ import annotations
+
 import contextlib
 
 from amrita_core.tools.mcp import ClientManager
 from nonebot import logger
-from nonebot.adapters.onebot.v11 import (
-    Bot,
-    Message,
-    MessageEvent,
-    MessageSegment,
-    PrivateMessageEvent,
-)
+from nonebot.adapters import Bot
 from nonebot.matcher import Matcher
-from nonebot.params import CommandArg
+from nonebot_plugin_alconna import AlconnaResult, CommandResult
 
+from amrita.platform.di import EnvelopeNBDep
+from amrita.platform.dto import PRIVATE, Envelope
 from amrita.plugins.chat.config import config_manager
 from amrita.plugins.chat.utils.mcp_boot import (
     configured_scripts,
@@ -24,11 +22,16 @@ from amrita.plugins.chat.utils.mcp_boot import (
 )
 from amrita.utils.send import send_forward_msg
 
+from ._alconna import extract_raw_args
+
 
 async def mcp_command(
-    bot: Bot, matcher: Matcher, event: MessageEvent, arg: Message = CommandArg()
+    bot: Bot,
+    env: EnvelopeNBDep,
+    matcher: Matcher,
+    result: CommandResult = AlconnaResult(),
 ):
-    arg_list = arg.extract_plain_text().strip().split(maxsplit=1)
+    arg_list = extract_raw_args(result).strip().split(maxsplit=1)
     match len(arg_list):
         case 0:
             await matcher.finish(
@@ -41,21 +44,21 @@ async def mcp_command(
             )
         case 1 | 2:
             if arg_list[0] == "stats":
-                return await mcp_status(bot, matcher, event, arg_list[1:])
+                return await mcp_status(bot, matcher, env, arg_list[1:])
             elif arg_list[0] == "reload":
                 return await reload(matcher)
             elif arg_list[0].replace("_", "-") == "deep-reload":
                 return await deep_reload(matcher)
             elif len(arg_list) == 2:
                 if arg_list[0] in ("add", "添加"):
-                    return await add_mcp_server(matcher, bot, event, arg_list[1])
+                    return await add_mcp_server(matcher, bot, env, arg_list[1])
                 elif arg_list[0] in ("del", "删除"):
                     return await del_mcp_server(matcher, arg_list[1])
 
     await matcher.finish("参数数量或类型错误，请检查命令格式。")
 
 
-async def mcp_status(bot: Bot, matcher: Matcher, event: MessageEvent, arg: list[str]):
+async def mcp_status(bot: Bot, matcher: Matcher, env: Envelope, arg: list[str]):
     arg_text = arg[0] if arg else ""
     states = list_states()
     tools_count = len(ClientManager().name_to_clients)
@@ -75,33 +78,34 @@ async def mcp_status(bot: Bot, matcher: Matcher, event: MessageEvent, arg: list[
         lines.append(f"{mark} {state.id} {state.script}（{detail}）")
     std_txt = "\n".join(lines)
     if arg_text in ("-d", "--detail", "--details"):
-        if not isinstance(event, PrivateMessageEvent):
+        if env.scope.kind != PRIVATE:
             await matcher.finish("-d只允许在私聊执行来避免安全问题")
         detailed_info = [
-            MessageSegment.text(std_txt),
+            std_txt,
             *[
-                MessageSegment.text(
-                    f"Server@{client.server_script!s} Tools: \n".join(
-                        [
-                            f" - {tool.function.name}:{tool.function.description}\n"
-                            for tool in client.openai_tools
-                        ]
-                    )
+                f"Server@{client.server_script!s} Tools: \n".join(
+                    [
+                        f" - {tool.function.name}:{tool.function.description}\n"
+                        for tool in client.openai_tools
+                    ]
                 )
                 for client in ClientManager().clients
             ],
         ]
 
         await send_forward_msg(
-            bot, event, "Amrita-MCP", str(event.self_id), detailed_info
+            bot,
+            env,
+            "Amrita-MCP",
+            env.self_id or str(bot.self_id),
+            detailed_info,
         )
     else:
         await matcher.finish(std_txt)
 
 
-async def add_mcp_server(
-    matcher: Matcher, bot: Bot, event: MessageEvent, mcp_server: str
-):
+async def add_mcp_server(matcher: Matcher, bot: Bot, env: Envelope, mcp_server: str):
+    del bot, env
     config = config_manager.ins_config
     if not config.core.function_config.agent_mcp_client_enable:
         return

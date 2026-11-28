@@ -1,14 +1,18 @@
+from __future__ import annotations
+
 from amrita_sense import logging
-from nonebot.adapters.onebot.v11 import Message, MessageEvent
 from nonebot.matcher import Matcher
-from nonebot.params import CommandArg
+from nonebot_plugin_alconna import AlconnaResult, CommandResult
+
+from ._alconna import extract_raw_args
 
 
 async def debug_switchs(
-    event: MessageEvent, matcher: Matcher, args: Message = CommandArg()
+    matcher: Matcher,
+    result: CommandResult = AlconnaResult(),
 ):
     """调试模式开关：on/off/status（显式状态，不再隐式 toggle）"""
-    arg = args.extract_plain_text().strip().lower()
+    arg = extract_raw_args(result).strip().lower()
 
     match arg:
         case "on" | "开" | "启用" | "enable":

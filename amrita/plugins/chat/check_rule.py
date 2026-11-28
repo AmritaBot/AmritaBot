@@ -4,6 +4,7 @@ import time
 
 import nonebot
 from nonebot import get_driver, logger
+from nonebot.adapters import Bot as BaseBot
 from nonebot.adapters.onebot.v11 import Bot
 from nonebot.adapters.onebot.v11.event import (
     Event,
@@ -13,7 +14,8 @@ from nonebot.adapters.onebot.v11.event import (
 from nonebot_plugin_amrita.memory import MemorySchema
 from typing_extensions import override
 
-from amrita.platform.di import EnvelopeNBDep, OptionalEnvelopeNBDep
+from amrita.platform import registry
+from amrita.platform.di import OptionalEnvelopeNBDep
 from amrita.plugins.chat.utils.libchat import usage_enough
 from amrita.plugins.chat.utils.lock import get_session_lock
 from amrita.plugins.chat.utils.sql import get_uni_user_id, make_uni_id
@@ -44,7 +46,7 @@ class FakeEvent(Event):
         return str(self.user_id)
 
 
-async def is_bot_globally_enabled(env: EnvelopeNBDep) -> bool:
+async def is_bot_globally_enabled(env: OptionalEnvelopeNBDep) -> bool:
     """仅检查全局开关与功能开关，不检查每群的 enable 标记。
 
     供聊天开关（/chat）等命令使用，避免 /chat off 关闭群聊后
@@ -53,6 +55,8 @@ async def is_bot_globally_enabled(env: EnvelopeNBDep) -> bool:
     入站已是归一化对象：群聊判定用 ``scope.kind``，身份用 ``actor.user_id``，
     不再依赖适配器事件。
     """
+    if env is None:
+        return False
     if not config_manager.config.enable:
         return False
     if env.is_group and not config_manager.config.function.enable_group_chat:
@@ -65,42 +69,53 @@ async def is_bot_globally_enabled(env: EnvelopeNBDep) -> bool:
     return True
 
 
-async def is_bot_enabled(env: EnvelopeNBDep) -> bool:
-    if not await is_bot_globally_enabled(env):
+async def is_bot_enabled(env: OptionalEnvelopeNBDep) -> bool:
+    if env is None or not await is_bot_globally_enabled(env):
         return False
-    if env.scope.kind == "group" and env.scope.id.isdigit():
-        data = await get_group_config(int(env.scope.id))
+    if env.scope.kind == "group":
+        data = await get_group_config(env.scope)
         return data.enable
     return True
 
 
-async def is_group_admin(event: GroupMessageEvent, bot: Bot) -> bool:
-    try:
-        role: str = (
-            (
-                await bot.get_group_member_info(
-                    group_id=event.group_id, user_id=event.user_id
+async def is_group_admin(
+    env: OptionalEnvelopeNBDep, bot: BaseBot | None = None
+) -> bool:
+    """判断调用者是否为当前群组的管理员/群主或 Bot 管理员。
+
+    优先读取入站信封自带角色；角色未知且传入 ``bot`` 时通过平台端口
+    ``resolve_role`` 按需补全，失败静默降级到 ``is_lp_admin_for`` 判断。
+    """
+    if env is None or not env.is_group:
+        return False
+    actor = env.actor
+    if not actor.role_known and bot is not None:
+        port = registry.get_adapter(env.adapter) if env.adapter else None
+        if port is None:
+            port = registry.resolve_bot(bot)
+        if port is not None:
+            try:
+                actor = await port.resolve_role(bot, env.scope, actor)
+            except Exception:
+                logger.warning(
+                    f"获取群成员信息失败: {env.scope.id} {env.actor.user_id}"
                 )
-            )["role"]
-            if not event.sender.role
-            else event.sender.role
-        )
-        if role != "member":
-            return True
-        if await is_lp_admin_for(event):
-            return True
-    except Exception:
-        logger.warning(f"获取群成员信息失败: {event.group_id} {event.user_id}")
-    return False
+    if actor.role_known and actor.role != "member":
+        return True
+    return await is_lp_admin_for(env)
 
 
 async def is_bot_admin(env: OptionalEnvelopeNBDep) -> bool:
     return await is_lp_admin_for(env)
 
 
-async def is_group_admin_if_is_in_group(event: MessageEvent, bot: Bot) -> bool:
-    if isinstance(event, GroupMessageEvent):
-        return await is_group_admin(event, bot)
+async def is_group_admin_if_is_in_group(
+    env: OptionalEnvelopeNBDep, bot: BaseBot | None = None
+) -> bool:
+    if env is None:
+        return False
+    if env.is_group:
+        return await is_group_admin(env, bot)
     return True
 
 

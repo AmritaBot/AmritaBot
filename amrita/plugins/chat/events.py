@@ -47,6 +47,8 @@ from nonebot.adapters.onebot.v11 import Bot, Message, MessageEvent
 from nonebot.adapters.onebot.v11.event import PokeNotifyEvent
 from nonebot.matcher import Matcher
 
+from amrita.platform.dto import Envelope
+
 from .panic_recover import ChatPanicRecoverEvent
 from .utils.stream_sender import NoMessageSendError, SendMessageEvent
 
@@ -181,7 +183,7 @@ class SessionCompactEvent(BaseEvent[str]):
 
     EVENT_TYPE = "SESSION_COMPACT"
 
-    event: MessageEvent
+    event: Envelope | MessageEvent
     matcher: Matcher
     session_id: str
     before_count: int

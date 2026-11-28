@@ -1,19 +1,19 @@
+from __future__ import annotations
+
 import re
 from collections.abc import Sequence
 
-from nonebot.adapters.onebot.v11 import (
-    GroupMessageEvent,
-    Message,
-    MessageEvent,
-    MessageSegment,
-)
+from nonebot.adapters import Bot
 from nonebot.matcher import Matcher
-from nonebot.params import CommandArg
+from nonebot_plugin_alconna import AlconnaResult, CommandResult
 from nonebot_plugin_amrita import CachedUserDataRepository
 from nonebot_plugin_amrita.database import InsightsModel, UserDataExecutor, UserMetadata
 
 from amrita.platform.di import EnvelopeNBDep
+from amrita.platform.dto import Part
+from amrita.platform.ports import CAP_AT
 from amrita.plugins.perm.API.rules import has_any_permission
+from amrita.utils.send import resolve_sender
 
 from ..check_rule import is_bot_admin
 from ..config import config_manager
@@ -24,6 +24,7 @@ from ..utils.sql import (
     make_uni_id,
     parse_uni_user_id,
 )
+from ._alconna import extract_raw_args
 
 _TOP_RE = re.compile(r"^top(\d+)$", re.IGNORECASE)
 _TOP_MAX = 50  # 排名数量上限，防止刷屏
@@ -46,22 +47,22 @@ def _parse_inspect(arg: str) -> tuple[str, str] | None:
         kind, target = parts[1], parts[2]
     else:
         return None
-    if not target.isdigit():
+    if not target or any(ch.isspace() for ch in target):
         return None
     return kind, target
 
 
 async def insights(
-    event: MessageEvent,
+    bot: Bot,
     env: EnvelopeNBDep,
     matcher: Matcher,
-    args: Message = CommandArg(),
+    result: CommandResult = AlconnaResult(),
 ):
     msg = "未知参数。"
     config = config_manager.config
-    if not (arg := args.extract_plain_text().strip()):
+    if not (arg := extract_raw_args(result).strip()):
         data = await CachedUserDataRepository().get_metadata(
-            make_uni_id(event.user_id, is_group=False)
+            make_uni_id(env.actor.user_id, is_group=False, platform=env.scope.platform)
         )
         user_limit = config.usage_limit.user_daily_limit
         user_token_limit = config.usage_limit.user_daily_token_limit
@@ -77,8 +78,8 @@ async def insights(
             + f"\n您今日的token使用量为：{data.tokens_input + data.tokens_output}/{user_token_limit if (user_token_limit != -1 and enable_limit and not is_bypass) else '♾'}tokens"
             + f"\n（输入：{data.tokens_input},输出：{data.tokens_output}）"
         )
-        if isinstance(event, GroupMessageEvent):
-            data = await CachedUserDataRepository().get_metadata(get_uni_user_id(event))
+        if env.is_group:
+            data = await CachedUserDataRepository().get_metadata(get_uni_user_id(env))
             msg = (
                 f"群组使用次数为：{data.called_count}/{group_limit if (group_limit != -1 and enable_limit) else '♾'}次"
                 + f"\n群组使用token为：{data.tokens_input + data.tokens_output}/{group_token_limit if (group_token_limit != -1 and enable_limit) else '♾'}tokens"
@@ -106,7 +107,9 @@ async def insights(
             msg = "用法：/insights inspect [group|user] <id>"
         else:
             kind, target = parsed
-            uni_id = make_uni_id(target, is_group=kind == "group")
+            uni_id = make_uni_id(
+                target, is_group=kind == "group", platform=env.scope.platform
+            )
             data = await get_user_metadata_or_none(uni_id)
             if data is None:
                 msg = f"未找到{kind} {target} 的使用数据。"
@@ -153,9 +156,14 @@ async def insights(
                 for i, user in enumerate(private_users[:n], 1):
                     msg += _format_user_entry(i, user, "用户")
 
-    if isinstance(event, GroupMessageEvent):
-        content = MessageSegment.at(event.user_id) + MessageSegment.text(f"\n{msg}")
-    else:
-        # 私聊不支持 at 段（协议约束），仅发送文本
-        content = MessageSegment.text(f"\n{msg}")
-    await matcher.finish(content)
+    sender = resolve_sender(bot, env.scope, adapter=env.adapter or None)
+    if env.is_group and sender is not None and sender.supports(CAP_AT):
+        await sender.send_parts(
+            [
+                Part(kind="at", value=env.actor.user_id),
+                Part(kind="text", value=f"\n{msg}"),
+            ],
+            thread=env.scope.thread,
+        )
+        await matcher.finish()
+    await matcher.finish(f"\n{msg}")
